@@ -28,9 +28,9 @@
 
 The **capital recovery factor** annualizes a lump-sum investment over lifetime $l$ at discount rate $r$:
 
-```math
+$$
 \text{CRF}(l) = \frac{r\,(1+r)^{l}}{(1+r)^{l} - 1}
-```
+$$
 
 ### System
 
@@ -178,20 +178,20 @@ Both charge and discharge power capacity variables exist for **all** storage tec
 
 ## Objective Function
 
-```math
+$$
 \min \; Z \;=\; Z^{pv} + Z^{wind} + Z^{bal} + Z^{stor} + Z^{trade}
-```
+$$
 
 ### PV cost
 
 Annualized CAPEX (including transmission) and FOM. VRE shares a single lifetime $l^{vre}$:
 
-```math
+$$
 Z^{pv} = \sum_{p \in \mathcal{P}} \Bigl[
   \bigl(\text{CRF}(l^{vre}) \cdot (\kappa^{pv}_p + \kappa^{tc,pv}_p) + \phi^{pv}_p\bigr)
   \;\bar{p}^{pv}_p \; F^{pv}_p
 \Bigr]
-```
+$$
 
 | Symbol             | Type      | Description                          |
 | ------------------ | --------- | ------------------------------------ |
@@ -206,12 +206,12 @@ Z^{pv} = \sum_{p \in \mathcal{P}} \Bigl[
 
 ### Wind cost
 
-```math
+$$
 Z^{wind} = \sum_{w \in \mathcal{W}} \Bigl[
   \bigl(\text{CRF}(l^{vre}) \cdot (\kappa^{wind}_w + \kappa^{tc,wind}_w) + \phi^{wind}_w\bigr)
   \;\bar{p}^{wind}_w \; F^{wind}_w
 \Bigr]
-```
+$$
 
 | Symbol               | Type      | Description                            |
 | -------------------- | --------- | -------------------------------------- |
@@ -228,13 +228,13 @@ Z^{wind} = \sum_{w \in \mathcal{W}} \Bigl[
 
 Per-unit CRF based on individual lifetimes. Marginal cost includes fuel and VOM:
 
-```math
+$$
 Z^{bal} = \sum_{k \in \mathcal{K}} \Bigl[
   \bigl(\text{CRF}(l^{bal}_k) \cdot \kappa^{bal}_k + \phi^{bal}_k\bigr)
   \; P^{bal}_k
   \;+\; \sum_{h \in \mathcal{H}} \bigl(\gamma_k + \psi^{bal}_k\bigr) \; G^{bal}_{kh}
 \Bigr]
-```
+$$
 
 | Symbol           | Type      | Description                       |
 | ---------------- | --------- | --------------------------------- |
@@ -256,7 +256,7 @@ The cost ratio $\alpha_j$ distributes power CAPEX and FOM between the charge sid
 $\alpha_j$) and the discharge side (fraction $1 - \alpha_j$). This applies uniformly to all
 storage technologies:
 
-```math
+$$
 Z^{stor} = \sum_{j \in \mathcal{J}} \Bigl[
   \text{CRF}(l^{stor}_j) \Bigl(
     \kappa^{P}_j \bigl(\alpha_j \; P^{ch}_j + (1 - \alpha_j) \; P^{dis}_j\bigr)
@@ -265,7 +265,7 @@ Z^{stor} = \sum_{j \in \mathcal{J}} \Bigl[
   \;+\; \phi^{stor}_j \bigl(\alpha_j \; P^{ch}_j + (1 - \alpha_j) \; P^{dis}_j\bigr)
   \;+\; \sum_{h \in \mathcal{H}} \psi^{stor}_j \; D^{dis}_{jh}
 \Bigr]
-```
+$$
 
 > VOM is charged on **discharge only**.
 
@@ -290,11 +290,11 @@ Z^{stor} = \sum_{j \in \mathcal{J}} \Bigl[
 
 Import cost minus export revenue:
 
-```math
+$$
 Z^{trade} = \sum_{h \in \mathcal{H}} \bigl(
   c^{imp}_h \; M_h \;-\; c^{exp}_h \; X_h
 \bigr)
-```
+$$
 
 | Symbol        | Type      | Description                       |
 | ------------- | --------- | --------------------------------- |
@@ -313,7 +313,7 @@ Z^{trade} = \sum_{h \in \mathcal{H}} \bigl(
 
 #### Energy supply balance
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \quad
 \underbrace{
   G^{pv}_h
@@ -330,7 +330,7 @@ Z^{trade} = \sum_{h \in \mathcal{H}} \bigl(
   + \sum_{j \in \mathcal{J}} D^{ch}_{jh}
   + X_h
 }_{\text{demand + charging + exports}}
-```
+$$
 
 > Curtailment does not appear in the energy balance. It is handled per-technology by the
 > VRE balance constraints below.
@@ -340,13 +340,13 @@ Z^{trade} = \sum_{h \in \mathcal{H}} \bigl(
 Total balancing-unit generation plus imports must not exceed $(1 - \tau)$ of adjusted demand (demand plus
 net storage loading). This ensures that both thermal generation and imported electricity count against the clean-energy target:
 
-```math
+$$
 \sum_{k \in \mathcal{K}} \sum_{h \in \mathcal{H}} G^{bal}_{kh} + \sum_{h \in \mathcal{H}} M_h
 \;\leq\;
 (1 - \tau) \sum_{h \in \mathcal{H}} \Bigl(
   d_h + \sum_{j \in \mathcal{J}} D^{ch}_{jh} - \sum_{j \in \mathcal{J}} D^{dis}_{jh}
 \Bigr)
-```
+$$
 
 > **Note:** Imports are treated as non-clean energy in this constraint. If imports are not
 > modeled (i.e., the Imports formulation is set to "NotModel"), only thermal generation
@@ -383,17 +383,17 @@ Generation plus curtailment equals total available resource. Per-technology equa
 
 #### PV balance
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 G^{pv}_h + C^{pv}_h \;=\; \sum_{p \in \mathcal{P}} \sigma_{ph} \;\bar{p}^{pv}_p \; F^{pv}_p
-```
+$$
 
 #### Wind balance
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 G^{wind}_h + C^{wind}_h \;=\; \sum_{w \in \mathcal{W}} \zeta_{wh} \;\bar{p}^{wind}_w \; F^{wind}_w
-```
+$$
 
 **Symbols used in VRE balance constraints:**
 
@@ -420,17 +420,17 @@ G^{wind}_h + C^{wind}_h \;=\; \sum_{w \in \mathcal{W}} \zeta_{wh} \;\bar{p}^{win
 
 #### Dispatch limit
 
-```math
+$$
 \forall\, k \in \mathcal{K} \;\; \forall\, h \in \mathcal{H}: \qquad
 G^{bal}_{kh} \;\leq\; P^{bal}_k
-```
+$$
 
 #### Capacity bounds
 
-```math
+$$
 \forall\, k \in \mathcal{K}: \qquad
 \underline{p}^{bal}_k \;\leq\; P^{bal}_k \;\leq\; \bar{p}^{bal}_k
-```
+$$
 
 **Symbols used in balancing unit constraints:**
 
@@ -451,88 +451,88 @@ G^{bal}_{kh} \;\leq\; P^{bal}_k
 
 For coupled technologies, charge and discharge power capacity must be equal:
 
-```math
+$$
 \forall\, j \in \mathcal{J}^{c}: \qquad
 P^{ch}_j \;=\; P^{dis}_j
-```
+$$
 
 #### Power capacity bounds
 
-```math
+$$
 \forall\, j \in \mathcal{J}: \qquad
 P^{ch}_j \;\leq\; \bar{p}^{stor}_j \;, \quad
 P^{dis}_j \;\leq\; \bar{p}^{stor}_j
-```
+$$
 
 #### Charge and discharge hourly limits
 
-```math
+$$
 \forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
 D^{ch}_{jh} \;\leq\; P^{ch}_j \;, \quad
 D^{dis}_{jh} \;\leq\; P^{dis}_j
-```
+$$
 
 #### Charge or discharge only
 
 A storage unit cannot simultaneously charge and discharge. Enforced with binary indicator
 $U_{jh}$ using $\bar{p}^{stor}_j$ as a tight big-$\mathcal{M}$:
 
-```math
+$$
 \forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
 D^{ch}_{jh} \;\leq\; \bar{p}^{stor}_j \;\cdot\; U_{jh}
-```
+$$
 
-```math
+$$
 \forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
 D^{dis}_{jh} \;\leq\; \bar{p}^{stor}_j \;\cdot\; (1 - U_{jh})
-```
+$$
 
 #### State-of-charge balance
 
-```math
+$$
 \forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H} \setminus \{1\}: \qquad
 S_{jh} \;=\; S_{j(h-1)}
   \;+\; \sqrt{\eta_j}\; D^{ch}_{jh}
   \;-\; \frac{1}{\sqrt{\eta_j}}\; D^{dis}_{jh}
-```
+$$
 
 Cyclic boundary condition (SOC wraps around):
 
-```math
+$$
 \forall\, j \in \mathcal{J}: \qquad
 S_{j1} \;=\; S_{j|\mathcal{H}|}
   \;+\; \sqrt{\eta_j}\; D^{ch}_{j1}
   \;-\; \frac{1}{\sqrt{\eta_j}}\; D^{dis}_{j1}
-```
+$$
 
 #### State-of-charge limits
 
-```math
+$$
 \forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
 0 \;\leq\; S_{jh} \;\leq\; E_j
-```
+$$
 
 #### Duration limits
 
 The energy-to-power ratio must lie within the allowable duration window. Duration is
 defined relative to discharge power corrected for discharge efficiency:
 
-```math
+$$
 \forall\, j \in \mathcal{J}: \qquad
 \frac{\underline{\delta}_j \; P^{dis}_j}{\sqrt{\eta_j}}
 \;\leq\; E_j \;\leq\;
 \frac{\overline{\delta}_j \; P^{dis}_j}{\sqrt{\eta_j}}
-```
+$$
 
 #### Cycle limits
 
 Total discharge throughput is bounded by the annualized maximum number of full cycles
 (lifetime cycles divided by lifetime):
 
-```math
+$$
 \forall\, j \in \mathcal{J}: \qquad
 \sum_{h \in \mathcal{H}} D^{dis}_{jh} \;\leq\; \frac{\kappa^{cyc}_j}{l^{stor}_j} \;\cdot\; E_j
-```
+$$
 
 **Symbols used in storage constraints:**
 
@@ -561,20 +561,20 @@ Total discharge throughput is bounded by the annualized maximum number of full c
 
 #### Hourly bounds
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 \alpha^{hyd} \; \underline{g}^{hyd}_h \;\leq\; G^{hyd}_h \;\leq\; \alpha^{hyd} \; \overline{g}^{hyd}_h
-```
+$$
 
 #### Energy budget (equality)
 
 Total dispatchable hydro generation within each budget period must **equal** the available
 energy budget:
 
-```math
+$$
 \forall\, b \in \mathcal{B}: \qquad
 \sum_{h \in \mathcal{H}_b} G^{hyd}_h \;=\; \epsilon_b
-```
+$$
 
 **Symbols used in hydro budget constraints:**
 
@@ -595,53 +595,53 @@ energy budget:
 
 #### Capacity limits
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 M_h \;\leq\; \bar{\iota}_h \;, \quad
 X_h \;\leq\; \bar{\xi}_h
-```
+$$
 
 #### Net-load indicator
 
 Define the **net load** as demand minus all VRE availability, fixed clean generation, and
 dispatchable hydro:
 
-```math
+$$
 \Lambda_h \;=\; d_h
   - (G^{pv}_h + C^{pv}_h)
   - (G^{wind}_h + C^{wind}_h)
   - \alpha^{nuc} \nu_h
   - \alpha^{oth} \omega_h
   - G^{hyd}_h
-```
+$$
 
 A binary indicator $V_h$ encodes whether the system is a net importer ($\Lambda_h > 0$) or net
 exporter ($\Lambda_h \leq 0$). An $\varepsilon$ offset prevents numerical degeneracy at
 $\Lambda_h = 0$:
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 \Lambda_h \;\leq\; \mathcal{M} \;\cdot\; V_h
-```
+$$
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 -\Lambda_h + \varepsilon \;\leq\; \mathcal{M} \;\cdot\; (1 - V_h)
-```
+$$
 
 #### Import allowed only when net load is positive
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 M_h \;\leq\; d_h \;\cdot\; V_h
-```
+$$
 
 #### Export allowed only when net load is negative
 
-```math
+$$
 \forall\, h \in \mathcal{H}: \qquad
 X_h \;\leq\; \Bigl(\max_{h' \in \mathcal{H}} \bar{\xi}_{h'}\Bigr) \;\cdot\; (1 - V_h)
-```
+$$
 
 **Symbols used in import and export constraints:**
 
