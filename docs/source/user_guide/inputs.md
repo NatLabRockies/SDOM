@@ -184,7 +184,7 @@ This CSV input file provides key technical and economic parameters for diverse e
 | MaxCycles    | Maximum number of charge/discharge cycles                                                                      | int             |
 | Coupled      | Indicates if input and output power are coupled (1 = coupled - enforces input Power = output Power)            | int (0 or 1)    |
 | FOM          | Fixed operation and maintenance cost (USD/kW/year)                                                             | float           |
-| VOM          | Variable operation and maintenance cost (USD/kWh)                                                              | float           |
+| VOM          | Variable operation and maintenance cost (USD/MWh)                                                              | float           |
 | Lifetime     | Expected system lifetime (years)                                                                               | int             |
 | CostRatio    | Ratio of cost allocation between input and output power. If Input Power Capex = Output Power Capex, then CostRatio = 0.5| float           |
 
