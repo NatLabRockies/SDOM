@@ -64,6 +64,8 @@ An illustrative figure below shows the flow from inputs to optimization results,
 
 - **Modeling approach:** Formulated as a Mixed-Integer Linear Programming (MILP) model to allow rigorous optimization of investment and capacity decisions.
 
+- **Parametric & Sensitivity Analysis:** Built-in [`ParametricStudy`](docs/source/user_guide/parametric_analysis.md) API to run multi-dimensional parameter sweeps in parallel — sweep `GenMix_Target`, storage CAPEX, load growth factors, and more.
+
 - **Platforms:** 
   - SDOM was originally developed in GAMS (https://github.com/NREL/SDOM). 
   

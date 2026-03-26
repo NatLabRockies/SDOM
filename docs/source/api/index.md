@@ -12,6 +12,7 @@ results
 models
 io_manager
 utilities
+parametric
 ```
 
 ## Quick Links
@@ -21,6 +22,7 @@ utilities
 - {doc}`models` - Model formulation modules  
 - {doc}`io_manager` - Data loading and export
 - {doc}`utilities` - Helper functions
+- {doc}`parametric` - Parametric & sensitivity analysis
 
 ## Main Functions
 
@@ -39,6 +41,7 @@ The most commonly used functions are:
    get_default_solver_config_dict
    configure_logging
    OptimizationResults
+   ParametricStudy
 ```
 
 ## Package Structure
@@ -52,6 +55,12 @@ sdom/
 ├── results.py               # Results data structures
 ├── io_manager.py            # Data I/O operations
 ├── initializations.py       # Sets and parameters initialization
+├── parametric/              # Parametric & sensitivity analysis
+│   ├── __init__.py          # Public surface (ParametricStudy, sweep types)
+│   ├── sweeps.py            # ScalarSweep, StorageFactorSweep, TsSweep
+│   ├── mutations.py         # Data mutation helpers + TS_KEY_TO_COLUMN
+│   ├── worker.py            # Multiprocessing worker (_run_single_case)
+│   └── study.py             # ParametricStudy orchestrator
 ├── common/
 │   └── utilities.py         # Helper utilities
 └── models/

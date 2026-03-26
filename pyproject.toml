@@ -24,7 +24,8 @@ requires-python = ">=3.11,<3.14"
 dependencies = [
   "numpy>=2.2.0,<3.0.0",
   "pandas>=2.2.0,<3.0.0",
-  "pyomo==6.9.5",
+  "pyomo==6.10.0",
+  "highspy==1.13.1",
 ]
 
 
@@ -40,7 +41,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=8.4.2,<10.0.0",
-    "pytest-coverage>=0.0,<1.0.0",
+    "pytest-cov>=6.0.0,<7.0.0",
     "ruff>=0.13.2,<0.15.0",
     "ty>=0.0.12,<1.0.0",
 ]
@@ -68,6 +69,9 @@ addopts = [
     "--cov=sdom",
     "--cov-report=term-missing",
     "-v"
+]
+markers = [
+    "integration: marks tests as integration tests (may require solver binaries and full data)",
 ]
 
 [tool.ruff]

@@ -135,7 +135,14 @@ For large problems:
 ... in progress...
 
 
+## Running Parametric & Sensitivity Studies
+
+To run multi-dimensional parameter sweeps in parallel (e.g., sweeping `GenMix_Target`, storage CAPEX, or load growth factors), use the built-in `ParametricStudy` API.
+
+See the dedicated guide: [Parametric & Sensitivity Analysis](parametric_analysis.md)
+
 ## Next Steps
 
 - [Explore the Pyomo model structure](exploring_model.md)
+- [Parametric & Sensitivity Analysis](parametric_analysis.md)
 - [View API reference](../api/index.md)

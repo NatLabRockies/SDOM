@@ -112,6 +112,7 @@ api/utilities
 :caption: Development
 
 sdom_Developers_guide
+parametric_implementation
 sdom_publications
 GitHub Repository <https://github.com/Omar0902/SDOM>
 ```
