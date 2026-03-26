@@ -91,6 +91,7 @@ if results.is_optimal:
 user_guide/introduction
 user_guide/inputs
 user_guide/running_and_outputs
+user_guide/parametric_analysis
 user_guide/exploring_model
 user_guide/sdom_math_formulation
 ```
