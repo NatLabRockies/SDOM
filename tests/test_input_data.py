@@ -1,8 +1,17 @@
 import os
+
 import pandas as pd
-from constants_test import REL_PATH_DATA_RUN_OF_RIVER_TEST, DICT_EXPECTED_DATA_KEYS_TO_TYPE
+import pytest
+
+from constants_test import (
+    REL_PATH_DATA_RUN_OF_RIVER_TEST,
+    REL_PATH_DATA_HYDRO_BUDGET_TEST,
+    REL_PATH_DATA_DAILY_HYDRO_BUDGET_IMP_EXP_TEST,
+    DICT_EXPECTED_DATA_KEYS_TO_TYPE,
+)
 
 from sdom import load_data, initialize_model
+from sdom.io_manager import check_formulation, get_formulation
 
 def test_load_data_folder_exist():
     test_data_path = os.path.join(os.path.dirname(__file__), '..', REL_PATH_DATA_RUN_OF_RIVER_TEST)
@@ -105,3 +114,69 @@ def test_load_data_storage_values():
         assert abs( df.loc["CostRatio", tech] - CostRatio_v[i] ) <= 0.05
 
 
+# =============================================================================
+# check_formulation
+# =============================================================================
+
+def test_check_formulation_raises_on_invalid():
+    """check_formulation must raise ValueError for an unrecognised formulation."""
+    with pytest.raises(ValueError, match="BadFormulation"):
+        check_formulation("BadFormulation", ["ValidA", "ValidB"])
+
+
+def test_check_formulation_passes_on_valid():
+    """check_formulation must not raise when the formulation is in the valid list."""
+    check_formulation("ValidA", ["ValidA", "ValidB"])  # no exception expected
+
+
+# =============================================================================
+# get_formulation
+# =============================================================================
+
+def test_get_formulation_case_insensitive():
+    """get_formulation must match component names regardless of case."""
+    formulations_df = pd.DataFrame({
+        "Component": ["Hydro", "Imports", "Exports"],
+        "Formulation": ["RunOfRiverFormulation", "NotModel", "NotModel"],
+    })
+    data = {"formulations": formulations_df}
+    assert get_formulation(data, "hydro") == "RunOfRiverFormulation"
+    assert get_formulation(data, "HYDRO") == "RunOfRiverFormulation"
+
+
+# =============================================================================
+# load_data – hydro-budget branch (large_hydro_max / large_hydro_min)
+# =============================================================================
+
+def test_load_data_hydro_budget_has_large_hydro_bounds():
+    """Non-RunOfRiver formulation must load large_hydro_max and large_hydro_min."""
+    test_data_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', REL_PATH_DATA_HYDRO_BUDGET_TEST)
+    )
+
+    data = load_data(test_data_path)
+
+    assert "large_hydro_max" in data, "large_hydro_max should be present for budget formulation"
+    assert "large_hydro_min" in data, "large_hydro_min should be present for budget formulation"
+    assert isinstance(data["large_hydro_max"], pd.DataFrame)
+    assert isinstance(data["large_hydro_min"], pd.DataFrame)
+    assert not data["large_hydro_max"].empty
+    assert not data["large_hydro_min"].empty
+
+
+# =============================================================================
+# load_data – imports/exports branch (CapacityPriceNetLoadFormulation)
+# =============================================================================
+
+def test_load_data_imports_exports_keys_present():
+    """CapacityPriceNetLoadFormulation must load cap/price import and export tables."""
+    test_data_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', REL_PATH_DATA_DAILY_HYDRO_BUDGET_IMP_EXP_TEST)
+    )
+
+    data = load_data(test_data_path)
+
+    for key in ("cap_imports", "price_imports", "cap_exports", "price_exports"):
+        assert key in data, f"Key '{key}' should be present for CapacityPriceNetLoadFormulation"
+        assert isinstance(data[key], pd.DataFrame), f"Key '{key}' should be a DataFrame"
+        assert not data[key].empty, f"DataFrame for '{key}' should not be empty"

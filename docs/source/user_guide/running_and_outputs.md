@@ -134,6 +134,89 @@ For large problems:
 
 ... in progress...
 
+---
+
+## Visualising Results
+
+After running a single optimisation, use `plot_results()` from the
+`analytic_tools` sub-package to generate a standard set of publication-ready
+figures in one call.
+
+### Generated figures
+
+| File | Description |
+|---|---|
+| `capacity_donut.png` | Installed capacity by technology (donut chart) |
+| `capacity_generation_donuts.png` | Side-by-side capacity and total generation donuts |
+| `heatmap_<column>.png` | One 365×24 hourly dispatch heatmap per generation technology |
+
+### Basic usage
+
+```python
+from sdom import load_data, initialize_model, run_solver, get_default_solver_config_dict
+from sdom.analytic_tools import plot_results
+
+data = load_data("./Data/no_exchange_run_of_river/")
+model = initialize_model(data, n_hours=8760)
+solver_config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+results = run_solver(model, solver_config)
+
+if results.is_optimal:
+    # Save all plots to ./results_pyomo/my_scenario/plots/
+    plot_results(results, output_dir="./results_pyomo/my_scenario/")
+```
+
+Plots are saved to `<output_dir>/plots/`.  To override the plots directory
+explicitly, use the `plots_dir` parameter instead:
+
+```python
+plot_results(results, plots_dir="./my_output_dir/figures/")
+```
+
+```{note}
+`plot_results()` silently skips the run and logs a warning if the result is
+not optimal — it never raises on infeasible solutions.
+```
+
+### Controlling the output directory
+
+| Parameter | Behaviour |
+|---|---|
+| `output_dir="./results/"` | Plots saved to `./results/plots/` |
+| `plots_dir="./figures/"` | Plots saved directly to `./figures/` |
+
+Both parameters are optional but at least one must be provided, otherwise a
+`ValueError` is raised.
+
+### Full workflow example
+
+```python
+from sdom import (
+    load_data, initialize_model, run_solver,
+    export_results, get_default_solver_config_dict,
+)
+from sdom.analytic_tools import plot_results
+
+OUTPUT_DIR = "./results_pyomo/base_scenario/"
+
+data        = load_data("./Data/no_exchange_run_of_river/")
+model       = initialize_model(data, n_hours=8760)
+solver_cfg  = get_default_solver_config_dict(solver_name="highs", executable_path="")
+results     = run_solver(model, solver_cfg)
+
+if results.is_optimal:
+    # Export CSV tables
+    export_results(results, case="base_scenario", output_dir=OUTPUT_DIR)
+
+    # Generate plots alongside the CSV outputs
+    plot_results(results, output_dir=OUTPUT_DIR)
+
+    print(f"Total cost : ${results.total_cost:,.0f}")
+    print(f"Solar PV   : {results.total_cap_pv:.1f} MW")
+    print(f"Wind       : {results.total_cap_wind:.1f} MW")
+```
+
+---
 
 ## Running Parametric & Sensitivity Studies
 

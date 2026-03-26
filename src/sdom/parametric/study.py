@@ -69,6 +69,36 @@ class ParametricStudy:
         self._storage_factor_sweeps: List[StorageFactorSweep] = []
         self._ts_sweeps: List[TsSweep] = []
 
+        # Populated by run(); consumed by analytic_tools
+        self._case_metadata: List[dict] = []
+
+    # ------------------------------------------------------------------
+    # Read-only properties
+    # ------------------------------------------------------------------
+
+    @property
+    def output_dir(self) -> Optional[str]:
+        """The root output directory passed to the constructor (may be ``None``)."""
+        return self._output_dir
+
+    @property
+    def case_metadata(self) -> List[dict]:
+        """Per-case metadata populated after :meth:`run` is called.
+
+        Returns a list of dicts, one per case in Cartesian-product order
+        (matching the order of the list returned by :meth:`run`).  Each dict
+        contains:
+
+        - ``"case_name"`` — filesystem-safe case identifier
+        - ``"case_index"`` — zero-based position in the Cartesian product
+        - One additional key per registered sweep dimension, using the
+          *param_name* (scalar / storage-factor sweeps) or *ts_key*
+          (time-series sweeps) as the key, and the swept value as the value.
+
+        Returns an empty list before :meth:`run` is called.
+        """
+        return list(self._case_metadata)
+
     # ------------------------------------------------------------------
     # Public sweep registration methods
     # ------------------------------------------------------------------
@@ -154,6 +184,19 @@ class ParametricStudy:
             ``termination_condition``.
         """
         case_dicts = self._build_case_dicts()
+
+        # Persist lightweight metadata (no data/solver payloads) for analytic_tools
+        self._case_metadata = [
+            {
+                "case_name": cd["case_name"],
+                "case_index": cd["case_index"],
+                **{param: val for _, param, val in cd.get("scalar_mutations", [])},
+                **{param: factor for param, factor in cd.get("storage_factor_mutations", [])},
+                **{ts_key: factor for ts_key, factor in cd.get("ts_mutations", [])},
+            }
+            for cd in case_dicts
+        ]
+
         n_total = len(case_dicts)
 
         if n_total == 0:

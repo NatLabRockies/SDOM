@@ -1,0 +1,13 @@
+case_name,scalars.GenMix_Target,storage_data.P_Capex_factor,load_data_factor,is_optimal,total_cost,solver_status,termination_condition
+GenMix_Target=0.0_P_Capexx1.0_load_datax1.0,0.0,1.0,1.0,True,6369074677.62995,ok,optimal
+GenMix_Target=0.0_P_Capexx1.0_load_datax1.4,0.0,1.0,1.4,True,11370282383.814007,ok,optimal
+GenMix_Target=0.0_P_Capexx0.7_load_datax1.0,0.0,0.7,1.0,True,6118914759.703193,ok,optimal
+GenMix_Target=0.0_P_Capexx0.7_load_datax1.4,0.0,0.7,1.4,True,10903040575.78076,ok,optimal
+GenMix_Target=0.8_P_Capexx1.0_load_datax1.0,0.8,1.0,1.0,True,6369074677.629948,ok,optimal
+GenMix_Target=0.8_P_Capexx1.0_load_datax1.4,0.8,1.0,1.4,True,11352498575.931,ok,optimal
+GenMix_Target=0.8_P_Capexx0.7_load_datax1.0,0.8,0.7,1.0,True,6124254403.317724,ok,optimal
+GenMix_Target=0.8_P_Capexx0.7_load_datax1.4,0.8,0.7,1.4,True,10903040575.780758,ok,optimal
+GenMix_Target=1.0_P_Capexx1.0_load_datax1.0,1.0,1.0,1.0,True,8210209880.154351,ok,optimal
+GenMix_Target=1.0_P_Capexx1.0_load_datax1.4,1.0,1.0,1.4,True,13564854890.577772,ok,optimal
+GenMix_Target=1.0_P_Capexx0.7_load_datax1.0,1.0,0.7,1.0,True,7896426842.2375345,ok,optimal
+GenMix_Target=1.0_P_Capexx0.7_load_datax1.4,1.0,0.7,1.4,True,13050334191.238766,ok,optimal
