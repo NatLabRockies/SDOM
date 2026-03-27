@@ -64,7 +64,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
 
 - **Modeling approach:** Formulated as a Mixed-Integer Linear Programming (MILP) model to allow rigorous optimization of investment and capacity decisions.
 
-- **Parametric & Sensitivity Analysis:** Built-in [`ParametricStudy`](docs/source/user_guide/parametric_analysis.md) API to run multi-dimensional parameter sweeps in parallel — sweep `GenMix_Target`, storage CAPEX, load growth factors, and more.
+- **Parametric & Sensitivity Analysis:** Built-in [`ParametricStudy`](docs/source/user_guide/parametric_analysis.md) API to run multi-dimensional parameter sweeps in parallel — sweep `GenMix_Target`, technologies CAPEX costs, load growth factors, and more.
 
 - **Platforms:** 
   - SDOM was originally developed in GAMS (https://github.com/NREL/SDOM). 
@@ -79,6 +79,32 @@ SDOM performs cost minimization across a 1-year operation window using a copper 
 
 ## Notes on Model Expansion
 While SDOM currently supports a 1-year horizon, multiyear analyses could provide deeper insights into how interannual variability affects storage needs. Chronological, simulation-based approaches are better suited for this but present significant computational challenges—especially at hourly resolution. Extending SDOM to support multiyear optimization is left as future work.
+
+## Sample Results
+
+The figures below show example outputs from a 3-dimensional parametric study
+(3 carbon-free targets × 2 storage CAPEX factors × 2 load scaling factors = 12 cases)
+run against the `Data/no_exchange_run_of_river/` dataset included in this repository.
+
+**Installed capacity by technology across all cases**
+
+![Capacity comparison](docs/source/_static/parametric_example/sensitivity_plots/capacity_comparison.png)
+
+**Total generation by technology across all cases**
+
+![Generation comparison](docs/source/_static/parametric_example/sensitivity_plots/generation_comparison.png)
+
+**VRE curtailment across all cases**
+
+![Curtailment — absolute](docs/source/_static/parametric_example/sensitivity_plots/curtailment_absolute.png)
+
+**Per-case capacity and generation mix (GenMix\_Target = 1.0, base CAPEX, base load)**
+
+![Capacity and generation donuts](docs/source/_static/parametric_example/case_plots/capacity_generation_donuts.png)
+
+**Hourly dispatch heatmap — net load**
+
+![Heatmap — net load](docs/source/_static/parametric_example/case_plots/heatmap_net_load.png)
 
 # GETTING STARTED WITH SDOM
 ## System Setup and Prerequisites 
@@ -134,19 +160,17 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
   ```
 
   You should see output similar to:
-            
-            
+
   ```bash
   Package         Version
   --------------- -----------
-  highspy         1.11.0
-  logging         0.4.9.6
-  numpy           2.3.3
-  pandas          2.3.3
+  highspy         1.13.1
+  numpy           2.2.2
+  pandas          2.2.3
   ply             3.11
-  pyomo           6.9.4
+  pyomo           6.10.0
   pytz            2025.2
-  sdom            0.0.7
+  sdom            0.1.1
   six             1.17.0
   tzdata          2025.2
   ```
