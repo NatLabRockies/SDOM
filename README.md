@@ -16,13 +16,13 @@ SDOM is particularly well-suited for figure out the required capacity to meet a 
 - [Key Features](#key-features)
 - [Optimization Scope](#optimization-scope)
 - [Notes on Model Expansion](#notes-on-model-expansion)
+- [Sample Results](#sample-results)
 - [Getting Started with SDOM](#getting-started-with-sdom)
   - [System Setup and Prerequisites](#system-setup-and-prerequisites)
   - [Install SDOM](#install-sdom)
   - [SDOM Input Files](#sdom-input-files)
   - [SDOM simple script example](#sdom-simple-script-example)
 - [Publications and Use Cases of SDOM](#publications-and-use-cases-of-sdom)
-- [SDOM Demonstration/Example](#sdom-demonstrationexample)
 - [Contributing Guidelines](#contributing-guidelines)
 
 
@@ -165,6 +165,7 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
   Package         Version
   --------------- -----------
   highspy         1.13.1
+  matplotlib      3.10.1
   numpy           2.2.2
   pandas          2.2.3
   ply             3.11
@@ -183,10 +184,7 @@ For an script about how to run SDOM, please refer to the [SDOM simple script exa
 
 # PUBLICATIONS AND USE CASES OF SDOM
 📄
-For a comprehensive list of publications and use cases, please refer to the [SDOM Publications Documentation](https://github.com/Omar0902/SDOM/blob/master//source/sdom_publications.md).
-
-# SDOM DEMONSTRATION/EXAMPLE
-Please see an [SDOM demo script on this github repo.](https://github.com/SebastianManriqueM/pySDOM_demo)
+For a comprehensive list of publications and use cases, please refer to the [SDOM Publications Documentation](https://github.com/Omar0902/SDOM/blob/master/docs/source/sdom_publications.md).
 
 # CONTRIBUTING GUIDELINES
 💻
