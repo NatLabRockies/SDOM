@@ -71,6 +71,7 @@ _EXPECTED_SENSITIVITY_PLOTS = [
     "generation_comparison.png",
     "curtailment_absolute.png",
     "curtailment_percentage.png",
+    "cost_comparison.png",
 ]
 
 # ---------------------------------------------------------------------------
@@ -349,6 +350,13 @@ class TestPlotFiles:
         """sensitivity_plots/ directory must exist."""
         output_dir, _, _, _ = parametric_run
         assert os.path.isdir(os.path.join(output_dir, "sensitivity_plots"))
+
+    def test_cost_comparison_plot_non_empty(self, parametric_run):
+        """cost_comparison.png must be a non-empty file (valid PNG written by matplotlib)."""
+        output_dir, _, _, _ = parametric_run
+        path = os.path.join(output_dir, "sensitivity_plots", "cost_comparison.png")
+        assert os.path.isfile(path), "cost_comparison.png not found in sensitivity_plots/"
+        assert os.path.getsize(path) > 0, "cost_comparison.png is empty"
 
 
 class TestNumericResults:
