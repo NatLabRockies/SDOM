@@ -143,6 +143,7 @@ def plot_parametric_results(
     # -----------------------------------------------------------------------
     tech_records: List[dict] = []      # for stacked bars
     curtail_records: List[dict] = []   # for curtailment bars
+    cost_records: List[dict] = []      # for cost comparison bars
 
     for meta_entry, result in zip(meta, results):
         if not result.is_optimal:
@@ -178,12 +179,24 @@ def plot_parametric_results(
         curt_mwh, curt_pct = _extract_curtailment(result.summary_df)
         curtail_records.append({**common, "curtailment_mwh": curt_mwh, "curtailment_pct": curt_pct})
 
+        # CAPEX and OPEX by technology
+        capex_series, opex_series = _extract_cost_series(result.summary_df)
+        all_cost_techs = sorted(set(capex_series) | set(opex_series))
+        for tech in all_cost_techs:
+            cost_records.append({
+                **common,
+                "technology": tech,
+                "capex_usd": capex_series.get(tech, 0.0),
+                "opex_usd": opex_series.get(tech, 0.0),
+            })
+
     if not tech_records:
         logger.warning("plot_parametric_results: no optimal cases to plot.")
         return
 
     tech_df = pd.DataFrame(tech_records)
     curt_df = pd.DataFrame(curtail_records)
+    cost_df = pd.DataFrame(cost_records)
 
     # -----------------------------------------------------------------------
     # Determine groups, hues, facets
@@ -225,9 +238,11 @@ def plot_parametric_results(
             mask = tech_df["facet_val"] == facet_val
             t_sub = tech_df[mask]
             c_sub = curt_df[curt_df["facet_val"] == facet_val]
+            co_sub = cost_df[cost_df["facet_val"] == facet_val]
         else:
             t_sub = tech_df
             c_sub = curt_df
+            co_sub = cost_df
 
         facet_groups = sorted(t_sub["group_label"].unique())
         facet_hues = sorted(t_sub["hue_label"].unique())
@@ -241,8 +256,10 @@ def plot_parametric_results(
 
             chunk_mask_t = t_sub["group_label"].isin(group_chunk)
             chunk_mask_c = c_sub["group_label"].isin(group_chunk)
+            chunk_mask_co = co_sub["group_label"].isin(group_chunk)
             t_chunk = t_sub[chunk_mask_t]
             c_chunk = c_sub[chunk_mask_c]
+            co_chunk = co_sub[chunk_mask_co]
 
             # Capacity comparison
             _plot_grouped_stacked_bars(
@@ -303,6 +320,26 @@ def plot_parametric_results(
                     output_path=os.path.join(
                         sensitivity_dir,
                         file_stem.format(name="curtailment_percentage") + ".png",
+                    ),
+                )
+
+            # Cost comparison (CAPEX + OPEX)
+            if not co_chunk.empty:
+                cost_tech_order = [
+                    t for t in tech_order if t in co_chunk["technology"].unique()
+                ]
+                _plot_cost_comparison_bars(
+                    cost_df=co_chunk,
+                    groups=group_chunk,
+                    hues=facet_hues,
+                    tech_order=cost_tech_order,
+                    color_map=color_map,
+                    title="CAPEX and OPEX by Technology — Sensitivity Analysis",
+                    ylabel="Cost ($M USD)",
+                    unit_divisor=1e6,
+                    output_path=os.path.join(
+                        sensitivity_dir,
+                        file_stem.format(name="cost_comparison") + ".png",
                     ),
                 )
 
@@ -379,6 +416,46 @@ def _extract_curtailment(summary_df: pd.DataFrame) -> Tuple[float, float]:
         return 0.0
 
     return _get_scalar("Total VRE curtailment"), _get_scalar("VRE curtailment percentage")
+
+
+def _extract_cost_series(
+    summary_df: pd.DataFrame,
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """Return ``({tech: capex_usd}, {tech: opex_usd})`` from summary_df.
+
+    Generation technologies (Solar PV, Wind, Thermal) use ``Metric == "CAPEX"``.
+    Storage technologies use ``Metric == "Total-CAPEX"`` (power + energy combined).
+    All technologies use ``Metric == "OPEX"`` (FOM + VOM).
+    """
+    # CAPEX — generation techs
+    capex_gen = summary_df[
+        (summary_df["Metric"] == "CAPEX") & (summary_df["Technology"] != "All")
+    ][["Technology", "Optimal Value"]].copy()
+    capex_gen["Optimal Value"] = (
+        pd.to_numeric(capex_gen["Optimal Value"], errors="coerce").fillna(0.0).clip(lower=0.0)
+    )
+
+    # CAPEX — storage techs (power + energy combined)
+    capex_sto = summary_df[
+        (summary_df["Metric"] == "Total-CAPEX") & (summary_df["Technology"] != "All")
+    ][["Technology", "Optimal Value"]].copy()
+    capex_sto["Optimal Value"] = (
+        pd.to_numeric(capex_sto["Optimal Value"], errors="coerce").fillna(0.0).clip(lower=0.0)
+    )
+
+    capex_df = pd.concat([capex_gen, capex_sto], ignore_index=True)
+    capex_dict: Dict[str, float] = dict(zip(capex_df["Technology"], capex_df["Optimal Value"]))
+
+    # OPEX — all techs (FOM + VOM)
+    opex = summary_df[
+        (summary_df["Metric"] == "OPEX") & (summary_df["Technology"] != "All")
+    ][["Technology", "Optimal Value"]].copy()
+    opex["Optimal Value"] = (
+        pd.to_numeric(opex["Optimal Value"], errors="coerce").fillna(0.0).clip(lower=0.0)
+    )
+    opex_dict: Dict[str, float] = dict(zip(opex["Technology"], opex["Optimal Value"]))
+
+    return capex_dict, opex_dict
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +692,171 @@ def _plot_curtailment_bars(
         ax.legend(
             loc="upper left",
             bbox_to_anchor=(1.02, 1.0),
+            frameon=False,
+            fontsize=10,
+            title="Scenarios",
+        )
+
+    ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
+    ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
+    ax.yaxis.grid(True, linestyle="--", alpha=0.3)
+    ax.set_axisbelow(True)
+
+    plt.tight_layout()
+    save_figure(fig, output_path, dpi=_DPI)
+
+
+# ---------------------------------------------------------------------------
+# Internal: cost comparison bar plot (CAPEX solid + OPEX hatched)
+# ---------------------------------------------------------------------------
+
+
+def _plot_cost_comparison_bars(
+    cost_df: pd.DataFrame,
+    groups: List[str],
+    hues: List[str],
+    tech_order: List[str],
+    color_map: dict,
+    title: str,
+    ylabel: str,
+    unit_divisor: float,
+    output_path: str,
+) -> None:
+    """Grouped stacked bar chart showing CAPEX (solid fill) and OPEX (hatched) per technology.
+
+    Each bar is divided into two sections stacked in the same technology order:
+
+    * **Bottom** — CAPEX contributions per technology (solid fill).
+    * **Top** — OPEX contributions per technology (same color, hatched ``///``).
+
+    A secondary legend distinguishes CAPEX vs OPEX via solid / hatched grey patches.
+
+    Parameters
+    ----------
+    cost_df:
+        Long-form DataFrame with columns
+        ``group_label``, ``hue_label``, ``technology``, ``capex_usd``, ``opex_usd``.
+    groups:
+        Ordered list of group labels (x-axis clusters).
+    hues:
+        Ordered list of hue labels (bars within each cluster).
+    tech_order:
+        Ordered list of technology names for stacking (bottom → top).
+    color_map:
+        Technology → color mapping.
+    title, ylabel:
+        Plot labels.
+    unit_divisor:
+        Divide values by this factor before plotting (e.g. ``1e6`` for $ → $M).
+    output_path:
+        Full path to save the PNG.
+    """
+    n_groups = len(groups)
+    n_hues = len(hues)
+    bar_width = min(_BAR_WIDTH, 0.8 / max(n_hues, 1))
+    bar_offset = bar_width * (n_hues - 1) / 2
+
+    fig, ax = plt.subplots(figsize=_FIGURE_SIZE)
+    group_positions = np.arange(n_groups)
+
+    for h_idx, hue in enumerate(hues):
+        x_positions = group_positions - bar_offset + h_idx * bar_width
+        hue_data = cost_df[cost_df["hue_label"] == hue]
+
+        # --- CAPEX stack (solid fill) ---
+        capex_bottoms = np.zeros(n_groups)
+        for tech in tech_order:
+            heights = []
+            for grp in groups:
+                cell = hue_data[
+                    (hue_data["group_label"] == grp) & (hue_data["technology"] == tech)
+                ]
+                val = float(cell["capex_usd"].values[0]) if not cell.empty else 0.0
+                heights.append(val / unit_divisor)
+            heights_arr = np.array(heights)
+            label = tech if h_idx == 0 else None
+            ax.bar(
+                x_positions,
+                heights_arr,
+                bar_width,
+                bottom=capex_bottoms,
+                label=label,
+                color=color_map.get(tech, "#CCCCCC"),
+                edgecolor="white",
+                linewidth=0.5,
+            )
+            capex_bottoms += heights_arr
+
+        # --- OPEX stack (hatched), starting from the top of the CAPEX stack ---
+        # After the CAPEX loop, capex_bottoms == total CAPEX per group for this hue.
+        opex_bottoms = capex_bottoms.copy()
+        for tech in tech_order:
+            heights = []
+            for grp in groups:
+                cell = hue_data[
+                    (hue_data["group_label"] == grp) & (hue_data["technology"] == tech)
+                ]
+                val = float(cell["opex_usd"].values[0]) if not cell.empty else 0.0
+                heights.append(val / unit_divisor)
+            heights_arr = np.array(heights)
+            ax.bar(
+                x_positions,
+                heights_arr,
+                bar_width,
+                bottom=opex_bottoms,
+                color=color_map.get(tech, "#CCCCCC"),
+                edgecolor="white",
+                linewidth=0.5,
+                hatch="///",
+            )
+            opex_bottoms += heights_arr
+
+    # X-axis
+    ax.set_xticks(group_positions)
+    ax.set_xticklabels(groups, fontsize=11)
+
+    # Technology legend
+    tech_handles = [
+        mpatches.Patch(facecolor=color_map.get(t, "#CCCCCC"), label=t)
+        for t in tech_order
+        if t in cost_df["technology"].unique()
+    ]
+    tech_legend = ax.legend(
+        handles=tech_handles,
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1.0),
+        frameon=False,
+        fontsize=10,
+        title="Technology",
+    )
+    ax.add_artist(tech_legend)
+
+    # Cost-type legend (CAPEX solid vs OPEX hatched)
+    cost_type_handles = [
+        mpatches.Patch(facecolor="gray", edgecolor="white", label="CAPEX"),
+        mpatches.Patch(facecolor="gray", edgecolor="white", hatch="///", label="OPEX"),
+    ]
+    cost_legend = ax.legend(
+        handles=cost_type_handles,
+        loc="upper left",
+        bbox_to_anchor=(1.02, 0.55),
+        frameon=False,
+        fontsize=10,
+        title="Cost type",
+    )
+    ax.add_artist(cost_legend)
+
+    # Hue legend (only when multiple hues)
+    if n_hues > 1:
+        hue_handles = [
+            mpatches.Patch(facecolor="gray", alpha=0.4 + 0.5 * i / max(n_hues - 1, 1), label=h)
+            for i, h in enumerate(hues)
+        ]
+        ax.legend(
+            handles=hue_handles,
+            loc="upper left",
+            bbox_to_anchor=(1.02, 0.25),
             frameon=False,
             fontsize=10,
             title="Scenarios",
