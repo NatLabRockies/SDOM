@@ -107,6 +107,10 @@ The figures below are the actual outputs obtained by running the example above
 
 ![Curtailment — percentage](_static/parametric_example/sensitivity_plots/curtailment_percentage.png)
 
+**CAPEX and OPEX by technology**
+
+![Cost comparison](_static/parametric_example/sensitivity_plots/cost_comparison.png)
+
 ### Per-case plots
 
 For each optimal case, individual figures are generated.
@@ -229,7 +233,8 @@ Data/no_exchange_run_of_river/results/
 │   ├── capacity_comparison.png
 │   ├── generation_comparison.png
 │   ├── curtailment_absolute.png
-│   └── curtailment_percentage.png
+│   ├── curtailment_percentage.png
+│   └── cost_comparison.png
 └── parametric_summary.csv
 ```
 
@@ -282,8 +287,16 @@ After calling `study.run()`, use `plot_parametric_results()` from the
   hourly dispatch heatmaps for every optimal case, saved under
   `<output_dir>/<case_name>/plots/`.
 - **Cross-case comparison plots** — grouped stacked-bar charts for installed
-  capacity and total generation, plus curtailment plots, saved under
-  `<output_dir>/sensitivity_plots/`.
+  capacity, total generation, VRE curtailment, and CAPEX + OPEX costs by
+  technology, saved under `<output_dir>/sensitivity_plots/`.
+
+  | File | Description |
+  |---|---|
+  | `capacity_comparison.png` | Installed capacity by technology (GW) |
+  | `generation_comparison.png` | Annual generation by technology (TWh) |
+  | `curtailment_absolute.png` | VRE curtailment in absolute terms (GWh) |
+  | `curtailment_percentage.png` | VRE curtailment as percentage of total generation |
+  | `cost_comparison.png` | CAPEX (solid) and OPEX (hatched) by technology ($M USD) |
 
 The call used in the example script is:
 
