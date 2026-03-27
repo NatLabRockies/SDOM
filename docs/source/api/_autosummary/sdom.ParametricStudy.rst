@@ -23,4 +23,11 @@
 
    
    
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~ParametricStudy.case_metadata
+      ~ParametricStudy.output_dir
+   
    

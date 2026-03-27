@@ -21,42 +21,112 @@ writes per-case CSV outputs plus a consolidated summary.
 
 ## Quick-start example
 
+The input data for this example is available in
+`Data/no_exchange_run_of_river/` and pre-generated results (CSV files and
+figures) are stored under `Data/no_exchange_run_of_river/results/`.
+
 ```python
+import logging
+import os
+
 import sdom
+from sdom import configure_logging, get_default_solver_config_dict, load_data
 from sdom.parametric import ParametricStudy
+from sdom.analytic_tools import plot_parametric_results
 
-# 1 ── Load base data
-data = sdom.load_data("./Data/no_exchange_hydro_daily_budget_multiple_balancing_p95")
+configure_logging(level=logging.INFO)
 
-# 2 ── Configure solver
-solver_cfg = sdom.get_default_solver_config_dict(solver_name="highs")
+# ── Load data ─────────────────────────────────────────────────────────────
+data_dir   = "./Data/no_exchange_run_of_river/"
+output_dir = "./Data/no_exchange_run_of_river/results/"
 
-# 3 ── Build the study
+data       = load_data(data_dir)
+solver_cfg = get_default_solver_config_dict(solver_name="highs", executable_path="")
+
+# ── Build study ───────────────────────────────────────────────────────────
 study = ParametricStudy(
     base_data=data,
     solver_config=solver_cfg,
-    n_hours=8760,
-    output_dir="./results_pyomo/parametric/",
-    n_cores=4,          # capped automatically at cpu_count - 1
+    n_hours=96,
+    output_dir=output_dir,
+    n_cores=3,
 )
 
-# Scalar sweep: replace data["scalars"].loc["GenMix_Target", "Value"]
-study.add_scalar_sweep("scalars", "GenMix_Target", [0.70, 0.80, 0.90, 1.00])
+# Sweep 1 — GenMix_Target scalar (carbon-free target)
+study.add_scalar_sweep("scalars", "GenMix_Target", [0.0, 0.8, 1.0])
 
-# Storage factor sweep: multiply data["storage_data"].loc["P_Capex"] (all techs)
-study.add_storage_factor_sweep("P_Capex", [0.7, 0.8, 1.0])
+# Sweep 2 — Storage power CAPEX factor (all technologies scaled uniformly)
+study.add_storage_factor_sweep("P_Capex", [1.0, 0.7])
 
-# Time-series sweep: multiply the "Load" column of data["load_data"]
-study.add_ts_sweep("load_data", [0.95, 1.00, 1.05])
+# Sweep 3 — Load/demand scaling
+study.add_ts_sweep("load_data", [1.0, 1.4])
 
-# 4 ── Run — 4 × 3 × 3 = 36 cases
-all_results = study.run()
+# ── Run — 3 × 2 × 2 = 12 cases in parallel ───────────────────────────────
+results = study.run()
 
-# 5 ── Inspect
-for res in all_results:
-    if res.is_optimal:
-        print(f"{res.gen_mix_target:.2f}  cost={res.total_cost:,.0f}")
+# ── Plot cross-case comparisons + per-case figures ────────────────────────
+plot_parametric_results(
+    study,
+    results,
+    group_by=["GenMix_Target", "P_Capex"],   # x-axis clusters
+    hue_by="load_data",                       # bars within each cluster
+    max_cases_per_figure=36,
+    plot_per_case=True,
+)
+
+# ── Console summary ───────────────────────────────────────────────────────
+successful = [r for r in results if r.is_optimal]
+failed     = [r for r in results if not r.is_optimal]
+print(f"Total: {len(results)}  |  Optimal: {len(successful)}  |  Failed: {len(failed)}")
+for r in successful:
+    print(f"  cost={r.total_cost:>15,.0f}  status={r.solver_status}")
 ```
+
+---
+
+## Sample results of this example
+
+The figures below are the actual outputs obtained by running the example above
+(12 cases: `GenMix_Target` × 3, `P_Capex` × 2, `load` × 2).
+
+### Cross-case sensitivity plots
+
+**Installed capacity by technology**
+
+![Capacity comparison](_static/parametric_example/sensitivity_plots/capacity_comparison.png)
+
+**Total generation by technology**
+
+![Generation comparison](_static/parametric_example/sensitivity_plots/generation_comparison.png)
+
+**VRE curtailment (absolute, MWh)**
+
+![Curtailment — absolute](_static/parametric_example/sensitivity_plots/curtailment_absolute.png)
+
+**VRE curtailment (percentage)**
+
+![Curtailment — percentage](_static/parametric_example/sensitivity_plots/curtailment_percentage.png)
+
+### Per-case plots
+
+For each optimal case, individual figures are generated.
+The sample below is from case `GenMix_Target=1.0 | P_Capex×1.0 | load×1.0`.
+
+**Installed capacity donut**
+
+![Capacity donut](_static/parametric_example/case_plots/capacity_donut.png)
+
+**Capacity and generation donuts (side by side)**
+
+![Capacity and generation donuts](_static/parametric_example/case_plots/capacity_generation_donuts.png)
+
+**Hourly dispatch heatmap — VRE generation**
+
+![Heatmap — VRE generation](_static/parametric_example/case_plots/heatmap_vre_generation.png)
+
+**Hourly dispatch heatmap — net load**
+
+![Heatmap — net load](_static/parametric_example/case_plots/heatmap_net_load.png)
 
 ---
 
@@ -131,15 +201,35 @@ automatically appends the case's Cartesian-product index as a suffix
 
 ## Output structure
 
+Running the example above produces the following layout under `output_dir`:
+
 ```
-output_dir/
-├── GenMix_Target=0.70_P_Capexx0.7_load_datax0.95/
+Data/no_exchange_run_of_river/results/
+├── GenMix_Target=0.0_P_Capexx0.7_load_datax1.0/
 │   ├── OutputGeneration_<case_name>.csv
 │   ├── OutputStorage_<case_name>.csv
 │   ├── OutputSummary_<case_name>.csv
-│   └── OutputThermalGeneration_<case_name>.csv   # only if >1 thermal plant
-├── GenMix_Target=0.70_P_Capexx0.7_load_datax1.00/
-│   └── ...
+│   ├── OutputThermalGeneration_<case_name>.csv
+│   ├── OutputInstalledPowerPlants_<case_name>.csv
+│   └── plots/
+│       ├── capacity_donut.png
+│       ├── capacity_generation_donuts.png
+│       ├── heatmap_VRE_Generation_(MW).png
+│       ├── heatmap_All_Thermal_Generation_(MW).png
+│       ├── heatmap_Hydro_Generation_(MW).png
+│       ├── heatmap_Nuclear_Generation_(MW).png
+│       ├── heatmap_Other_Renewables_Generation_(MW).png
+│       ├── heatmap_Storage_Charge_Discharge_(MW).png
+│       ├── heatmap_Load_(MW).png
+│       └── heatmap_Net_Load_(MW).png
+├── GenMix_Target=0.0_P_Capexx0.7_load_datax1.4/
+│   └── ...                                        # same structure, 11 more cases
+├── ...
+├── sensitivity_plots/
+│   ├── capacity_comparison.png
+│   ├── generation_comparison.png
+│   ├── curtailment_absolute.png
+│   └── curtailment_percentage.png
 └── parametric_summary.csv
 ```
 
@@ -155,42 +245,6 @@ output_dir/
 | `total_cost` | Objective value (USD) |
 | `solver_status` | Solver status string |
 | `termination_condition` | Solver termination condition |
-
----
-
-## Real-world example — 2050 projections
-
-```python
-import sdom
-from sdom.parametric import ParametricStudy
-
-SCALING_2050 = 1.49   # projected load growth relative to base year
-
-data = sdom.load_data("./data/case_2050_WY2023")
-solver_cfg = sdom.get_default_solver_config_dict(solver_name="highs")
-
-study = ParametricStudy(
-    base_data=data,
-    solver_config=solver_cfg,
-    n_hours=8760,
-    output_dir="./results/case_2050_WY2023",
-    n_cores=None,         # use all available cores minus one
-)
-
-study.add_scalar_sweep("scalars", "GenMix_Target", [0.0, 0.8, 0.9, 1.0])
-study.add_storage_factor_sweep("P_Capex", [1.0, 0.8, 0.7])
-study.add_ts_sweep(
-    "load_data",
-    [0.9 * SCALING_2050, 1.0 * SCALING_2050, 1.1 * SCALING_2050],
-)
-
-# 4 × 3 × 3 = 36 cases
-results = study.run()
-
-# Quick summary
-optimal = [r for r in results if r.is_optimal]
-print(f"{len(optimal)}/{len(results)} cases solved optimally")
-```
 
 ---
 
@@ -224,187 +278,75 @@ print(f"{len(optimal)}/{len(results)} cases solved optimally")
 After calling `study.run()`, use `plot_parametric_results()` from the
 `analytic_tools` sub-package to automatically produce:
 
-- **Per-case plots** — capacity donut, generation donut, and hourly dispatch
-  heatmaps for every optimal case, saved under
+- **Per-case plots** — capacity donut, capacity + generation donuts, and
+  hourly dispatch heatmaps for every optimal case, saved under
   `<output_dir>/<case_name>/plots/`.
 - **Cross-case comparison plots** — grouped stacked-bar charts for installed
-  capacity and total generation, and a curtailment bar chart, saved under
+  capacity and total generation, plus curtailment plots, saved under
   `<output_dir>/sensitivity_plots/`.
+
+The call used in the example script is:
+
+```python
+plot_parametric_results(
+    study,
+    results,
+    group_by=["GenMix_Target", "P_Capex"],   # x-axis clusters
+    hue_by="load_data",                       # bars colour-coded by load factor
+    max_cases_per_figure=36,
+    plot_per_case=True,
+)
+```
 
 ### Grouping strategy
 
-Use the `group_by`, `hue_by`, and `facet_by` parameters to control how cases
-are arranged on the comparison plots.  Pass the same parameter name that was
-registered with the sweep methods.
+Use `group_by`, `hue_by`, and `facet_by` to control how cases are arranged.
+Pass the same name that was registered with the sweep methods.
 
 | Parameter | Role |
 |---|---|
-| `group_by` | X-axis clusters (required) |
-| `hue_by` | Bars within each cluster (optional) |
-| `facet_by` | One complete figure per value of this dimension (optional) |
-
-### Quick-start example
-
-```python
-import sdom
-from sdom.parametric import ParametricStudy
-from sdom.analytic_tools import plot_parametric_results
-
-data       = sdom.load_data("./Data/no_exchange_run_of_river/")
-solver_cfg = sdom.get_default_solver_config_dict(solver_name="highs", executable_path="")
-
-study = ParametricStudy(
-    base_data=data,
-    solver_config=solver_cfg,
-    n_hours=8760,
-    output_dir="./results_pyomo/parametric/",
-    n_cores=4,
-)
-
-study.add_scalar_sweep("scalars", "GenMix_Target", [0.70, 0.80, 0.90, 1.00])
-study.add_storage_factor_sweep("P_Capex", [0.7, 0.8, 1.0])
-
-# 4 × 3 = 12 cases
-results = study.run()
-
-# Plot: GenMix_Target on x-axis, P_Capex factor as the hue
-plot_parametric_results(
-    study,
-    results,
-    group_by="GenMix_Target",
-    hue_by="P_Capex",
-)
-```
-
-### Three-dimensional sweep with faceting
-
-```python
-study.add_scalar_sweep("scalars",  "GenMix_Target", [0.80, 0.90, 1.00])
-study.add_storage_factor_sweep("P_Capex",           [0.7, 1.0])
-study.add_ts_sweep("load_data",                     [0.95, 1.00, 1.05])
-
-# 3 × 2 × 3 = 18 cases
-results = study.run()
-
-# One figure per load factor, GenMix_Target on x-axis, P_Capex as hue
-plot_parametric_results(
-    study,
-    results,
-    group_by="GenMix_Target",
-    hue_by="P_Capex",
-    facet_by="load_data",
-)
-```
-
-Faceted output under `<output_dir>/sensitivity_plots/`:
-
-```
-sensitivity_plots/
-├── capacity_by_technology_load_data=0.95.png
-├── capacity_by_technology_load_data=1.0.png
-├── capacity_by_technology_load_data=1.05.png
-├── generation_by_technology_load_data=0.95.png
-├── ...
-└── curtailment_load_data=1.05.png
-```
-
-### Skipping per-case plots
-
-For large sweeps (50+ cases) the per-case donut and heatmap generation can be
-slow.  Disable it with `plot_per_case=False`:
-
-```python
-plot_parametric_results(
-    study,
-    results,
-    group_by="GenMix_Target",
-    hue_by="P_Capex",
-    plot_per_case=False,   # only generate cross-case comparison plots
-)
-```
-
-### Controlling the output directory
-
-By default, `plot_parametric_results()` writes to `study.output_dir`.  Pass
-`output_dir` explicitly to override:
-
-```python
-plot_parametric_results(
-    study, results,
-    group_by="GenMix_Target",
-    output_dir="./my_custom_output_dir/",
-)
-```
-
-### Handling large sweeps
-
-When the number of x-axis clusters multiplied by the number of hues exceeds
-`max_cases_per_figure` (default `24`), the plot is automatically split into
-multiple figures:
-
-```
-sensitivity_plots/
-├── capacity_by_technology_part1.png
-├── capacity_by_technology_part2.png
-└── ...
-```
-
-Adjust the threshold with the `max_cases_per_figure` parameter:
-
-```python
-plot_parametric_results(
-    study, results,
-    group_by="GenMix_Target",
-    max_cases_per_figure=12,   # split more aggressively
-)
-```
-
-### Complete workflow example
-
-```python
-import sdom
-from sdom.parametric import ParametricStudy
-from sdom.analytic_tools import plot_parametric_results
-
-OUTPUT_DIR = "./results_pyomo/sensitivity_2050/"
-
-data       = sdom.load_data("./Data/no_exchange_run_of_river/")
-solver_cfg = sdom.get_default_solver_config_dict(solver_name="highs", executable_path="")
-
-study = ParametricStudy(
-    base_data=data,
-    solver_config=solver_cfg,
-    n_hours=8760,
-    output_dir=OUTPUT_DIR,
-    n_cores=4,
-)
-
-study.add_scalar_sweep("scalars",  "GenMix_Target", [0.0, 0.8, 0.9, 1.0])
-study.add_storage_factor_sweep("P_Capex",           [1.0, 0.8])
-study.add_ts_sweep("load_data",                     [0.9, 1.0, 1.1])
-
-# 4 × 2 × 3 = 24 cases
-results = study.run()
-
-# Summary statistics
-optimal = [r for r in results if r.is_optimal]
-print(f"{len(optimal)}/{len(results)} cases solved optimally")
-
-# Cross-case comparison plots + per-case individual plots
-plot_parametric_results(
-    study,
-    results,
-    group_by="GenMix_Target",
-    hue_by="P_Capex",
-    facet_by="load_data",
-)
-```
+| `group_by` | X-axis clusters — one cluster per unique combination of values (required) |
+| `hue_by` | Bars within each cluster, colour-coded by this dimension (optional) |
+| `facet_by` | One complete figure per unique value of this dimension (optional) |
 
 ```{tip}
-Dimension names passed to `group_by`, `hue_by`, and `facet_by` must match
-exactly the parameter names registered with `add_scalar_sweep` (the
-`param_name` argument), `add_storage_factor_sweep` (the `param_name`
-argument), or `add_ts_sweep` (the `ts_key` argument).  Use
-`study.case_metadata[0].keys()` to inspect the available names after a run.
+Dimension names must match exactly the names registered with the sweep
+methods.  Use `study.case_metadata[0].keys()` to inspect available names
+after a run.
+```
+
+---
+
+### Additional options
+
+**Skip per-case plots** (faster for large sweeps):
+
+```python
+plot_parametric_results(study, results, group_by="GenMix_Target", plot_per_case=False)
+```
+
+**Override the output directory**:
+
+```python
+plot_parametric_results(study, results, group_by="GenMix_Target",
+                        output_dir="./my_output/")
+```
+
+**Limit cases per figure** (auto-splits into `part1.png`, `part2.png`, …):
+
+```python
+plot_parametric_results(study, results, group_by="GenMix_Target",
+                        max_cases_per_figure=12)
+```
+
+**Faceted figures** (one complete figure per load factor):
+
+```python
+plot_parametric_results(
+    study, results,
+    group_by="GenMix_Target",
+    hue_by="P_Capex",
+    facet_by="load_data",
+)
 ```
 
