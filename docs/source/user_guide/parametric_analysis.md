@@ -21,6 +21,15 @@ writes per-case CSV outputs plus a consolidated summary.
 
 ## Quick-start example
 
+```{important}
+**Windows users:** Every script that calls `study.run()` **must** guard
+its entry point with `if __name__ == "__main__":`.  On Windows, Python
+spawns child processes by re-importing the main script; without this
+guard the script recurses infinitely.  This is a standard Python
+requirement — see
+[Safe importing of main module](https://docs.python.org/3/library/multiprocessing.html#the-spawn-and-forkserver-start-methods).
+```
+
 The input data for this example is available in
 `Data/no_exchange_run_of_river/` and pre-generated results (CSV files and
 figures) are stored under `Data/no_exchange_run_of_river/results/`.
@@ -29,57 +38,63 @@ figures) are stored under `Data/no_exchange_run_of_river/results/`.
 import logging
 import os
 
-import sdom
 from sdom import configure_logging, get_default_solver_config_dict, load_data
 from sdom.parametric import ParametricStudy
 from sdom.analytic_tools import plot_parametric_results
 
-configure_logging(level=logging.INFO)
 
-# ── Load data ─────────────────────────────────────────────────────────────
-data_dir   = "./Data/no_exchange_run_of_river/"
-output_dir = "./Data/no_exchange_run_of_river/results/"
+def main():
+    configure_logging(level=logging.INFO)
 
-data       = load_data(data_dir)
-solver_cfg = get_default_solver_config_dict(solver_name="highs", executable_path="")
+    # ── Load data ─────────────────────────────────────────────────────────────
+    data_dir   = "./Data/no_exchange_run_of_river/"
+    output_dir = "./Data/no_exchange_run_of_river/results/"
 
-# ── Build study ───────────────────────────────────────────────────────────
-study = ParametricStudy(
-    base_data=data,
-    solver_config=solver_cfg,
-    n_hours=96,
-    output_dir=output_dir,
-    n_cores=3,
-)
+    data       = load_data(data_dir)
+    solver_cfg = get_default_solver_config_dict(solver_name="highs", executable_path="")
 
-# Sweep 1 — GenMix_Target scalar (carbon-free target)
-study.add_scalar_sweep("scalars", "GenMix_Target", [0.0, 0.8, 1.0])
+    # ── Build study ───────────────────────────────────────────────────────────
+    study = ParametricStudy(
+        base_data=data,
+        solver_config=solver_cfg,
+        n_hours=96,
+        output_dir=output_dir,
+        n_cores=3,
+    )
 
-# Sweep 2 — Storage power CAPEX factor (all technologies scaled uniformly)
-study.add_storage_factor_sweep("P_Capex", [1.0, 0.7])
+    # Sweep 1 — GenMix_Target scalar (carbon-free target)
+    study.add_scalar_sweep("scalars", "GenMix_Target", [0.0, 0.8, 1.0])
 
-# Sweep 3 — Load/demand scaling
-study.add_ts_sweep("load_data", [1.0, 1.4])
+    # Sweep 2 — Storage power CAPEX factor (all technologies scaled uniformly)
+    study.add_storage_factor_sweep("P_Capex", [1.0, 0.7])
 
-# ── Run — 3 × 2 × 2 = 12 cases in parallel ───────────────────────────────
-results = study.run()
+    # Sweep 3 — Load/demand scaling
+    study.add_ts_sweep("load_data", [1.0, 1.4])
 
-# ── Plot cross-case comparisons + per-case figures ────────────────────────
-plot_parametric_results(
-    study,
-    results,
-    group_by=["GenMix_Target", "P_Capex"],   # x-axis clusters
-    hue_by="load_data",                       # bars within each cluster
-    max_cases_per_figure=36,
-    plot_per_case=True,
-)
+    # ── Run — 3 × 2 × 2 = 12 cases in parallel ───────────────────────────────
+    results = study.run()
 
-# ── Console summary ───────────────────────────────────────────────────────
-successful = [r for r in results if r.is_optimal]
-failed     = [r for r in results if not r.is_optimal]
-print(f"Total: {len(results)}  |  Optimal: {len(successful)}  |  Failed: {len(failed)}")
-for r in successful:
-    print(f"  cost={r.total_cost:>15,.0f}  status={r.solver_status}")
+    # ── Plot cross-case comparisons + per-case figures ────────────────────────
+    plot_parametric_results(
+        study,
+        results,
+        group_by=["GenMix_Target", "P_Capex"],   # x-axis clusters
+        hue_by="load_data",                       # bars within each cluster
+        max_cases_per_figure=36,
+        plot_per_case=True,
+    )
+
+    # ── Console summary ───────────────────────────────────────────────────────
+    successful = [r for r in results if r.is_optimal]
+    failed     = [r for r in results if not r.is_optimal]
+    print(f"Total: {len(results)}  |  Optimal: {len(successful)}  |  Failed: {len(failed)}")
+    for r in successful:
+        print(f"  cost={r.total_cost:>15,.0f}  status={r.solver_status}")
+
+
+if __name__ == "__main__":
+    main()
+
 ```
 
 ---

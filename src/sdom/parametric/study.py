@@ -2,7 +2,9 @@
 
 import itertools
 import logging
+import multiprocessing as mp
 import os
+import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
@@ -215,7 +217,33 @@ class ParametricStudy:
         # Map future → case_dict so we can report and export on completion
         ordered_results: List[Optional[OptimizationResults]] = [None] * n_total
 
-        with ProcessPoolExecutor(max_workers=self._n_cores) as executor:
+        # On Windows, Python's default multiprocessing start method is "spawn",
+        # which re-imports the main script in every child process.  If the
+        # caller did not guard its entry point with
+        # ``if __name__ == "__main__":``, the child processes would recurse
+        # into this very call and spawn further children indefinitely.
+        # Detect that situation early and raise a clear error.
+        if sys.platform == "win32" and mp.current_process().name != "MainProcess":
+            raise RuntimeError(
+                "ParametricStudy.run() was called from a worker process, which "
+                "means the top-level script is missing the required\n"
+                "    if __name__ == '__main__':\n"
+                "guard.  Add that guard around the code that calls study.run() "
+                "to prevent child processes from recursing into the study.\n"
+                "See https://docs.python.org/3/library/multiprocessing.html"
+                "#the-spawn-and-forkserver-start-methods"
+            )
+
+        # Use the "spawn" start method on Windows (it is already the platform
+        # default there) so worker processes get a clean interpreter state.
+        # On Linux / macOS keep the platform default ("fork") so that existing
+        # code continues to work without requiring the __main__ guard.
+        if sys.platform == "win32":
+            ctx = mp.get_context("spawn")
+        else:
+            ctx = mp.get_context()
+
+        with ProcessPoolExecutor(max_workers=self._n_cores, mp_context=ctx) as executor:
             future_to_case = {
                 executor.submit(_run_single_case, cd): cd
                 for cd in case_dicts
