@@ -1,4 +1,5 @@
 import logging
+import math
 #from pympler import muppy, summary
 #from pympler import muppy, summary
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, check_available_solvers
@@ -288,106 +289,188 @@ def collect_results(model):
 
 
 
-def configure_solver(solver_config_dict:dict):
+def configure_solver(solver_config_dict: dict):
     """Configure and instantiate a Pyomo solver based on configuration dictionary.
-    
+
     Creates a SolverFactory instance with the specified solver and applies any
     provided options. Handles solver-specific initialization (e.g., executable
-    paths for CBC).
-    
-    Args:
-        solver_config_dict (dict): Configuration dictionary containing:
-            - 'solver_name' (str): Solver identifier (e.g., 'cbc', 'appsi_highs',
-              'xpress_direct', 'gurobi')
-            - 'executable_path' (str): Path to solver executable (required for CBC,
-              optional for others)
-            - 'options' (dict): Solver-specific options to apply (e.g., mip_rel_gap,
-              loglevel)
-    
-    Returns:
-        Solver instance: Configured solver instance ready to
-            solve optimization models.
-    
-    Raises:
-        RuntimeError: If the specified solver is not available on the system.
-    
-    Notes:
-        CBC solver requires explicit executable_path. Other solvers use system PATH.
-        Solver availability is checked before returning the instance.
-    """
+    paths for CBC, license initialization for Xpress).
 
-    
-    if solver_config_dict["solver_name"]=="cbc": #or solver_config_dict["solver_name"]=="xpress_direct":
-        solver = SolverFactory(solver_config_dict["solver_name"],
-                               executable=solver_config_dict["executable_path"]) if solver_config_dict["executable_path"] else SolverFactory(solver_config_dict["solver_name"])
-        
+    Parameters
+    ----------
+    solver_config_dict : dict
+        Configuration dictionary containing:
+
+        - 'solver_name' (str): Solver identifier (e.g., 'cbc', 'appsi_highs',
+          'xpress_direct', 'gurobi')
+        - 'executable_path' (str): Path to solver executable (required for CBC,
+          optional for others)
+        - 'options' (dict): Solver-specific options to apply (e.g., miprelstop,
+          outputlog)
+
+    Returns
+    -------
+    solver
+        Configured Pyomo solver instance ready to solve optimization models.
+
+    Raises
+    ------
+    RuntimeError
+        If the specified solver is not available on the system.
+
+    Notes
+    -----
+    - CBC solver requires explicit executable_path.
+    - Xpress uses xpress_direct interface and requires a valid license.
+    - HiGHS and other solvers use system PATH or Python package installation.
+
+    Examples
+    --------
+    >>> config = get_default_solver_config_dict(solver_name="xpress")
+    >>> solver = configure_solver(config)
+    """
+    solver_name = solver_config_dict["solver_name"]
+
+    if solver_name == "cbc":
+        executable_path = solver_config_dict.get("executable_path")
+        if executable_path:
+            solver = SolverFactory(solver_name, executable=executable_path)
+        else:
+            solver = SolverFactory(solver_name)
     else:
-        solver = SolverFactory(solver_config_dict["solver_name"])
+        solver = SolverFactory(solver_name)
 
     if not solver.available():
-        raise RuntimeError(f"Solver '{solver_config_dict['solver_name']}' is not available on this system.")
+        raise RuntimeError(f"Solver '{solver_name}' is not available on this system.")
 
     # Apply solver-specific options
-    if solver_config_dict["options"]:
-        for key, value in solver_config_dict["options"].items():
+    options = solver_config_dict.get("options", {})
+    if options:
+        for key, value in options.items():
             solver.options[key] = value
 
     return solver
 
-def get_default_solver_config_dict(solver_name="cbc", executable_path=".\\Solver\\bin\\cbc.exe"):
+def get_default_solver_config_dict(
+    solver_name="cbc",
+    executable_path=".\\Solver\\bin\\cbc.exe",
+    *,
+    mip_gap=0.002,
+    time_limit=None,
+):
     """Generate a default solver configuration dictionary with standard SDOM settings.
-    
+
     Creates a pre-configured dictionary for solver initialization with recommended
     settings for SDOM optimization problems. Includes solver options and solve
     keywords for controlling optimization behavior.
-    
-    Args:
-        solver_name (str, optional): Solver to use. Supported values:
-            - 'cbc': COIN-OR CBC open-source MILP solver (requires executable_path)
-            - 'highs': HiGHS open-source MILP solver (uses appsi interface)
-            - 'xpress': FICO Xpress commercial solver (uses direct interface)
-            Defaults to 'cbc'.
-        executable_path (str, optional): Path to solver executable file. Required
-            for CBC solver. Defaults to '.\\Solver\\bin\\cbc.exe'.
-    
-    Returns:
-        dict: Configuration dictionary with keys:
-            - 'solver_name' (str): Solver identifier for SolverFactory
-            - 'executable_path' (str): Path to executable (CBC only)
-            - 'options' (dict): Solver options (mip_rel_gap, etc.)
-            - 'solve_keywords' (dict): Arguments for solver.solve() call (tee,
-              load_solutions, logfile, timelimit, etc.)
-    
-    Notes:
-        Default MIP relative gap is 0.002 (0.2%). Log output is written to
-        'solver_log.txt'. Solution loading and timing reports are enabled by default.
-        HiGHS uses 'appsi_highs' interface for better performance.
+
+    Parameters
+    ----------
+    solver_name : str, optional
+        Solver to use. Supported values:
+
+        - 'cbc': COIN-OR CBC open-source MILP solver (requires executable_path)
+        - 'highs': HiGHS open-source MILP solver (uses appsi interface)
+        - 'xpress': FICO Xpress commercial solver (requires license)
+
+        Default is 'cbc'.
+    executable_path : str, optional
+        Path to solver executable file. Required for CBC solver.
+        Default is '.\\Solver\\bin\\cbc.exe'.
+    mip_gap : float, optional
+        MIP relative optimality gap tolerance. Default is 0.002 (0.2%).
+    time_limit : float, optional
+        Maximum solve time in seconds. Default is None (no limit).
+
+    Returns
+    -------
+    dict
+        Configuration dictionary with keys:
+
+        - 'solver_name' (str): Solver identifier for SolverFactory
+        - 'executable_path' (str): Path to executable (CBC only)
+        - 'options' (dict): Solver-specific options
+        - 'solve_keywords' (dict): Arguments for solver.solve() call
+
+    Notes
+    -----
+    Solver-specific option mappings:
+
+    - **HiGHS**: Uses 'mip_rel_gap' for MIP gap
+    - **Xpress**: Uses 'miprelstop' for MIP gap, 'maxtime' for time limit
+    - **CBC**: Uses 'ratioGap' for MIP gap
+
+    Examples
+    --------
+    >>> # Using HiGHS (open-source)
+    >>> config = get_default_solver_config_dict(solver_name="highs")
+    >>> solver = configure_solver(config)
+
+    >>> # Using Xpress (commercial, requires license)
+    >>> config = get_default_solver_config_dict(
+    ...     solver_name="xpress",
+    ...     mip_gap=0.001,
+    ...     time_limit=3600,
+    ... )
+    >>> solver = configure_solver(config)
     """
-    solver_dict = {
-        "solver_name": "appsi_" + solver_name,
-        "options":{
-            #"loglevel": 3,
-            "mip_rel_gap": 0.002,
-            #"keepfiles": True,
-            #"logfile": "solver_log.txt", # The filename used to store output for shell solvers
-            },
-        "solve_keywords":{
-            "tee": True, #If true solver output is printed both to the standard output as well as saved to the log file.
-            "load_solutions": True, #If True (the default), then solution values are automically transfered to Var objects on the model
-            "report_timing": True, #If True (the default), then timing information is reported
-            "logfile": "solver_log.txt", # The filename used to store output for shell solvers
-            #"solnfile": "./results_pyomo/solver_soln.txt", # The filename used to store the solution for shell solvers
-            "timelimit": None, # The number of seconds that a shell solver is run before it is terminated. (default is None)
-            },  
+    # Base configuration for solve() call
+    solve_keywords = {
+        "tee": True,
+        "load_solutions": True,
+        "report_timing": True,
+        "timelimit": time_limit,
+        "keepfiles": False,
     }
-    
+
+    # Solver-specific configurations
     if solver_name == "cbc":
-        solver_dict["solver_name"] = solver_name
-        solver_dict["executable_path"] = executable_path
+        solver_dict = {
+            "solver_name": "cbc",
+            "executable_path": executable_path,
+            "options": {
+                "ratioGap": mip_gap,
+            },
+            "solve_keywords": solve_keywords,
+        }
+
+    elif solver_name == "highs":
+        solver_dict = {
+            "solver_name": "appsi_highs",
+            "executable_path": None,
+            "options": {
+                "mip_rel_gap": mip_gap,
+            },
+            "solve_keywords": solve_keywords,
+        }
+
     elif solver_name == "xpress":
-        solver_dict["solver_name"] = "xpress_direct"
-        #solver_dict = {"solver_name": "xpress",}
-        #solver_dict["executable_path"] = executable_path
+        # Xpress uses different control names
+        # See: https://www.fico.com/fico-xpress-optimization/docs/latest/solver/optimizer/python/HTML/
+        xpress_options = {
+            "miprelstop": mip_gap,  # MIP relative gap tolerance
+            "outputlog": 1,         # Enable solver output (0=off, 1=on)
+        }
+        if time_limit is not None:
+            if time_limit < 0:
+                raise ValueError(f"time_limit must be non-negative, got {time_limit}")
+            xpress_options["maxtime"] = math.ceil(time_limit)  # Xpress expects integer seconds
+
+        solver_dict = {
+            "solver_name": "xpress_direct",
+            "executable_path": None,
+            "options": xpress_options,
+            "solve_keywords": solve_keywords,
+        }
+
+    else:
+        # Generic fallback for other solvers
+        solver_dict = {
+            "solver_name": solver_name,
+            "executable_path": None,
+            "options": {},
+            "solve_keywords": solve_keywords,
+        }
 
     return solver_dict
 

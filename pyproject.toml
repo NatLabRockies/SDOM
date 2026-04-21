@@ -1,17 +1,17 @@
 [project]
 name = "sdom"
-version = "0.1.3"
+version = "0.1.4"
 readme = "README.md"
 authors = [
-    { name = "Omar Jose Guerra Fernandez", email = "OmarJose.GuerraFernandez@nrel.gov" },
-    { name = "Mariya Koleva", email = "Mariya.Koleva@nrel.gov" },
-    { name = "Sebastian de Jesus Manrique Machado", email = "SebastiandeJesus.Machado@nrel.gov" },
+    { name = "Omar Jose Guerra Fernandez", email = "OmarJose.GuerraFernandez@nlr.gov" },
+    { name = "Mariya Koleva", email = "Mariya.Koleva@nlr.gov" },
+    { name = "Sebastian de Jesus Manrique Machado", email = "SebastiandeJesus.Machado@nlr.gov" },
 ]
 maintainers = [
-    { name = "Omar Jose Guerra Fernandez", email = "OmarJose.GuerraFernandez@nrel.gov" },
-    { name = "Mariya Koleva", email = "Mariya.Koleva@nrel.gov" },
-    { name = "Sebastian de Jesus Manrique Machado", email = "SebastiandeJesus.Machado@nrel.gov" },
-    { name = "Pedro Andres Sanchez Perez", email = "pedroandres.sanchezperez@nrel.gov" },
+    { name = "Omar Jose Guerra Fernandez", email = "OmarJose.GuerraFernandez@nlr.gov" },
+    { name = "Mariya Koleva", email = "Mariya.Koleva@nlr.gov" },
+    { name = "Sebastian de Jesus Manrique Machado", email = "SebastiandeJesus.Machado@nlr.gov" },
+    { name = "Pedro Andres Sanchez Perez", email = "pedroandres.sanchezperez@nlr.gov" },
 ]
 description = "A Python package for NREL open-source SDOM (Storage Deployment Optimization Model)"
 license = {file = "LICENSE.txt"}
@@ -34,6 +34,9 @@ dependencies = [
 Homepage = "https://github.com/Omar0902/SDOM"
 Repository = "https://github.com/Omar0902/SDOM"
 Issues = "https://github.com/Omar0902/SDOM/issues"
+
+[project.optional-dependencies]
+xpress = ["xpress>=9.0.0,<9.8"]  # Upper bound depends on your license version
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.10.0"]

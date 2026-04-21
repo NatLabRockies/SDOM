@@ -84,7 +84,7 @@ Budget formulations (monthly/daily hydro) require specific hour multiples. SDOM 
 ```
 
 ## Solver Configuration
-Currently SDOM python package has been tested with the following open-source solvers:
+Currently SDOM python package has been tested with the following solvers:
 
 ### CBC Solver (Open-Source)
 This solver does not have a python package to make the interface, so you need to download the executable and indicate the path of such file:
@@ -97,7 +97,7 @@ solver_config = get_default_solver_config_dict(
 )
 
 # Customize solver options
-solver_config["options"]["mip_rel_gap"] = 0.01  # 1% MIP gap
+solver_config["options"]["ratioGap"] = 0.01  # 1% MIP gap
 solver_config["solve_keywords"]["timelimit"] = 3600  # 1 hour limit
 ```
 
@@ -109,6 +109,50 @@ solver_config = get_default_solver_config_dict(
     executable_path=""  # Does not require the path if you import the python package highspy
 )
 ```
+
+### Xpress Solver (Commercial)
+
+FICO Xpress is a high-performance commercial solver. Requires a valid license.
+
+**Installation:**
+```bash
+# Install xpress package (license required)
+pip install xpress
+```
+
+**Configuration:**
+```python
+solver_config = get_default_solver_config_dict(
+    solver_name="xpress",
+    mip_gap=0.002,      # MIP relative gap (0.2%)
+    time_limit=3600,    # Time limit in seconds
+)
+```
+
+**Xpress-specific options:**
+```python
+# The configuration automatically uses Xpress control names:
+# - miprelstop: MIP relative gap tolerance
+# - maxtime: Maximum solve time (seconds)
+# - outputlog: Solver output (0=off, 1=on)
+
+# Additional Xpress controls can be added:
+solver_config["options"]["threads"] = 4  # Number of threads
+solver_config["options"]["presolve"] = 1  # Enable presolve
+```
+
+```{note}
+Xpress requires a valid license. The license file (xpauth.xpr) should be in your 
+Xpress installation directory or specified via environment variables.
+```
+
+### Solver Option Reference
+
+| Solver | MIP Gap Option | Time Limit | Notes |
+|--------|---------------|------------|-------|
+| CBC | `ratioGap` | via `solve_keywords["timelimit"]` | Requires executable path |
+| HiGHS | `mip_rel_gap` | via `solve_keywords["timelimit"]` | Uses `appsi_highs` interface |
+| Xpress | `miprelstop` | `maxtime` | Uses `xpress_direct` interface |
 
 
 ## Outputs/Results
