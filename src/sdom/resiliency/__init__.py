@@ -14,6 +14,12 @@ from sdom.resiliency.dispatch_model import (
 from sdom.resiliency.formulations_imports_demand_charges import (
     add_imports_with_demand_charges,
 )
+from sdom.resiliency.outage_dispatch import build_outage_dispatch
+from sdom.resiliency.outage_scenarios import (
+    MUST_RUN_COMPONENTS,
+    OutageSpec,
+    VALID_COMPONENTS,
+)
 from sdom.resiliency.system_state import (
     BaselineDispatchResults,
     BaselineState,
@@ -24,8 +30,12 @@ __all__ = [
     "BaselineDispatchResults",
     "BaselineState",
     "DesignedSystem",
+    "MUST_RUN_COMPONENTS",
+    "OutageSpec",
+    "VALID_COMPONENTS",
     "add_imports_with_demand_charges",
     "build_baseline_dispatch",
+    "build_outage_dispatch",
     "load_designed_system",
     "run_baseline_dispatch",
 ]

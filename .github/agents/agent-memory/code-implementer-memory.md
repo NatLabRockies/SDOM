@@ -164,3 +164,35 @@ Use `pyo.SolverFactory("appsi_highs")` first, fallback `"highs"`. Wrap availabil
 ## 📝 Notes
 
 *General learnings and observations*
+
+---
+
+## Resiliency Module — Phase 4 (2026-05-05)
+
+### Scope
+Deliverable A (`OutageSpec` dataclass) + Deliverable B (`build_outage_dispatch` LP builder). Pure additive; no Phase-3 refactor needed.
+
+### Files created
+- `src/sdom/resiliency/outage_scenarios.py` — `OutageSpec` + `VALID_COMPONENTS` + `MUST_RUN_COMPONENTS`.
+- `src/sdom/resiliency/outage_dispatch.py` — `build_outage_dispatch(baseline_results, *, start_hour, outage_spec, ...)`.
+- `tests/test_resiliency_outage_spec.py` (15 cases), `tests/test_resiliency_outage_dispatch.py` (10 cases).
+- `__init__.py` re-exports updated.
+
+### Patterns established
+- TDD: write failing tests, then a stub returning `NotImplementedError` so Phase A tests can import the module before Phase B implementation lands.
+- `OutageSpec.__post_init__` does *cheap* validation (component names, derating ranges, string selectors, positive durations). `validate(designed_system)` does the *heavy* per-asset universe check + dict-completeness check.
+- Outage dispatch builder duplicates baseline sub-block logic with two changes: bound rules accept a `delta_map` capturing time-varying derating; storage block omits the `soc_initial` constraint and uses `Var.fix()` to seed initial SOC (single-row tighter LP).
+- Must-run derating implemented as effective parameters (`hydro_eff_param[t] = hydro[t] * delta_hydro[t]`), exposed for tests to read directly via `pyo.value(model.hydro_eff_param[t])`.
+- Imports asset_id is the canonical literal `"grid"`; tests rely on it.
+- All metadata stashed under `model._sdom_outage_meta` for downstream consumers (Phase 5 runner) — includes recovery_target_MWh, deltas, designed_system handle.
+
+### Gotchas
+- `Var.fix(value)` requires `value` to lie within the variable bounds; the builder clips `init_value` to `[soc_min, cap_e]` before fixing to avoid infeasibility from numerical noise in the baseline trajectory.
+- Empty `outaged_assets={}` is valid (no outage). Tests cover this for slack=0 sanity.
+- `recovery_end_hour` is per-tech (the OutageSpec supports per-tech `recovery_hours`). Use `min(...recovery_per_tech.values())` for the model horizon endpoint.
+
+### Open issues for Phase 5
+- `DesignedSystem` and `BaselineDispatchResults` are picklable (plain pandas + nested dicts) but `OutageSpec` only contains scalars/dicts — verify pickle round-trip in the runner test.
+- Per-worker initialisation: the runner should pickle `baseline_results` (with `metadata['designed_system']`) once and broadcast.
+- Deterministic ordering: results indexed by `start_hour`, regardless of completion order.
+- Reuse: consider extracting a `_resolve_dispatch_horizon(outage_spec, start_hour, n_hours)` helper if Phase 5 needs to compute clipped horizons without building the model.
