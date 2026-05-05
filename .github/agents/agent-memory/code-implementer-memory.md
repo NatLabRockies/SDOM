@@ -4,6 +4,78 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Resiliency Module — Phase 1 (2026-05-05)
+
+### Scope
+Additive-only data loader + system-state dataclasses under `src/sdom/resiliency/`. No edits to `src/sdom/models/`.
+
+### Files created
+- `src/sdom/resiliency/__init__.py` — re-exports `DesignedSystem`, `BaselineState`, `load_designed_system`.
+- `src/sdom/resiliency/system_state.py` — frozen=False dataclasses with `pd.Series`/`pd.DataFrame` fields defaulting to `None`.
+- `src/sdom/resiliency/data_loader.py` — `load_designed_system(snapshot_dir, *, inputs_dir, year=2030, scenario_id=1, formulation_overrides=None)` plus private helpers.
+- `tests/test_resiliency_data_loader.py` — 27 cases (TDD).
+
+### Data-format gotchas
+- Snapshot CSVs use column `Scenario` (NOT `Run`) for the 3MW_PGnE dataset; loader sniffs both.
+- Snapshot files containing `Phase1` in the name must be excluded from glob discovery.
+- `OutputSelectedVRE_*.csv` ships with header `"Selection "` (trailing space) — strip column whitespace.
+- Hourly input CSVs use `*Hour` as the index column — strip the leading `*`.
+- `fixed_dem_charges.csv` / `var_dem_charges.csv` have NO year suffix.
+- `Data_Balancing_units_{year}.csv` lacks a Technology column → aggregate via `mean()` (HeatRate/FuelCost/VOM); documented in docstring.
+- `StorageData_{year}.csv` is parameter-indexed (rows = P_Capex/Eff/FOM/VOM/...); read with `index_col=0`.
+
+### Patterns established
+- Hybrid scenario resolution helper `_filter_scenario(df, scenario_id, file_label) -> (filtered_df, resolved_id)`: warns on single-scenario mismatch, raises `ValueError` listing IDs on multi-scenario mismatch.
+- Zero-capacity techs emit `warnings.warn("Technology '{tech}' has capacity={value}; excluding from designed system.")` and are dropped.
+- `_compute_month_of_hour(year)` uses `pd.date_range(start=f"{year}-01-01", periods=8760, freq="h").month` indexed 1..8760.
+
+### Test/CI gotchas
+- `pyproject.toml` adds `--cov=sdom` by default → use `--no-cov` for fast iteration in TDD loops.
+- `tests/test_no_resiliency_optimization_cases_xpress_local.py` requires Xpress; deselect for CI/local-without-xpress runs.
+
+### Open issues to address before Phase 2
+- `DesignedSystem` only stores a single `Eff` per storage tech (used for both `eta_ch` and `eta_dis`).
+- `soc_min_frac` defaults to 0.0 — `StorageData_2030.csv` has no Min_SOC row; need design decision.
+- Thermal params are aggregate, not per-tech (no Technology column in balancing-units file).
+- `Scalars.csv`, `Set_b(j)_CoupledStorageTech.csv`, `Set_sp_StorTechProperties.csv` are not yet ingested.
+
+---
+
+## Resiliency Module — Phase 2 (2026-05-05)
+
+### Scope
+New `ImportsWithDemandChargesFormulation` Pyomo block builder. Pure LP, opt-in only, NO modifications to `src/sdom/models/`.
+
+### Files created
+- `src/sdom/resiliency/formulations_imports_demand_charges.py` — public `add_imports_with_demand_charges(model, *, ...)` + private `_validate_phi_fix_monthly_constancy`.
+- `tests/test_resiliency_imports_demand_charges_formulation.py` — 4 TDD cases (structure, zero-imports solve, monthly-peak solve, phi_fix warning).
+
+### Files updated
+- `src/sdom/resiliency/__init__.py` — re-exports `add_imports_with_demand_charges`.
+
+### Patterns established
+- **Standalone block builder** under resiliency/: do NOT inherit from `models/formulations_imports_exports.py`. Mirror its layered shape (params → vars → expressions → constraints) but keep self-contained.
+- Attach a child `pyo.Block()` via `model.add_component(block_name, block)` rather than mutating the parent model directly. Allows multiple instances and clean namespacing.
+- Capture hour→month as a plain Python `dict` for closure in `Constraint` rules — Pyomo Param indexing inside rules works but a `dict` lookup is simpler and avoids type-coercion gotchas (`int(month_of_hour[t])`).
+- Validation that should NOT block model construction → use `warnings.warn(..., UserWarning, stacklevel=3)` so the warning points at the caller of the public builder, not the helper.
+- `pd.Series.to_dict()` is the cleanest way to feed `Param(set, initialize=...)` when index already matches the Pyomo set.
+
+### LP correctness check
+Demand-charge linking is `D^k_m >= phi^k_t * Pimp[t]` with `D^k_m >= 0` (NonNegativeReals var). At optimum each `D^k_m == max_t(phi^k_t * Pimp[t])` since the objective minimizes `sum(D)`. Verified analytically by `test_solve_forces_monthly_peak` (8660 USD).
+
+### HiGHS in tests
+Use `pyo.SolverFactory("appsi_highs")` first, fallback `"highs"`. Wrap availability check with `solver.available(exception_flag=False)` and `pytest.skip` if absent — avoid hard CI failures on machines without HiGHS.
+
+### Open issues for Phase 3 (baseline_dispatch composition)
+- The new block currently lives only as a builder; baseline_dispatch must (a) optionally call this builder when `formulation_overrides["Imports"] == "ImportsWithDemandChargesFormulation"`, else fall back to the legacy imports formulation (which uses big-M binaries — incompatible with pure-LP resiliency objective).
+- Power balance integration: baseline must reference `model.imports.Pimp[t]` (not `model.imports.variable[t]` as in legacy). Need an adapter or convention.
+- Exports counterpart NOT built in Phase 2 by design — Phase 3 will reuse `formulations_imports_exports.py` exports OR add a parallel resiliency exports helper without demand charges.
+- `month_of_hour` is currently an input arg; `DesignedSystem` already exposes one — wire it through in `dispatch_model.py`.
+- `phi_fix_t` / `phi_var_t` series come from `fixed_dem_charges.csv` / `var_dem_charges.csv` already loaded in `DesignedSystem` (Phase 1).
+- `BaselineState` is a placeholder; full schema needed in Phase 2 (SOC trajectory, dispatch, peak imports, etc.).
+
+---
+
 ## 💻 Code Patterns
 
 ### Established Patterns
