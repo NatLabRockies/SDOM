@@ -92,6 +92,10 @@ def add_import_export_binary_variable(model, big_m_constant):
 
  
 def add_imports_constraints( model, data: dict ):
+    formulation = get_formulation(data, component='Imports')
+    if formulation == "WithoutNetLoadConstraints":
+        add_imports_constraints_without_net_load(model, data)
+        return
     big_m_constant = 1e6 #TODO make a logic to get Big M constant from input data/parameters
     _add_imports_exports_capacity_constraint(model.imports, model.h)
     add_import_export_binary_variable(model, big_m_constant)
@@ -105,6 +109,10 @@ def add_imports_constraints( model, data: dict ):
 
 
 def add_exports_constraints( model, data: dict ):
+    formulation = get_formulation(data, component='Exports')
+    if formulation == "WithoutNetLoadConstraints":
+        add_exports_constraints_without_net_load(model, data)
+        return
     big_m_constant = 1e6 #TODO make a logic to get Big M constant from input data/parameters
     _add_imports_exports_capacity_constraint(model.exports, model.h)
 
@@ -114,6 +122,41 @@ def add_exports_constraints( model, data: dict ):
         model.h,
         rule=lambda m, h: m.exports.variable[h] <= ( 1 - m.aux_imp_exp_binary_variable[h] ) * max_capacity_exports
     )
+    return
+
+
+def add_imports_constraints_without_net_load(model, data: dict):
+    """Pure-LP imports formulation: capacity bound only, no net-load coupling.
+
+    Adds the hourly capacity inequality ``Pimp[t] <= cap[t]`` to
+    ``model.imports`` and skips the big-M / binary auxiliary coupling used
+    by ``CapacityPriceNetLoadFormulation``. The hourly cost contribution
+    is provided by :func:`add_imports_exports_cost_expressions`.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Host model with ``model.h`` and ``model.imports`` already created.
+    data : dict
+        Loaded SDOM data dict (unused here, kept for dispatcher symmetry).
+    """
+    _add_imports_exports_capacity_constraint(model.imports, model.h)
+    return
+
+
+def add_exports_constraints_without_net_load(model, data: dict):
+    """Pure-LP exports formulation: capacity bound only, no net-load coupling.
+
+    Mirrors :func:`add_imports_constraints_without_net_load` for exports.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Host model with ``model.h`` and ``model.exports`` already created.
+    data : dict
+        Loaded SDOM data dict (unused here, kept for dispatcher symmetry).
+    """
+    _add_imports_exports_capacity_constraint(model.exports, model.h)
     return
 
 

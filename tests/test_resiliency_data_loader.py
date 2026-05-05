@@ -81,13 +81,22 @@ class TestLoadDesignedSystem3MWPGnE:
         assert "Diesel" not in designed_system_3mw_pgne.thermal_caps
 
     def test_vre_per_plant_capacities(self, designed_system_3mw_pgne):
+        # Effective installed MW = Capacity (MW) * Selection.
         assert designed_system_3mw_pgne.solar_caps == pytest.approx(
-            {"3621133": 10000.0}, rel=1e-6
+            {"3621133": 10000.0 * 0.0016}, rel=1e-6
         )
         assert "994997" in designed_system_3mw_pgne.wind_caps
         assert designed_system_3mw_pgne.wind_caps["994997"] == pytest.approx(
-            1300.2996, rel=1e-4
+            1300.2996 * 0.01227, rel=1e-4
         )
+
+    def test_vre_capacity_matches_summary_aggregate(self, designed_system_3mw_pgne):
+        # Sum of per-plant effective MW must match OutputSummary "Capacity"
+        # rows for Solar PV / Wind within 0.1 MW tolerance.
+        solar_total = sum(designed_system_3mw_pgne.solar_caps.values())
+        wind_total = sum(designed_system_3mw_pgne.wind_caps.values())
+        assert solar_total == pytest.approx(15.9526, abs=0.1)
+        assert wind_total == pytest.approx(15.95581, abs=0.1)
 
     @pytest.mark.parametrize(
         "attr",

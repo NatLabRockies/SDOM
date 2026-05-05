@@ -96,3 +96,51 @@ class BaselineState:
     solver_status: str | None = None
     objective_value: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class BaselineDispatchResults:
+    """Trajectories and metadata produced by :func:`run_baseline_dispatch`.
+
+    Parameters
+    ----------
+    soc_trajectory : pandas.DataFrame
+        Hourly state-of-charge per storage technology, indexed by hour and
+        with one column per tech (MWh).
+    pcha_trajectory, pdis_trajectory : pandas.DataFrame
+        Hourly charge / discharge per storage tech (MW).
+    pthermal_trajectory : pandas.DataFrame
+        Hourly thermal dispatch per balancing-unit Plant_id (MW). Empty
+        ``DataFrame`` when no thermal units survive the snapshot filter.
+    psolar_trajectory, pwind_trajectory : pandas.DataFrame
+        Hourly dispatched solar / wind power per plant id (MW).
+    pimp, pexp : pandas.Series
+        Hourly imports / exports (MW).
+    nuclear, hydro, other_renewables, load : pandas.Series
+        Hourly time-series parameters echoed from the input system (MW).
+    month_of_hour : pandas.Series
+        Hour -> month mapping used by the demand-charge billing.
+    objective_value : float
+        Operational objective value (USD).
+    solver_status : str
+        Solver termination condition (e.g. ``"optimal"``).
+    metadata : dict, optional
+        Free-form solver / run metadata.
+    """
+
+    soc_trajectory: pd.DataFrame | None = None
+    pcha_trajectory: pd.DataFrame | None = None
+    pdis_trajectory: pd.DataFrame | None = None
+    pthermal_trajectory: pd.DataFrame | None = None
+    psolar_trajectory: pd.DataFrame | None = None
+    pwind_trajectory: pd.DataFrame | None = None
+    pimp: pd.Series | None = None
+    pexp: pd.Series | None = None
+    nuclear: pd.Series | None = None
+    hydro: pd.Series | None = None
+    other_renewables: pd.Series | None = None
+    load: pd.Series | None = None
+    month_of_hour: pd.Series | None = None
+    objective_value: float | None = None
+    solver_status: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)

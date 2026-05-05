@@ -219,12 +219,16 @@ def _load_vre_per_plant(snapshot_dir: Path, scenario_id: int, year: int):
     cap_col = "Capacity (MW)"
     id_col = "VRE unit ID"
     tech_col = "Technology"
+    sel_col = "Selection"
 
     solar_caps: dict[str, float] = {}
     wind_caps: dict[str, float] = {}
     for _, row in df.iterrows():
         plant_id = str(row[id_col]).strip()
-        capacity = float(row[cap_col])
+        selection = float(row[sel_col]) if sel_col in df.columns else 1.0
+        if selection <= 0.0:
+            continue
+        capacity = float(row[cap_col]) * selection
         tech = str(row[tech_col]).strip()
         if tech == "Solar PV":
             solar_caps[plant_id] = capacity

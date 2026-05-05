@@ -59,6 +59,7 @@ VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP = {
     "NotModel": "No imports/exports considered in the model.",
     #"FixedTimeSeriesFormulation": "Formulation to load a time series of import data and fixed it according to that.",
     "CapacityPriceNetLoadFormulation": "Formulation to load a time series parameter with the import/export maximum capacity and import/export prices and dispatch it. Imports only allowed when net load is positive/negative",
+    "WithoutNetLoadConstraints": "Linear formulation: imports/exports bounded by hourly capacity and priced by hourly price; no net-load binary coupling. Used by the resiliency module.",
     #"CapacityPriceBudgetFormulation": "Formulation to load a time series parameter with the maximum capacity and import prices and dispatch it. Imports allowed always, but limited by a budget.",
 }
 
