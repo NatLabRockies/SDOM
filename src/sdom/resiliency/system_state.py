@@ -144,3 +144,50 @@ class BaselineDispatchResults:
     objective_value: float | None = None
     solver_status: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ResiliencyResults:
+    """Per-hour outage outcomes (lightweight, Phase 5).
+
+    Aggregate metrics (LOLP, LOLE, percentiles) and plotting are added in
+    Phase 6.
+
+    Parameters
+    ----------
+    per_hour : pandas.DataFrame
+        Indexed by ``hour`` (anchor ``start_hour``). Columns include
+        ``["EUE", "USE_hours", "max_unserved_MW", "objective_value",
+        "solver_status", "solve_time_s", "truncated", "error_message"]``.
+    metadata : dict
+        Free-form run metadata. Conventionally includes
+        ``{"n_workers_used", "outage_spec", "n_hours", "solver"}``.
+    """
+
+    per_hour: pd.DataFrame
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Return ``per_hour`` with the index promoted to a ``hour`` column.
+
+        Returns
+        -------
+        pandas.DataFrame
+            A copy of :attr:`per_hour` with ``hour`` as a regular column,
+            sorted by ``hour``.
+        """
+        df = self.per_hour.reset_index()
+        if df.columns[0] != "hour":
+            df = df.rename(columns={df.columns[0]: "hour"})
+        return df.sort_values("hour").reset_index(drop=True)
+
+    def eue_total(self) -> float:
+        """Return the sum of per-hour expected unserved energy (MWh).
+
+        Returns
+        -------
+        float
+        """
+        if "EUE" not in self.per_hour.columns:
+            return 0.0
+        return float(self.per_hour["EUE"].fillna(0.0).sum())

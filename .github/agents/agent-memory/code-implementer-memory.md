@@ -196,3 +196,41 @@ Deliverable A (`OutageSpec` dataclass) + Deliverable B (`build_outage_dispatch` 
 - Per-worker initialisation: the runner should pickle `baseline_results` (with `metadata['designed_system']`) once and broadcast.
 - Deterministic ordering: results indexed by `start_hour`, regardless of completion order.
 - Reuse: consider extracting a `_resolve_dispatch_horizon(outage_spec, start_hour, n_hours)` helper if Phase 5 needs to compute clipped horizons without building the model.
+
+---
+
+## Resiliency Module - Phase 5 (2026-05-05)
+
+### Scope
+Deliverable: `run_resiliency_evaluation` orchestrator with serial + ProcessPoolExecutor parallel paths. `ResiliencyResults` lightweight container.
+
+### Files created/modified
+- `src/sdom/resiliency/runner.py` (new) - module-level `_solve_one_hour` worker for spawn-safe pickling.
+- `src/sdom/resiliency/system_state.py` - added `ResiliencyResults` dataclass with `to_dataframe` + `eue_total`.
+- `src/sdom/resiliency/dispatch_model.py` - stash `model._sdom_designed_system` in build, copy into `results.metadata['designed_system']` in run_baseline_dispatch.
+- `src/sdom/resiliency/__init__.py` - re-export `run_resiliency_evaluation` + `ResiliencyResults`.
+- `tests/test_resiliency_runner.py` (9 tests, serial path).
+- `tests/test_resiliency_runner_parallel.py` (3 tests, ProcessPoolExecutor).
+
+### Patterns established
+- **Monkeypatching multiprocess code**: keep a module-level handle `_build_outage_dispatch = build_outage_dispatch` so `test_worker_failure_isolated` can substitute it for the SERIAL path. Subprocess workers re-import the module so the monkeypatch does NOT propagate to subprocesses (intentional: only serial path is monkeypatch-friendly).
+- **Worker payload is a flat dict** of picklable items only (DesignedSystem, BaselineDispatchResults, OutageSpec, scalars, dict of options). Never pass Pyomo ConcreteModel through the pool - rebuild it inside the worker.
+- **Order preservation**: `executor.map` preserves input order. Sort payloads by `start_hour` BEFORE submission, then sort records again post-hoc as defence in depth.
+- **n_workers resolution**: `None -> max(1, os.cpu_count() - 1)`; clamp to `min(n, len(payloads))`. Use `os.cpu_count()` (with parentheses) so monkeypatch.setattr(os, 'cpu_count', lambda: N) works.
+- **Failure isolation**: try/except inside the worker captures `traceback.format_exc()` into `error_message`, sets `solver_status='error'`. Numeric metrics zeroed except objective_value=NaN.
+- **Truncation flag**: `truncated = (start_hour + duration + max_recovery - 1) > n_hours`. Computed in the worker (cheap) so it's on the per-hour record even if the solve fails.
+- **Solver discovery**: `_resolve_solver` first tries `appsi_highs` then `highs`; reused per worker (each worker creates its own SolverFactory instance).
+
+### Gotchas
+- Storage with eta=1 will arbitrage SOC even in 'no-outage' tests; my first `test_run_with_explicit_designed_system_kwarg` predicted obj=3000 but optimum was 2700 (storage discharged 10MWh at hour 1 since recovery target only constrained final SOC). Fix: assert qualitative properties (EUE==0, status=='optimal') instead of pinning the objective.
+- `ResiliencyResults.per_hour` index is named `hour` (not `start_hour`) but the underlying record dict uses `start_hour`; `set_index('start_hour')` then `index.name = 'hour'`. `to_dataframe` resets that to a column named `hour`.
+- Windows `spawn` works fine for the runner because all worker code lives in the runner module (importable) and payloads only contain dataclasses/dicts/Series/DataFrames.
+
+### Open issues for Phase 6
+- Aggregate metrics: LOLP, LOLE, p50/p95/p99 of EUE - add `ResiliencyResults.metrics(level='aggregate')` plus convenience scalars (`lole()`, `lolp()`, `eue()`).
+- Persistence: `save(path)` -> Parquet + JSON sidecar; `classmethod load(path)`.
+- Optional full dispatch traces (`keep_full_traces=True`).
+- Plotting (`plot_metric_distribution`, hist/ecdf/exceedance).
+- Top-level `evaluate_resiliency` convenience that chains load -> baseline -> evaluation.
+- Consider exposing `solve_time_s` aggregates to surface slow-hour outliers.
+- The `_USE_EPS = 1e-6` slack tolerance may need to be solver-aware; HiGHS default tolerances are ~1e-7 so 1e-6 is conservative. Document or make configurable in Phase 6.

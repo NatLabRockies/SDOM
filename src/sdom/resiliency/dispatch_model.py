@@ -382,6 +382,10 @@ def build_baseline_dispatch(
         "wind_plants": wind_plants,
         "designed_system": designed_system,
     }
+    # Phase 5: also stash the designed system as a private attribute so that
+    # ``run_baseline_dispatch`` can copy it into ``results.metadata`` for use
+    # by downstream consumers (e.g. the parallel resiliency runner).
+    model._sdom_designed_system = designed_system  # noqa: SLF001
     return model
 
 
@@ -483,5 +487,8 @@ def run_baseline_dispatch(
         month_of_hour=_slice(designed_system.month_of_hour, "month"),
         objective_value=float(pyo.value(model.objective)),
         solver_status=status,
-        metadata={"solver": solver},
+        metadata={
+            "solver": solver,
+            "designed_system": getattr(model, "_sdom_designed_system", None),
+        },
     )
