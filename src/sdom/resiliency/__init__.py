@@ -13,6 +13,7 @@ from sdom.resiliency.dispatch_model import (
     build_baseline_dispatch,
     run_baseline_dispatch,
 )
+from sdom.resiliency.evaluate import evaluate_resiliency
 from sdom.resiliency.formulations_imports_demand_charges import (
     add_imports_with_demand_charges,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "add_imports_with_demand_charges",
     "build_baseline_dispatch",
     "build_outage_dispatch",
+    "evaluate_resiliency",
     "load_designed_system",
     "plot_metric_distribution",
     "run_baseline_dispatch",

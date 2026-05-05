@@ -4,6 +4,48 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Resiliency Module - Phase 7 (2026-05-05)
+
+### Scope
+Top-level convenience `evaluate_resiliency` (Deliverable A) + end-to-end PGnE integration test (Deliverable B). Final implementation phase; only documentation remains.
+
+### Files created/modified
+- `src/sdom/resiliency/evaluate.py` (new) — `evaluate_resiliency(snapshot_dir, *, inputs_dir, outage_spec, ...)` chains `load_designed_system → build_baseline_dispatch → run_baseline_dispatch → run_resiliency_evaluation`. Pure pass-through; no defaults overridden beyond mirroring downstream APIs.
+- `src/sdom/resiliency/__init__.py` — re-export `evaluate_resiliency`.
+- `src/sdom/__init__.py` — top-level re-export of `evaluate_resiliency` (per plan §2: explicit re-exports only, no side effects).
+- `tests/test_resiliency_evaluate.py` (4 tests) — synthetic + kwargs pass-through + default/explicit hours subset.
+- `tests/test_resiliency_integration.py` (1 slow test) — real PGnE 24h chain end-to-end (load → dispatch → eval → metrics → save/load → plot).
+
+### Patterns established
+- **Top-level convenience helpers stay thin**: `evaluate_resiliency` is a 4-call pass-through. No new defaults, no parameter renames; mirrors downstream signatures so behaviour is identical to the manual chain.
+- **Monkeypatch downstream calls in evaluate-module namespace**: tests substitute `evaluate_module.load_designed_system` / `build_baseline_dispatch` / `run_baseline_dispatch` / `run_resiliency_evaluation` (via `monkeypatch.setattr(evaluate_module, ...)`). The `evaluate.py` module imports these by name at module top so monkeypatching that name redirects all subsequent calls — same pattern Phase 5 used for `runner._build_outage_dispatch`.
+- **Synthetic tests skip CSV materialization**: writing the ~15 CSVs that `load_designed_system` requires would dominate the test. Patching the loader to return a synthetic `DesignedSystem` is a pragmatic deviation; the real CSV path is exercised exactly once in the integration test (which is the more meaningful assertion).
+- **Integration test guards**: triple skipif (HiGHS missing / data dir missing / pyarrow missing via `importorskip` for the persistence step only). Test still runs in default `pytest` invocation despite `@pytest.mark.slow` (no `--strict-markers`; warning is benign).
+- **Restore round-trip equality**: compare metric scalars individually with `pytest.approx(..., nan_ok=True)`; `n_hours_evaluated`/`n_errors` are ints so compared exactly. Saved JSON only carries aggregate metrics + a few metadata keys; the OutageSpec object itself is dropped on load (Phase 6 design).
+
+### Gotchas
+- `Axes` import path: `matplotlib.axes.Axes` (not `matplotlib.pyplot.Axes`).
+- Force `matplotlib.use("Agg")` BEFORE `import pyplot` to keep CI headless.
+- `OutageSpec(outaged_assets={"balancing_units": "all"})` is valid even when `thermal_caps == {}` — string "all" passes both `__post_init__` and `validate()`.
+- `pytest.mark.slow` is unregistered → emits `PytestUnknownMarkWarning`. Acceptable; matches the rest of the suite.
+- The synthetic test runs 24 anchor hours in serial (n_workers=1); each is a tiny LP so the whole file completes in ~2s.
+
+### Final public-API surface (`src/sdom/resiliency/__init__.py` `__all__`)
+`BaselineDispatchResults, BaselineState, DesignedSystem, MUST_RUN_COMPONENTS, OutageSpec, ResiliencyResults, VALID_COMPONENTS, add_imports_with_demand_charges, build_baseline_dispatch, build_outage_dispatch, evaluate_resiliency, load_designed_system, plot_metric_distribution, run_baseline_dispatch, run_resiliency_evaluation`.
+
+### Test counts
+- New file `tests/test_resiliency_evaluate.py`: **4 passed**.
+- New file `tests/test_resiliency_integration.py`: **1 passed**.
+- Full suite (deselecting xpress-only file): **260 passed, 9 deselected** in 242s. Zero regressions.
+
+### Open issues for documentation phase
+- `docs/user-guide/resiliency.md`: add quickstart that uses `evaluate_resiliency` (single call) instead of the four-step manual chain.
+- API reference autodoc must include the new `evaluate.py` module.
+- Plan §11 (examples) — wire a notebook or `examples/` snippet showing `evaluate_resiliency` + `plot_metric_distribution`.
+- `pytest.mark.slow` could be registered in `pyproject.toml` `[tool.pytest.ini_options].markers` to silence the warning; not done here to keep this phase additive.
+
+---
+
 ## Resiliency Module — Phase 1 (2026-05-05)
 
 ### Scope
