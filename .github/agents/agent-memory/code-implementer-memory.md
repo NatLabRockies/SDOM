@@ -234,3 +234,38 @@ Deliverable: `run_resiliency_evaluation` orchestrator with serial + ProcessPoolE
 - Top-level `evaluate_resiliency` convenience that chains load -> baseline -> evaluation.
 - Consider exposing `solve_time_s` aggregates to surface slow-hour outliers.
 - The `_USE_EPS = 1e-6` slack tolerance may need to be solver-aware; HiGHS default tolerances are ~1e-7 so 1e-6 is conservative. Document or make configurable in Phase 6.
+
+---
+
+## Resiliency Module - Phase 6 (2026-05-05)
+
+### Scope
+Deliverables: (A) aggregate metrics on ResiliencyResults, (B) save/load Parquet+JSON sidecar, (C) plot_metric_distribution.
+
+### Files modified/created
+- `src/sdom/resiliency/system_state.py` - added `_summarize_outage_spec`, `metrics(level=...)`, `lolp/lole/eue`, `save/load`, `_build_summary_payload`, `_is_json_safe` helper. Added `json`, `Path`, `numpy` imports.
+- `src/sdom/resiliency/plotting.py` (new) - lazy matplotlib import; supports kind in {hist, ecdf, exceedance}; rejects errored rows; validates metric name.
+- `src/sdom/resiliency/__init__.py` - re-export `plot_metric_distribution`.
+- `tests/test_resiliency_metrics.py` (5 tests).
+- `tests/test_resiliency_results_persistence.py` (5 tests, `importorskip('pyarrow')`).
+- `tests/test_resiliency_plotting.py` (6 tests, Agg backend).
+
+### Patterns established
+- **Default metric formulas** (math_model.md sec 7): LOLP = mean(EUE>0), LOLE = mean(USE_hours), mean_EUE = mean(EUE), p50/95/99 via `np.percentile(..., method='linear')`. Errored rows excluded from numerator and denominator; `n_errors` reported separately.
+- **Persistence**: `./results_resiliency/` default path. `per_hour.parquet` + `summary.json`. JSON sidecar shape: `{version: '1', aggregate_metrics: {...}, metadata: {n_workers_used, n_hours, solver, outage_spec_summary}}`. Full `OutageSpec` is NOT pickled - only a summary dict (duration_hours, recovery_hours, outaged_assets_components). `load` does NOT reconstruct OutageSpec; metadata is JSON-only.
+- **Optional pyarrow**: not added to `pyproject.toml`. `to_parquet/read_parquet(engine='auto')` raises a wrapped `ImportError` with hint. Tests gate on `pytest.importorskip('pyarrow')`. I installed pyarrow into `.venv` only via `uv pip install pyarrow` to exercise tests locally - do NOT propagate to pyproject.
+- **Plotting**: lazy `import matplotlib.pyplot` inside the function so the module imports head-less. Filter `solver_status != 'error'` then drop NaNs. Exceedance: `y = 1 - arange(n)/n` so y[0]=1, y[-1]=1/n (matches 'monotonically decreasing from 1 to 0' spec). Only sets xlabel/ylabel when not already set, so external-ax callers can pre-style.
+- **API discipline**: all new public methods are keyword-only beyond the primary object (`metrics(*, level=...)`, `eue(*, p=None)`, `save(path=None)`, `plot_metric_distribution(results, *, metric, kind, ax, **kwargs)`).
+
+### Gotchas
+- `np.percentile` keyword changed from `interpolation` to `method` in numpy 1.22; pin to `method='linear'` (numpy>=2.2 in this repo so safe).
+- `json.dumps` with `default=str` rescues numpy scalars in aggregate_metrics, but I cast everything to plain `float`/`int` first to keep the JSON tidy.
+- `ResiliencyResults.load` round-trip: pandas read_parquet preserves the `hour` index name correctly via pyarrow; no manual index restoration needed.
+- `ax.has_data()` is True only after plotting; check after the call, not before.
+
+### Open issues for Phase 7
+- Top-level `evaluate_resiliency` convenience: load_designed_system -> run_baseline_dispatch -> run_resiliency_evaluation chain, returning `ResiliencyResults` with full metadata (including `baseline_objective`, `designed_system_summary`).
+- Integration test on real PGnE 24h subset (mark slow) hitting metrics+save+load+plot end-to-end.
+- Doc updates: `docs/user-guide/resiliency.md` for metrics/persistence/plotting; API reference autodoc; quickstart snippet.
+- Consider adding `pyarrow` as an optional extra `[project.optional-dependencies] resiliency_io = ['pyarrow>=...']` once persistence is exercised by users.
+- Plotting extras: hour-of-year scatter; SOC trajectory plot when `keep_full_traces=True` lands.

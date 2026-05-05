@@ -22,6 +22,7 @@ from sdom.resiliency.outage_scenarios import (
     OutageSpec,
     VALID_COMPONENTS,
 )
+from sdom.resiliency.plotting import plot_metric_distribution
 from sdom.resiliency.runner import run_resiliency_evaluation
 from sdom.resiliency.system_state import (
     BaselineDispatchResults,
@@ -42,6 +43,7 @@ __all__ = [
     "build_baseline_dispatch",
     "build_outage_dispatch",
     "load_designed_system",
+    "plot_metric_distribution",
     "run_baseline_dispatch",
     "run_resiliency_evaluation",
 ]
