@@ -51,6 +51,8 @@ def evaluate_resiliency(
     n_workers=None,
     solver="highs",
     solver_options=None,
+    profile_baseline=True,
+    profile_outages=True,
 ):
     """End-to-end helper: load -> baseline dispatch -> outage evaluation.
 
@@ -93,6 +95,14 @@ def evaluate_resiliency(
     solver_options : dict, optional
         Solver options forwarded to both the baseline solve and every
         per-hour outage solve.
+    profile_baseline : bool, optional
+        When ``True``, attach a
+        :class:`~sdom.utils_performance_meassure.ModelInitProfiler` to the
+        baseline build/solve and print summary tables. Default ``False``.
+    profile_outages : bool, optional
+        When ``True`` and ``n_workers == 1``, profile every per-hour outage
+        build. Ignored when ``n_workers > 1`` (a per-worker summary is
+        rarely useful). Default ``False``.
 
     Returns
     -------

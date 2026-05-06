@@ -21,12 +21,20 @@ from sdom.resiliency.formulations_imports_demand_charges import (
     add_imports_with_demand_charges,
 )
 from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
+from sdom.utils_performance_meassure import ModelInitProfiler
 
 
 logger = logging.getLogger(__name__)
 
 
 __all__ = ["build_baseline_dispatch", "run_baseline_dispatch"]
+
+
+def _run_step(profiler, name, func, *args, **kwargs):
+    """Run ``func(*args, **kwargs)``, optionally measuring it via ``profiler``."""
+    if profiler is None:
+        return func(*args, **kwargs)
+    return profiler.measure_step(name, func, *args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +245,7 @@ def build_baseline_dispatch(
     curtailment_penalty=0.0,
     formulation_overrides=None,
     model_name="SDOM_BaselineDispatch",
+    profile=False,
 ):
     """Build the fixed-capacity annual economic-dispatch Pyomo LP.
 
@@ -263,6 +272,11 @@ def build_baseline_dispatch(
         already match ``DesignedSystem.formulation_map``).
     model_name : str, optional
         Pyomo model name. Default ``"SDOM_BaselineDispatch"``.
+    profile : bool, optional
+        When ``True``, instrument every block-construction step with a
+        :class:`~sdom.utils_performance_meassure.ModelInitProfiler`,
+        attach it as ``model.profiler`` and print a summary table at the
+        end. Default ``False``.
 
     Returns
     -------
@@ -284,6 +298,11 @@ def build_baseline_dispatch(
         "Building baseline dispatch LP: n_hours=%d, model_name=%r.", n_hours, model_name
     )
 
+    profiler = None
+    if profile:
+        profiler = ModelInitProfiler(track_memory=True, enabled=True)
+        profiler.start()
+
     # Resolve SOC floors
     soc_min_frac_map: dict[str, float] = {
         s: float(spec.get("soc_min_frac", 0.0))
@@ -294,19 +313,41 @@ def build_baseline_dispatch(
         for s, frac in min_soc_per_tech.items():
             soc_min_frac_map[s] = float(frac)
 
-    model = pyo.ConcreteModel(name=model_name)
-    model.h = pyo.RangeSet(1, n_hours)
+    def _create_model_and_index():
+        m = pyo.ConcreteModel(name=model_name)
+        m.h = pyo.RangeSet(1, n_hours)
+        return m
+
+    model = _run_step(profiler, "Create model & hour index", _create_model_and_index)
 
     # Storage / thermal / VRE blocks
     logger.debug("Adding storage block (%d techs).", len(designed_system.storage_caps))
-    storage = _add_storage_block(model, designed_system, n_hours, soc_min_frac_map)
+    storage = _run_step(
+        profiler,
+        "Add storage block",
+        _add_storage_block,
+        model,
+        designed_system,
+        n_hours,
+        soc_min_frac_map,
+    )
     logger.debug("Adding thermal block (%d plants).", len(designed_system.thermal_caps))
-    thermal = _add_thermal_block(model, designed_system, n_hours)
+    thermal = _run_step(
+        profiler,
+        "Add thermal block",
+        _add_thermal_block,
+        model,
+        designed_system,
+        n_hours,
+    )
 
     solar_plants = list(designed_system.solar_caps.keys())
     wind_plants = list(designed_system.wind_caps.keys())
     logger.debug("Adding solar VRE block (%d plants).", len(solar_plants))
-    solar_block = _add_vre_block(
+    solar_block = _run_step(
+        profiler,
+        "Add solar VRE block",
+        _add_vre_block,
         model,
         block_name="solar",
         var_name="Psolar",
@@ -315,7 +356,10 @@ def build_baseline_dispatch(
         cf=designed_system.cf_solar if designed_system.cf_solar is not None else pd.DataFrame(),
         n_hours=n_hours,
     )
-    wind_block = _add_vre_block(
+    wind_block = _run_step(
+        profiler,
+        "Add wind VRE block",
+        _add_vre_block,
         model,
         block_name="wind",
         var_name="Pwind",
@@ -327,7 +371,10 @@ def build_baseline_dispatch(
 
     # Imports (with demand charges) - Phase 2 builder
     logger.debug("Adding imports block with monthly demand charges.")
-    add_imports_with_demand_charges(
+    _run_step(
+        profiler,
+        "Add imports block (demand charges)",
+        add_imports_with_demand_charges,
         model,
         import_cap=designed_system.import_cap.iloc[:n_hours],
         import_price=designed_system.import_price.iloc[:n_hours],
@@ -339,18 +386,26 @@ def build_baseline_dispatch(
 
     # Exports (pure LP, no net-load coupling)
     logger.debug("Adding exports block (without net-load constraints).")
-    _add_exports_block(model, designed_system, n_hours)
+    _run_step(
+        profiler,
+        "Add exports block",
+        _add_exports_block,
+        model,
+        designed_system,
+        n_hours,
+    )
 
-    # Time-series (must-run) parameters that enter the power balance directly.
-    nuclear = _to_hour_dict(designed_system.nuclear, n_hours)
-    hydro = _to_hour_dict(designed_system.hydro, n_hours)
-    other_ren = _to_hour_dict(designed_system.other_renewables, n_hours)
-    load = _to_hour_dict(designed_system.load, n_hours)
+    def _add_must_run_params():
+        nuclear = _to_hour_dict(designed_system.nuclear, n_hours)
+        hydro = _to_hour_dict(designed_system.hydro, n_hours)
+        other_ren = _to_hour_dict(designed_system.other_renewables, n_hours)
+        load = _to_hour_dict(designed_system.load, n_hours)
+        model.nuclear_param = pyo.Param(model.h, initialize=nuclear, mutable=False)
+        model.hydro_param = pyo.Param(model.h, initialize=hydro, mutable=False)
+        model.other_ren_param = pyo.Param(model.h, initialize=other_ren, mutable=False)
+        model.load_param = pyo.Param(model.h, initialize=load, mutable=False)
 
-    model.nuclear_param = pyo.Param(model.h, initialize=nuclear, mutable=False)
-    model.hydro_param = pyo.Param(model.h, initialize=hydro, mutable=False)
-    model.other_ren_param = pyo.Param(model.h, initialize=other_ren, mutable=False)
-    model.load_param = pyo.Param(model.h, initialize=load, mutable=False)
+    _run_step(profiler, "Add must-run / load params", _add_must_run_params)
 
     # Power balance
     storage_techs = list(designed_system.storage_caps.keys())
@@ -374,18 +429,29 @@ def build_baseline_dispatch(
             == m.load_param[t] + cha + m.exports.Pexp[t]
         )
 
-    model.power_balance = pyo.Constraint(model.h, rule=_balance_rule)
+    def _add_power_balance():
+        model.power_balance = pyo.Constraint(model.h, rule=_balance_rule)
+
+    _run_step(profiler, "Add power balance constraint", _add_power_balance)
 
     # Objective
     curt_penalty = float(curtailment_penalty)
-    obj_expr = (
-        thermal.cost_expr
-        + storage.cost_expr
-        + model.imports.total_cost_expr
-        - model.exports.revenue_expr
-        + curt_penalty * (solar_block.potential_minus_dispatch + wind_block.potential_minus_dispatch)
-    )
-    model.objective = pyo.Objective(expr=obj_expr, sense=pyo.minimize)
+
+    def _add_objective():
+        obj_expr = (
+            thermal.cost_expr
+            + storage.cost_expr
+            + model.imports.total_cost_expr
+            - model.exports.revenue_expr
+            + curt_penalty
+            * (
+                solar_block.potential_minus_dispatch
+                + wind_block.potential_minus_dispatch
+            )
+        )
+        model.objective = pyo.Objective(expr=obj_expr, sense=pyo.minimize)
+
+    _run_step(profiler, "Add objective", _add_objective)
 
     # Annotate metadata used by run_baseline_dispatch.
     model._sdom_meta = {  # noqa: SLF001 (intentional internal stash)
@@ -396,10 +462,14 @@ def build_baseline_dispatch(
         "wind_plants": wind_plants,
         "designed_system": designed_system,
     }
-    # Phase 5: also stash the designed system as a private attribute so that
-    # ``run_baseline_dispatch`` can copy it into ``results.metadata`` for use
-    # by downstream consumers (e.g. the parallel resiliency runner).
     model._sdom_designed_system = designed_system  # noqa: SLF001
+    if profiler is not None:
+        profiler.stop()
+        profiler.print_summary_table(
+            logger,
+            title="BASELINE DISPATCH BUILD PROFILING SUMMARY",
+        )
+        model.profiler = profiler
     logger.info(
         "Baseline LP built: %d hours, %d storage techs, %d thermal plants, "
         "%d solar plants, %d wind plants.",
@@ -418,6 +488,7 @@ def run_baseline_dispatch(
     solver="highs",
     solver_options=None,
     tee=False,
+    profile=False,
 ):
     """Solve the baseline dispatch and collect per-hour trajectories.
 
@@ -432,6 +503,10 @@ def run_baseline_dispatch(
         Extra options passed to ``solver.solve(..., options=...)``.
     tee : bool, optional
         Stream solver output to the console. Default ``False``.
+    profile : bool, optional
+        When ``True``, instrument the solve / extraction stages with a
+        :class:`~sdom.utils_performance_meassure.ModelInitProfiler` and
+        print a summary table. Default ``False``.
 
     Returns
     -------
@@ -448,9 +523,21 @@ def run_baseline_dispatch(
             "model must be produced by build_baseline_dispatch (missing _sdom_meta)."
         )
 
-    s = _resolve_solver(solver)
+    profiler = None
+    if profile:
+        profiler = ModelInitProfiler(track_memory=True, enabled=True)
+        profiler.start()
+
+    s = _run_step(profiler, "Resolve solver", _resolve_solver, solver)
     logger.info("Solving baseline dispatch with solver=%r (tee=%s).", solver, tee)
-    res = s.solve(model, tee=tee, options=solver_options or {})
+    res = _run_step(
+        profiler,
+        "Solve baseline LP",
+        s.solve,
+        model,
+        tee=tee,
+        options=solver_options or {},
+    )
     status = str(res.solver.termination_condition)
     logger.info("Baseline dispatch solver termination: %s.", status)
 
@@ -470,23 +557,36 @@ def run_baseline_dispatch(
         data = {p: [pyo.value(var[p, t]) for t in range(1, n_hours + 1)] for p in plants}
         return pd.DataFrame(data, index=hour_idx)
 
-    soc_df = _df(storage_techs, model.storage.SOC)
-    pcha_df = _df(storage_techs, model.storage.Pcha)
-    pdis_df = _df(storage_techs, model.storage.Pdis)
-    pthermal_df = _df(thermal_plants, model.thermal.Pthermal) if thermal_plants else pd.DataFrame(index=hour_idx)
-    psolar_df = _df(solar_plants, model.solar.Psolar)
-    pwind_df = _df(wind_plants, model.wind.Pwind)
+    def _extract_trajectories():
+        return (
+            _df(storage_techs, model.storage.SOC),
+            _df(storage_techs, model.storage.Pcha),
+            _df(storage_techs, model.storage.Pdis),
+            _df(thermal_plants, model.thermal.Pthermal) if thermal_plants else pd.DataFrame(index=hour_idx),
+            _df(solar_plants, model.solar.Psolar),
+            _df(wind_plants, model.wind.Pwind),
+            pd.Series(
+                [pyo.value(model.imports.Pimp[t]) for t in range(1, n_hours + 1)],
+                index=hour_idx,
+                name="Pimp",
+            ),
+            pd.Series(
+                [pyo.value(model.exports.Pexp[t]) for t in range(1, n_hours + 1)],
+                index=hour_idx,
+                name="Pexp",
+            ),
+        )
 
-    pimp = pd.Series(
-        [pyo.value(model.imports.Pimp[t]) for t in range(1, n_hours + 1)],
-        index=hour_idx,
-        name="Pimp",
+    soc_df, pcha_df, pdis_df, pthermal_df, psolar_df, pwind_df, pimp, pexp = _run_step(
+        profiler, "Extract trajectories", _extract_trajectories
     )
-    pexp = pd.Series(
-        [pyo.value(model.exports.Pexp[t]) for t in range(1, n_hours + 1)],
-        index=hour_idx,
-        name="Pexp",
-    )
+
+    if profiler is not None:
+        profiler.stop()
+        profiler.print_summary_table(
+            logger,
+            title="BASELINE DISPATCH SOLVE PROFILING SUMMARY",
+        )
 
     def _slice(series: pd.Series | None, name: str) -> pd.Series:
         if series is None:
@@ -515,5 +615,6 @@ def run_baseline_dispatch(
         metadata={
             "solver": solver,
             "designed_system": getattr(model, "_sdom_designed_system", None),
+            "profiler": profiler,
         },
     )

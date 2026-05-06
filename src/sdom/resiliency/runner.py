@@ -162,6 +162,7 @@ def _solve_one_hour(payload: dict[str, Any]) -> dict[str, Any]:
             curtailment_penalty=float(payload["curtailment_penalty"]),
             min_soc_per_tech=payload.get("min_soc_per_tech"),
             n_hours=n_hours,
+            profile=bool(payload.get("profile", False)),
         )
         solver = _resolve_solver(str(payload["solver"]))
         solver_options = payload.get("solver_options") or {}
@@ -243,6 +244,7 @@ def run_resiliency_evaluation(
     n_workers=None,
     solver="highs",
     solver_options=None,
+    profile_outages=False,
 ):
     """Run the per-hour outage evaluation in parallel and aggregate metrics.
 
@@ -287,6 +289,13 @@ def run_resiliency_evaluation(
         Default ``"highs"``.
     solver_options : dict, optional
         Solver options forwarded to ``solver.solve(..., options=...)``.
+    profile_outages : bool, optional
+        When ``True`` and ``n_workers == 1``, profile every per-hour
+        outage build via
+        :class:`~sdom.utils_performance_meassure.ModelInitProfiler`.
+        Ignored (with a warning) when ``n_workers > 1`` because each
+        worker would emit its own summary on a separate process.
+        Default ``False``.
 
     Returns
     -------
@@ -332,6 +341,12 @@ def run_resiliency_evaluation(
             )
 
     n_workers_used = _resolve_n_workers(n_workers, len(hour_list))
+    profile_outages_effective = bool(profile_outages) and n_workers_used == 1
+    if profile_outages and not profile_outages_effective:
+        logger.warning(
+            "profile_outages=True is ignored when n_workers > 1 "
+            "(would emit one summary per worker process)."
+        )
     logger.info(
         "Running resiliency evaluation: %d anchor hour(s), n_workers=%d, solver=%r, "
         "slack_penalty=%g.",
@@ -353,6 +368,7 @@ def run_resiliency_evaluation(
             "n_hours": n_hours,
             "solver": solver,
             "solver_options": dict(solver_options) if solver_options else {},
+            "profile": profile_outages_effective,
         }
         for h in hour_list
     ]

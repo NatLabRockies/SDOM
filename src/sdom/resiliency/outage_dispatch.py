@@ -28,12 +28,20 @@ import pandas as pd
 import pyomo.environ as pyo
 
 from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
+from sdom.utils_performance_meassure import ModelInitProfiler
 
 
 logger = logging.getLogger(__name__)
 
 
 __all__ = ["build_outage_dispatch"]
+
+
+def _run_step(profiler, name, func, *args, **kwargs):
+    """Run ``func(*args, **kwargs)``, optionally measuring it via ``profiler``."""
+    if profiler is None:
+        return func(*args, **kwargs)
+    return profiler.measure_step(name, func, *args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +267,7 @@ def build_outage_dispatch(
     min_soc_per_tech=None,
     n_hours=8760,
     model_name="SDOM_OutageDispatch",
+    profile=False,
 ):
     """Build the per-hour outage economic-dispatch Pyomo LP anchored at ``start_hour``.
 
@@ -290,6 +299,14 @@ def build_outage_dispatch(
         Default ``8760``.
     model_name : str, optional
         Pyomo model name. Default ``"SDOM_OutageDispatch"``.
+    profile : bool, optional
+        When ``True``, instrument the build stages with a
+        :class:`~sdom.utils_performance_meassure.ModelInitProfiler`,
+        attach it as ``model.profiler`` and print a summary table.
+        Default ``False``. Note: enabling this from inside a parallel
+        ``ProcessPoolExecutor`` will produce one summary per worker on
+        each spawned process, which is rarely useful. Prefer ``profile``
+        only in serial runs.
 
     Returns
     -------
@@ -327,6 +344,11 @@ def build_outage_dispatch(
     if not isinstance(baseline_results, BaselineDispatchResults):
         raise TypeError("baseline_results must be a BaselineDispatchResults instance.")
 
+    profiler = None
+    if profile:
+        profiler = ModelInitProfiler(track_memory=True, enabled=True)
+        profiler.start()
+
     outage_spec.validate(designed_system)
 
     n_hours = int(n_hours)
@@ -357,50 +379,69 @@ def build_outage_dispatch(
     # ------------------------------------------------------------------
     # Build delta multipliers per (component, asset_id, t)
     # ------------------------------------------------------------------
-    delta_thermal: dict[tuple[str, int], float] = {}
-    delta_wind: dict[tuple[str, int], float] = {}
-    delta_solar: dict[tuple[str, int], float] = {}
-    delta_imports: dict[int, float] = {}
-    delta_nuc: dict[int, float] = {}
-    delta_hydro: dict[int, float] = {}
-    delta_other: dict[int, float] = {}
+    def _build_deltas():
+        delta_thermal: dict[tuple[str, int], float] = {}
+        delta_wind: dict[tuple[str, int], float] = {}
+        delta_solar: dict[tuple[str, int], float] = {}
+        delta_imports: dict[int, float] = {}
+        delta_nuc: dict[int, float] = {}
+        delta_hydro: dict[int, float] = {}
+        delta_other: dict[int, float] = {}
 
-    horizon = list(range(start_hour, end_hour + 1))
+        def _populate(component: str, asset_universe, target: dict):
+            for plant in asset_universe:
+                plant_id = str(plant)
+                rho = outage_spec.resolve_derating(component, plant_id)
+                if rho == 1.0:
+                    continue
+                dur = outage_spec.resolve_duration(component, plant_id)
+                for t in range(start_hour, min(start_hour + dur, end_hour + 1)):
+                    target[(plant, t)] = rho
 
-    def _populate(component: str, asset_universe, target: dict):
-        for plant in asset_universe:
-            plant_id = str(plant)
-            rho = outage_spec.resolve_derating(component, plant_id)
+        _populate("balancing_units", designed_system.thermal_caps.keys(), delta_thermal)
+        _populate("wind", designed_system.wind_caps.keys(), delta_wind)
+        _populate("solar", designed_system.solar_caps.keys(), delta_solar)
+
+        rho_imp = outage_spec.resolve_derating("imports", "grid")
+        if rho_imp != 1.0:
+            dur = outage_spec.resolve_duration("imports", "grid")
+            for t in range(start_hour, min(start_hour + dur, end_hour + 1)):
+                delta_imports[t] = rho_imp
+
+        must_run_delta_maps = {
+            "nuclear": delta_nuc,
+            "hydro": delta_hydro,
+            "other_renewables": delta_other,
+        }
+        for comp, dmap in must_run_delta_maps.items():
+            if comp not in outage_spec.outaged_assets:
+                continue
+            rho = outage_spec.resolve_derating(comp, "all")
             if rho == 1.0:
                 continue
-            dur = outage_spec.resolve_duration(component, plant_id)
+            dur = outage_spec.resolve_duration(comp, "all")
             for t in range(start_hour, min(start_hour + dur, end_hour + 1)):
-                target[(plant, t)] = rho
+                dmap[t] = rho
+        return (
+            delta_thermal,
+            delta_wind,
+            delta_solar,
+            delta_imports,
+            delta_nuc,
+            delta_hydro,
+            delta_other,
+        )
 
-    _populate("balancing_units", designed_system.thermal_caps.keys(), delta_thermal)
-    _populate("wind", designed_system.wind_caps.keys(), delta_wind)
-    _populate("solar", designed_system.solar_caps.keys(), delta_solar)
-
-    rho_imp = outage_spec.resolve_derating("imports", "grid")
-    if rho_imp != 1.0:
-        dur = outage_spec.resolve_duration("imports", "grid")
-        for t in range(start_hour, min(start_hour + dur, end_hour + 1)):
-            delta_imports[t] = rho_imp
-
-    must_run_delta_maps = {
-        "nuclear": delta_nuc,
-        "hydro": delta_hydro,
-        "other_renewables": delta_other,
-    }
-    for comp, dmap in must_run_delta_maps.items():
-        if comp not in outage_spec.outaged_assets:
-            continue
-        rho = outage_spec.resolve_derating(comp, "all")
-        if rho == 1.0:
-            continue
-        dur = outage_spec.resolve_duration(comp, "all")
-        for t in range(start_hour, min(start_hour + dur, end_hour + 1)):
-            dmap[t] = rho
+    horizon = list(range(start_hour, end_hour + 1))
+    (
+        delta_thermal,
+        delta_wind,
+        delta_solar,
+        delta_imports,
+        delta_nuc,
+        delta_hydro,
+        delta_other,
+    ) = _run_step(profiler, "Build delta multipliers", _build_deltas)
 
     # ------------------------------------------------------------------
     # SOC floors
@@ -416,17 +457,37 @@ def build_outage_dispatch(
     # ------------------------------------------------------------------
     # Build model
     # ------------------------------------------------------------------
-    model = pyo.ConcreteModel(name=model_name)
-    model.h = pyo.RangeSet(start_hour, end_hour)
+    def _create_model_and_index():
+        m = pyo.ConcreteModel(name=model_name)
+        m.h = pyo.RangeSet(start_hour, end_hour)
+        return m
 
-    storage_block = _add_storage_block_outage(
-        model, designed_system, soc_min_frac_map, start_hour
+    model = _run_step(profiler, "Create model & hour index", _create_model_and_index)
+
+    storage_block = _run_step(
+        profiler,
+        "Add storage block",
+        _add_storage_block_outage,
+        model,
+        designed_system,
+        soc_min_frac_map,
+        start_hour,
     )
-    thermal_block = _add_thermal_block_outage(model, designed_system, delta_thermal)
+    thermal_block = _run_step(
+        profiler,
+        "Add thermal block",
+        _add_thermal_block_outage,
+        model,
+        designed_system,
+        delta_thermal,
+    )
 
     solar_plants = list(designed_system.solar_caps.keys())
     wind_plants = list(designed_system.wind_caps.keys())
-    solar_block = _add_vre_block_outage(
+    solar_block = _run_step(
+        profiler,
+        "Add solar VRE block",
+        _add_vre_block_outage,
         model,
         block_name="solar",
         var_name="Psolar",
@@ -435,7 +496,10 @@ def build_outage_dispatch(
         cf=designed_system.cf_solar if designed_system.cf_solar is not None else pd.DataFrame(),
         delta_map=delta_solar,
     )
-    wind_block = _add_vre_block_outage(
+    wind_block = _run_step(
+        profiler,
+        "Add wind VRE block",
+        _add_vre_block_outage,
         model,
         block_name="wind",
         var_name="Pwind",
@@ -444,31 +508,50 @@ def build_outage_dispatch(
         cf=designed_system.cf_wind if designed_system.cf_wind is not None else pd.DataFrame(),
         delta_map=delta_wind,
     )
-    imports_block = _add_imports_block_outage(model, designed_system, delta_imports)
-    exports_block = _add_exports_block_outage(model, designed_system)
+    imports_block = _run_step(
+        profiler,
+        "Add imports block",
+        _add_imports_block_outage,
+        model,
+        designed_system,
+        delta_imports,
+    )
+    exports_block = _run_step(
+        profiler,
+        "Add exports block",
+        _add_exports_block_outage,
+        model,
+        designed_system,
+    )
 
     # Effective must-run parameters
-    nuclear_eff = {
-        t: _series_value(designed_system.nuclear, t) * delta_nuc.get(t, 1.0)
-        for t in horizon
-    }
-    hydro_eff = {
-        t: _series_value(designed_system.hydro, t) * delta_hydro.get(t, 1.0)
-        for t in horizon
-    }
-    other_ren_eff = {
-        t: _series_value(designed_system.other_renewables, t) * delta_other.get(t, 1.0)
-        for t in horizon
-    }
-    load_param = {t: _series_value(designed_system.load, t) for t in horizon}
+    def _add_must_run_params():
+        nuclear_eff = {
+            t: _series_value(designed_system.nuclear, t) * delta_nuc.get(t, 1.0)
+            for t in horizon
+        }
+        hydro_eff = {
+            t: _series_value(designed_system.hydro, t) * delta_hydro.get(t, 1.0)
+            for t in horizon
+        }
+        other_ren_eff = {
+            t: _series_value(designed_system.other_renewables, t) * delta_other.get(t, 1.0)
+            for t in horizon
+        }
+        load_param = {t: _series_value(designed_system.load, t) for t in horizon}
 
-    model.nuclear_eff_param = pyo.Param(model.h, initialize=nuclear_eff, mutable=False)
-    model.hydro_eff_param = pyo.Param(model.h, initialize=hydro_eff, mutable=False)
-    model.other_ren_eff_param = pyo.Param(model.h, initialize=other_ren_eff, mutable=False)
-    model.load_param = pyo.Param(model.h, initialize=load_param, mutable=False)
+        model.nuclear_eff_param = pyo.Param(model.h, initialize=nuclear_eff, mutable=False)
+        model.hydro_eff_param = pyo.Param(model.h, initialize=hydro_eff, mutable=False)
+        model.other_ren_eff_param = pyo.Param(model.h, initialize=other_ren_eff, mutable=False)
+        model.load_param = pyo.Param(model.h, initialize=load_param, mutable=False)
+
+    _run_step(profiler, "Add must-run / load params", _add_must_run_params)
 
     # Slack u[t] (MWh)
-    model.u = pyo.Var(model.h, domain=pyo.NonNegativeReals, initialize=0.0)
+    def _add_slack_var():
+        model.u = pyo.Var(model.h, domain=pyo.NonNegativeReals, initialize=0.0)
+
+    _run_step(profiler, "Add slack variable u[t]", _add_slack_var)
 
     storage_techs = list(designed_system.storage_caps.keys())
     thermal_plants = list(designed_system.thermal_caps.keys())
@@ -500,56 +583,81 @@ def build_outage_dispatch(
             == m.load_param[t] + cha + exports_block.Pexp[t]
         )
 
-    model.power_balance = pyo.Constraint(model.h, rule=_balance_rule)
+    def _add_power_balance():
+        model.power_balance = pyo.Constraint(model.h, rule=_balance_rule)
+
+    _run_step(profiler, "Add power balance constraint", _add_power_balance)
 
     # Initial SOC (math_model 5.5)
-    soc_traj = baseline_results.soc_trajectory
-    if soc_traj is None:
-        raise ValueError("baseline_results.soc_trajectory is required to seed initial SOC.")
-    for s in storage_techs:
-        try:
-            init_value = float(soc_traj.loc[start_hour, s])
-        except KeyError as exc:
+    def _seed_initial_soc():
+        soc_traj = baseline_results.soc_trajectory
+        if soc_traj is None:
             raise ValueError(
-                f"baseline SOC trajectory missing entry for tech '{s}' at hour {start_hour}."
-            ) from exc
-        cap_e = float(designed_system.storage_caps[s]["Cap_E"])
-        lb = soc_min_frac_map.get(s, 0.0) * cap_e
-        init_value = min(max(init_value, lb), cap_e)
-        storage_block.SOC[s, start_hour].fix(init_value)
+                "baseline_results.soc_trajectory is required to seed initial SOC."
+            )
+        for s in storage_techs:
+            try:
+                init_value = float(soc_traj.loc[start_hour, s])
+            except KeyError as exc:
+                raise ValueError(
+                    f"baseline SOC trajectory missing entry for tech '{s}' at hour {start_hour}."
+                ) from exc
+            cap_e = float(designed_system.storage_caps[s]["Cap_E"])
+            lb = soc_min_frac_map.get(s, 0.0) * cap_e
+            init_value = min(max(init_value, lb), cap_e)
+            storage_block.SOC[s, start_hour].fix(init_value)
+
+    _run_step(profiler, "Seed initial SOC", _seed_initial_soc)
 
     # Recovery target
-    recovery_target_frac = outage_spec.resolve_min_soc_recovery(
-        baseline_results,
-        designed_system,
-        recovery_end_hour=recovery_end_hour,
+    def _build_recovery_target():
+        recovery_target_frac_local = outage_spec.resolve_min_soc_recovery(
+            baseline_results,
+            designed_system,
+            recovery_end_hour=recovery_end_hour,
+        )
+        recovery_target_MWh_local: dict[str, float] = {}
+        for s in storage_techs:
+            cap_e = float(designed_system.storage_caps[s]["Cap_E"])
+            recovery_target_MWh_local[s] = (
+                float(recovery_target_frac_local.get(s, 0.0)) * cap_e
+            )
+
+        def _recovery_target_rule(m, s):
+            t_end = recovery_end_hour[s]
+            if t_end < start_hour or t_end > end_hour:
+                return pyo.Constraint.Skip
+            return storage_block.SOC[s, t_end] >= recovery_target_MWh_local[s]
+
+        model.recovery_target = pyo.Constraint(
+            storage_block.S, rule=_recovery_target_rule
+        )
+        return recovery_target_frac_local, recovery_target_MWh_local
+
+    recovery_target_frac, recovery_target_MWh = _run_step(
+        profiler, "Add recovery target constraint", _build_recovery_target
     )
-    recovery_target_MWh: dict[str, float] = {}
-    for s in storage_techs:
-        cap_e = float(designed_system.storage_caps[s]["Cap_E"])
-        recovery_target_MWh[s] = float(recovery_target_frac.get(s, 0.0)) * cap_e
-
-    def _recovery_target_rule(m, s):
-        t_end = recovery_end_hour[s]
-        if t_end < start_hour or t_end > end_hour:
-            return pyo.Constraint.Skip
-        return storage_block.SOC[s, t_end] >= recovery_target_MWh[s]
-
-    model.recovery_target = pyo.Constraint(storage_block.S, rule=_recovery_target_rule)
 
     # Objective
     slack_pen = float(slack_penalty)
     curt_pen = float(curtailment_penalty)
-    obj_expr = (
-        thermal_block.cost_expr
-        + storage_block.cost_expr
-        + imports_block.total_cost_expr
-        - exports_block.revenue_expr
-        + slack_pen * sum(model.u[t] for t in model.h)
-        + curt_pen
-        * (solar_block.potential_minus_dispatch + wind_block.potential_minus_dispatch)
-    )
-    model.objective = pyo.Objective(expr=obj_expr, sense=pyo.minimize)
+
+    def _add_objective():
+        obj_expr = (
+            thermal_block.cost_expr
+            + storage_block.cost_expr
+            + imports_block.total_cost_expr
+            - exports_block.revenue_expr
+            + slack_pen * sum(model.u[t] for t in model.h)
+            + curt_pen
+            * (
+                solar_block.potential_minus_dispatch
+                + wind_block.potential_minus_dispatch
+            )
+        )
+        model.objective = pyo.Objective(expr=obj_expr, sense=pyo.minimize)
+
+    _run_step(profiler, "Add objective", _add_objective)
 
     model._sdom_outage_meta: dict[str, Any] = {  # noqa: SLF001
         "start_hour": start_hour,
@@ -569,4 +677,11 @@ def build_outage_dispatch(
         "curtailment_penalty": curt_pen,
         "designed_system": designed_system,
     }
+    if profiler is not None:
+        profiler.stop()
+        profiler.print_summary_table(
+            logger,
+            title=f"OUTAGE DISPATCH BUILD PROFILING SUMMARY (start_hour={start_hour})",
+        )
+        model.profiler = profiler
     return model
