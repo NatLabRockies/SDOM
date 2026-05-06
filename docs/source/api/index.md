@@ -13,6 +13,7 @@ models
 io_manager
 utilities
 parametric
+resiliency
 ```
 
 ## Quick Links
@@ -23,6 +24,7 @@ parametric
 - {doc}`io_manager` - Data loading and export
 - {doc}`utilities` - Helper functions
 - {doc}`parametric` - Parametric & sensitivity analysis
+- {doc}`resiliency` - Operational resiliency evaluation
 
 ## Main Functions
 
