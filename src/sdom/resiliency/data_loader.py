@@ -17,13 +17,16 @@ Notes
 from __future__ import annotations
 
 import glob
+import logging
 import os
-import warnings
 from pathlib import Path
 
 import pandas as pd
 
 from sdom.resiliency.system_state import DesignedSystem
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -128,10 +131,11 @@ def _filter_scenario(df: pd.DataFrame, scenario_id: int, file_label: str) -> tup
     if len(unique_ids) == 1:
         only = unique_ids[0]
         if int(scenario_id) != only:
-            warnings.warn(
-                f"{file_label}: only scenario_id={only} is present; ignoring "
-                f"user-supplied scenario_id={scenario_id}.",
-                stacklevel=3,
+            logger.warning(
+                "%s: only scenario_id=%s is present; ignoring user-supplied scenario_id=%s.",
+                file_label,
+                only,
+                scenario_id,
             )
         return df[df[col] == only].copy(), only
     if int(scenario_id) not in unique_ids:
@@ -143,9 +147,10 @@ def _filter_scenario(df: pd.DataFrame, scenario_id: int, file_label: str) -> tup
 
 
 def _warn_zero_capacity(tech: str, value: float) -> None:
-    warnings.warn(
-        f"Technology '{tech}' has capacity={value}; excluding from designed system.",
-        stacklevel=3,
+    logger.warning(
+        "Technology '%s' has capacity=%s; excluding from designed system.",
+        tech,
+        value,
     )
 
 
@@ -419,25 +424,51 @@ def load_designed_system(
     """
     snapshot_dir = Path(snapshot_dir)
     inputs_dir = Path(inputs_dir)
+    logger.info(
+        "Loading designed system: snapshot_dir=%s, inputs_dir=%s, year=%s, scenario_id=%s.",
+        snapshot_dir,
+        inputs_dir,
+        year,
+        scenario_id,
+    )
 
+    logger.debug("Locating OutputSummary snapshot for year=%s.", year)
     summary_path = _find_snapshot_file(snapshot_dir, "OutputSummary", year)
+    logger.debug("Reading summary capacities from %s.", summary_path.name)
     summary_info = _load_summary_capacities(summary_path, scenario_id)
     resolved_id = summary_info["scenario_id"]
+    logger.debug("Resolved scenario_id=%s.", resolved_id)
 
+    logger.debug("Loading per-plant VRE selections from snapshot.")
     solar_caps, wind_caps = _load_vre_per_plant(snapshot_dir, resolved_id, year)
+    logger.debug(
+        "Per-plant VRE counts: solar=%d, wind=%d.", len(solar_caps), len(wind_caps)
+    )
 
+    logger.debug("Loading previous-stage input CSVs from %s.", inputs_dir)
     inputs = _load_input_csvs(inputs_dir, year)
 
+    logger.debug("Combining snapshot capacities with StorageData parameters.")
     storage_caps = _build_storage_caps(
         summary_info["storage_caps_raw"], inputs["storage_data"]
     )
+    logger.debug("Aggregating thermal-tech capacity / cost parameters.")
     thermal_caps = _build_thermal_caps(
         summary_info["thermal_caps_raw"], inputs["balancing_units"]
     )
 
     formulation_map = dict(_DEFAULT_FORMULATION_MAP)
     if formulation_overrides:
+        logger.debug("Applying formulation overrides: %s.", formulation_overrides)
         formulation_map.update(formulation_overrides)
+
+    logger.info(
+        "Designed system loaded: storage=%d, thermal=%d, solar plants=%d, wind plants=%d.",
+        len(storage_caps),
+        len(thermal_caps),
+        len(solar_caps),
+        len(wind_caps),
+    )
 
     return DesignedSystem(
         storage_caps=storage_caps,

@@ -6,7 +6,7 @@ Covers the standalone Pyomo block builder living in
 
 from __future__ import annotations
 
-import warnings
+import logging
 
 import pandas as pd
 import pyomo.environ as pyo
@@ -162,13 +162,16 @@ def test_solve_forces_monthly_peak():
 # ---------------------------------------------------------------------------
 # 4. Validation warning on non-constant phi_fix within a month
 # ---------------------------------------------------------------------------
-def test_phi_fix_validation_warns_when_nonconstant_within_month():
+def test_phi_fix_validation_warns_when_nonconstant_within_month(caplog):
     n = 48
     model = _make_two_month_model(n_hours=n)
     bad_phi_fix = [100.0] * 24 + [120.0] * 24
     bad_phi_fix[1] = 110.0  # vary within month 1
 
-    with pytest.warns(UserWarning, match="phi_fix"):
+    with caplog.at_level(
+        logging.WARNING,
+        logger="sdom.resiliency.formulations_imports_demand_charges",
+    ):
         add_imports_with_demand_charges(
             model,
             import_cap=_series(100.0, n_hours=n),
@@ -177,3 +180,4 @@ def test_phi_fix_validation_warns_when_nonconstant_within_month():
             phi_var_t=_series([5.0] * 24 + [8.0] * 24, n_hours=n),
             month_of_hour=pd.Series([1] * 24 + [2] * 24, index=range(1, n + 1)),
         )
+    assert any("phi_fix" in rec.getMessage() for rec in caplog.records)

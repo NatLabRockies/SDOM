@@ -12,8 +12,12 @@ sections 2.4 and 6.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Iterable, Optional, Union
+
+
+logger = logging.getLogger(__name__)
 
 
 VALID_COMPONENTS: tuple[str, ...] = (
@@ -149,6 +153,10 @@ class OutageSpec:
             If a must-run component is given a per-asset iterable.
         """
         # outaged_assets validation against designed_system
+        logger.debug(
+            "Validating OutageSpec against designed_system: components=%s.",
+            list(self.outaged_assets.keys()),
+        )
         for component, selector in self.outaged_assets.items():
             if isinstance(selector, str):
                 continue  # string already validated to be "all" in __post_init__

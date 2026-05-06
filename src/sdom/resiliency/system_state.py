@@ -7,12 +7,16 @@ by the (future) baseline and outage dispatch builders.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+
+logger = logging.getLogger(__name__)
 
 
 _RESULTS_VERSION = "1"
@@ -379,6 +383,7 @@ class ResiliencyResults:
         """
         out_dir = Path(path) if path is not None else Path.cwd() / _DEFAULT_RESULTS_DIR
         out_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Saving ResiliencyResults to %s.", out_dir)
 
         parquet_path = out_dir / "per_hour.parquet"
         try:
@@ -392,6 +397,10 @@ class ResiliencyResults:
         summary_payload = self._build_summary_payload()
         (out_dir / "summary.json").write_text(
             json.dumps(summary_payload, indent=2, default=str), encoding="utf-8"
+        )
+        logger.debug(
+            "ResiliencyResults persisted: per_hour.parquet (%d rows) + summary.json.",
+            len(self.per_hour),
         )
         return out_dir
 

@@ -11,6 +11,7 @@ sections 4.1, 5.1, 5.2, 5.3, 5.4.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pandas as pd
@@ -20,6 +21,9 @@ from sdom.resiliency.formulations_imports_demand_charges import (
     add_imports_with_demand_charges,
 )
 from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = ["build_baseline_dispatch", "run_baseline_dispatch"]
@@ -276,12 +280,17 @@ def build_baseline_dispatch(
     if n_hours <= 0:
         raise ValueError("n_hours must be a positive integer.")
 
+    logger.info(
+        "Building baseline dispatch LP: n_hours=%d, model_name=%r.", n_hours, model_name
+    )
+
     # Resolve SOC floors
     soc_min_frac_map: dict[str, float] = {
         s: float(spec.get("soc_min_frac", 0.0))
         for s, spec in designed_system.storage_caps.items()
     }
     if min_soc_per_tech:
+        logger.debug("Overriding SOC floors with %s.", min_soc_per_tech)
         for s, frac in min_soc_per_tech.items():
             soc_min_frac_map[s] = float(frac)
 
@@ -289,11 +298,14 @@ def build_baseline_dispatch(
     model.h = pyo.RangeSet(1, n_hours)
 
     # Storage / thermal / VRE blocks
+    logger.debug("Adding storage block (%d techs).", len(designed_system.storage_caps))
     storage = _add_storage_block(model, designed_system, n_hours, soc_min_frac_map)
+    logger.debug("Adding thermal block (%d plants).", len(designed_system.thermal_caps))
     thermal = _add_thermal_block(model, designed_system, n_hours)
 
     solar_plants = list(designed_system.solar_caps.keys())
     wind_plants = list(designed_system.wind_caps.keys())
+    logger.debug("Adding solar VRE block (%d plants).", len(solar_plants))
     solar_block = _add_vre_block(
         model,
         block_name="solar",
@@ -314,6 +326,7 @@ def build_baseline_dispatch(
     )
 
     # Imports (with demand charges) - Phase 2 builder
+    logger.debug("Adding imports block with monthly demand charges.")
     add_imports_with_demand_charges(
         model,
         import_cap=designed_system.import_cap.iloc[:n_hours],
@@ -325,6 +338,7 @@ def build_baseline_dispatch(
     )
 
     # Exports (pure LP, no net-load coupling)
+    logger.debug("Adding exports block (without net-load constraints).")
     _add_exports_block(model, designed_system, n_hours)
 
     # Time-series (must-run) parameters that enter the power balance directly.
@@ -386,6 +400,15 @@ def build_baseline_dispatch(
     # ``run_baseline_dispatch`` can copy it into ``results.metadata`` for use
     # by downstream consumers (e.g. the parallel resiliency runner).
     model._sdom_designed_system = designed_system  # noqa: SLF001
+    logger.info(
+        "Baseline LP built: %d hours, %d storage techs, %d thermal plants, "
+        "%d solar plants, %d wind plants.",
+        n_hours,
+        len(storage_techs),
+        len(thermal_plants),
+        len(solar_plants),
+        len(wind_plants),
+    )
     return model
 
 
@@ -426,8 +449,10 @@ def run_baseline_dispatch(
         )
 
     s = _resolve_solver(solver)
+    logger.info("Solving baseline dispatch with solver=%r (tee=%s).", solver, tee)
     res = s.solve(model, tee=tee, options=solver_options or {})
     status = str(res.solver.termination_condition)
+    logger.info("Baseline dispatch solver termination: %s.", status)
 
     meta: dict[str, Any] = model._sdom_meta  # noqa: SLF001
     n_hours = meta["n_hours"]

@@ -6,6 +6,7 @@ imported in head-less environments without a display.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -14,6 +15,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from matplotlib.axes import Axes
 
     from sdom.resiliency.system_state import ResiliencyResults
+
+
+logger = logging.getLogger(__name__)
 
 
 _VALID_KINDS = ("hist", "ecdf", "exceedance")
@@ -78,7 +82,14 @@ def plot_metric_distribution(
 
     df = results.per_hour
     if "solver_status" in df.columns:
+        n_total = len(df)
         df = df[df["solver_status"] != "error"]
+        n_dropped = n_total - len(df)
+        if n_dropped:
+            logger.debug(
+                "plot_metric_distribution: dropping %d errored row(s) before plotting.",
+                n_dropped,
+            )
 
     if metric not in df.columns:
         numeric_cols = sorted(
@@ -90,6 +101,12 @@ def plot_metric_distribution(
 
     values = df[metric].astype(float).to_numpy()
     values = values[~np.isnan(values)]
+    logger.info(
+        "plot_metric_distribution: metric=%r, kind=%r, n_points=%d.",
+        metric,
+        kind,
+        len(values),
+    )
 
     if ax is None:
         _, ax = plt.subplots()

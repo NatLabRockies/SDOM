@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import logging
 import os
-import warnings
 from pathlib import Path
 
 import pandas as pd
@@ -158,17 +158,16 @@ class TestErrorHandling:
                 scenario_id=1,
             )
 
-    def test_zero_capacity_warns(self, designed_system_3mw_pgne, recwarn):
+    def test_zero_capacity_warns(self, designed_system_3mw_pgne, caplog):
         # Re-load to trigger warnings in a controlled context.
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING, logger="sdom.resiliency.data_loader"):
             load_designed_system(
                 SNAPSHOT_DIR_3MW,
                 inputs_dir=INPUTS_DIR_PGNE,
                 year=2030,
                 scenario_id=1,
             )
-        messages = [str(w.message) for w in caught]
+        messages = [rec.getMessage() for rec in caplog.records]
         # Vanadium/PHS storage techs and GasCC/Diesel thermal techs are zero.
         assert any("Vanadium" in m for m in messages)
         assert any("PHS" in m for m in messages)
@@ -229,14 +228,13 @@ def _write_synthetic_vre(path: Path, scenarios: list[int]):
 class TestScenarioIdResolution:
     """Hybrid resolution rules for the scenario_id argument."""
 
-    def test_single_scenario_used_regardless_of_user_id(self, tmp_path):
+    def test_single_scenario_used_regardless_of_user_id(self, tmp_path, caplog):
         snap = tmp_path / "snap"
         snap.mkdir()
         _write_synthetic_summary(snap / "2030_OutputSummary_synthetic.csv", [7])
         _write_synthetic_vre(snap / "2030_OutputSelectedVRE_synthetic.csv", [7])
         # User passes scenario_id=99, but only run 7 exists -> use 7 (with warning)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING, logger="sdom.resiliency.data_loader"):
             ds = load_designed_system(
                 snap,
                 inputs_dir=INPUTS_DIR_PGNE,
@@ -244,10 +242,8 @@ class TestScenarioIdResolution:
                 scenario_id=99,
             )
         assert ds.scenario_id == 7
-        assert any(
-            "scenario_id" in str(w.message).lower() or "run" in str(w.message).lower()
-            for w in caught
-        )
+        messages = [rec.getMessage().lower() for rec in caplog.records]
+        assert any("scenario_id" in m or "run" in m for m in messages)
 
     def test_multi_scenario_unknown_id_raises(self, tmp_path):
         snap = tmp_path / "snap"

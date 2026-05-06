@@ -13,15 +13,19 @@ Notes
 - The block is opt-in via ``formulation_overrides`` and is **not** registered in
   ``constants.py`` or ``io_manager.py``.
 - Monthly fixed-charge tariffs :math:`\\phi^{fix}_{t}` MUST be constant within
-  each month. A non-constant series triggers a :class:`UserWarning`.
+  each month. A non-constant series is reported via
+  ``logger.warning`` (module logger ``sdom.resiliency.formulations_imports_demand_charges``).
 """
 
 from __future__ import annotations
 
-import warnings
+import logging
 
 import pandas as pd
 import pyomo.environ as pyo
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = ["add_imports_with_demand_charges"]
@@ -43,12 +47,11 @@ def _validate_phi_fix_monthly_constancy(
     nunique = df.groupby("month")["phi"].nunique()
     bad_months = nunique[nunique > 1].index.tolist()
     if bad_months:
-        warnings.warn(
-            f"phi_fix_t is not constant within month(s) {bad_months}; "
-            "the fixed demand charge is defined as a monthly tariff and "
-            "should not vary hourly inside a billing month.",
-            UserWarning,
-            stacklevel=3,
+        logger.warning(
+            "phi_fix_t is not constant within month(s) %s; the fixed demand charge "
+            "is defined as a monthly tariff and should not vary hourly inside a "
+            "billing month.",
+            bad_months,
         )
 
 

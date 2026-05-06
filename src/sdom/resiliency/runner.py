@@ -17,6 +17,7 @@ section 7 (per-hour metrics: EUE, USE_hours, max unserved MW).
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 import traceback
@@ -33,6 +34,9 @@ from sdom.resiliency.system_state import (
     DesignedSystem,
     ResiliencyResults,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = ["run_resiliency_evaluation"]
@@ -328,6 +332,14 @@ def run_resiliency_evaluation(
             )
 
     n_workers_used = _resolve_n_workers(n_workers, len(hour_list))
+    logger.info(
+        "Running resiliency evaluation: %d anchor hour(s), n_workers=%d, solver=%r, "
+        "slack_penalty=%g.",
+        len(hour_list),
+        n_workers_used,
+        solver,
+        slack_penalty,
+    )
 
     payloads = [
         {
@@ -348,8 +360,14 @@ def run_resiliency_evaluation(
     if not payloads:
         records: list[dict[str, Any]] = []
     elif n_workers_used == 1:
+        logger.debug("Solving %d outage problem(s) serially.", len(payloads))
         records = [_solve_one_hour(p) for p in payloads]
     else:
+        logger.debug(
+            "Dispatching %d outage problem(s) to ProcessPoolExecutor with %d worker(s).",
+            len(payloads),
+            n_workers_used,
+        )
         with ProcessPoolExecutor(max_workers=n_workers_used) as pool:
             # ``map`` preserves the order of ``payloads`` regardless of
             # worker completion order.
@@ -377,4 +395,14 @@ def run_resiliency_evaluation(
         "solver": solver,
         "n_hours_evaluated": len(hour_list),
     }
+    n_errors = (
+        int((df["solver_status"] == "error").sum())
+        if "solver_status" in df.columns and not df.empty
+        else 0
+    )
+    logger.info(
+        "Resiliency evaluation complete: %d hour(s) processed, %d worker error(s).",
+        len(hour_list),
+        n_errors,
+    )
     return ResiliencyResults(per_hour=df, metadata=metadata)

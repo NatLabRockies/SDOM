@@ -21,12 +21,16 @@ sections 1, 4.2, 5.1, 5.2, 5.3, 5.5, 6.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pandas as pd
 import pyomo.environ as pyo
 
 from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = ["build_outage_dispatch"]
@@ -334,6 +338,16 @@ def build_outage_dispatch(
     recovery_per_tech = outage_spec.resolve_recovery_hours(designed_system)
     max_recovery = max(recovery_per_tech.values()) if recovery_per_tech else 0
     end_hour = min(start_hour + duration + max_recovery - 1, n_hours)
+    logger.debug(
+        "Building outage LP: start_hour=%d, duration=%d, max_recovery=%d, "
+        "horizon=[%d, %d], slack_penalty=%g.",
+        start_hour,
+        duration,
+        max_recovery,
+        start_hour,
+        end_hour,
+        slack_penalty,
+    )
 
     recovery_end_hour = {
         s: min(start_hour + duration + recovery_per_tech[s] - 1, n_hours)

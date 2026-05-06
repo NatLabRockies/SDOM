@@ -19,12 +19,17 @@ underlying APIs so that it preserves their behaviour exactly.
 
 from __future__ import annotations
 
+import logging
+
 from sdom.resiliency.data_loader import load_designed_system
 from sdom.resiliency.dispatch_model import (
     build_baseline_dispatch,
     run_baseline_dispatch,
 )
 from sdom.resiliency.runner import run_resiliency_evaluation
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = ["evaluate_resiliency"]
@@ -120,6 +125,14 @@ def evaluate_resiliency(
     ...     n_workers=1,
     ... )  # doctest: +SKIP
     """
+    logger.info(
+        "evaluate_resiliency: starting end-to-end pipeline (year=%s, scenario_id=%s, "
+        "n_hours=%s).",
+        year,
+        scenario_id,
+        n_hours,
+    )
+    logger.info("Step 1/4: loading designed system from %s.", snapshot_dir)
     designed_system = load_designed_system(
         snapshot_dir,
         inputs_dir=inputs_dir,
@@ -127,18 +140,21 @@ def evaluate_resiliency(
         scenario_id=scenario_id,
         formulation_overrides=formulation_overrides,
     )
+    logger.info("Step 2/4: building baseline dispatch model.")
     model = build_baseline_dispatch(
         designed_system,
         n_hours=n_hours,
         min_soc_per_tech=min_soc_per_tech,
         curtailment_penalty=curtailment_penalty,
     )
+    logger.info("Step 3/4: solving baseline dispatch with solver=%r.", solver)
     baseline_results = run_baseline_dispatch(
         model,
         solver=solver,
         solver_options=solver_options,
     )
-    return run_resiliency_evaluation(
+    logger.info("Step 4/4: running per-hour resiliency evaluation.")
+    results = run_resiliency_evaluation(
         baseline_results,
         outage_spec=outage_spec,
         hours=hours,
@@ -150,3 +166,5 @@ def evaluate_resiliency(
         solver=solver,
         solver_options=solver_options,
     )
+    logger.info("evaluate_resiliency: pipeline complete.")
+    return results
