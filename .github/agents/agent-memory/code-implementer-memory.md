@@ -4,6 +4,42 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #9b: per-area Block dispatch + zonal solve (2026-05-09)
+
+### Scope
+Wire the AreaTransportationModelNetwork branch of `initialize_model`. Reuse 100 % of the legacy `add_*` builders by feeding each one a per-area `data_slice` shaped like the legacy `data` dict — **zero builder signature changes** (Option B implemented as a slice-shim, not a rewrite).
+
+### Files
+- `src/sdom/optimization_main.py` — new helpers `_build_per_area_data_slice` (mirrors legacy schema from `per_area_*` views; truncates timeseries to `n_hours`), `_add_area_subblocks`, `_build_one_area`, `_add_zonal_supply_balance`, `_add_zonal_genmix_constraint`, `_zonal_objective_rule`, `_initialize_model_zonal`. Dispatcher routes AT → `_initialize_model_zonal`; unknown Network → `ValueError`.
+- `tests/test_zonal_model_build.py` — replaced #9a stubs with 8 tests (area set + sub-blocks; signed-flow Reals + capacity Constraint counts; per-area `SupplyBalance` + top-level `GenMix_Share`; HiGHS optimal solve with flow bounds; numerical balance residual <1e-3; `NotImplementedError` guards for resiliency-AT and Imports-AT).
+
+### Key decisions
+- **Option B = data-slice shim**, not builder refactor: each per-area slice is a dict with the same keys legacy callers expect (`load_data`, `cap_solar`, `cap_wind`, `storage_data`, `thermal_data`, `hydro_data`, formulations DataFrame, etc.) populated from `data["per_area_*"][a]`. All `add_*` functions stay untouched — Pyomo's `host` parameter convention from #7 already lets them attach to either the model or an area block.
+- **`model.h` is built fresh at top level**, not aliased from a child block. Pyomo raises `RuntimeError("Re-assigning the component 'h' from block 'area[A1]' to block 'SDOM_Model'")` if you try `model.h = model.area[first_area].h`. A duplicate-content `RangeSet(1, n_hours_used)` is fine — Pyomo only objects to **sharing** a Set object across parents.
+- **`area_block.index()` recovers `area_id`** inside any constraint rule whose first arg is the area block (PRD §5.4 pattern). Use this when a rule needs to look up `model.L_in[a]` / `model.L_out[a]`.
+- **`Z^trans = 0`** (`network_transmission_cost_rule(model)` returns 0) — placeholder until commit with explicit transmission OPEX.
+- **NotImplementedError guards**: resiliency under AT and `Imports/Exports != NotModel` under AT both raise with PRD-traceable messages. Hydro-budget under AT is also unsupported (canonical fixture is RoR; slice would need extra `large_hydro_max`/`min` keys) but is not yet guarded — relies on the canonical fixture's RoR setting. Add an explicit guard if a non-RoR zonal fixture lands.
+- **Tests bypass `run_solver`**: `collect_results_from_model` (`results.py:271`) does flat lookups like `model.thermal.total_installed_capacity` that don't exist on the zonal model. Commit #10 will fix the collector. For now, tests call `pyo.SolverFactory("appsi_highs").solve(model)` directly and inspect `pyo.value(...)` of leaves.
+
+### Patterns / gotchas
+- Building `data_slice["formulations"]` is just `data["formulations"]` (formulations are global per PRD §10).
+- Per-area `nuclear`/`other_renewables` use scalar `alpha` × hourly `ts_parameter`; the supply-balance term is `alpha * ts_parameter[h]` (not a generation Var).
+- The signed flow `f[l,h]` is over `Reals` with **no Var bounds**; capacity is enforced by `f_upper`/`f_lower` Constraint blocks (PRD §5.6 lock — preserves per-direction duals via `Suffix`).
+- HiGHS reports `feasible obj=3.21e9` on the canonical 24h fixture; full solve completes in ~10s.
+
+### Test counts
+- New: 8 tests (replaced 2 #9a stubs with 8 zonal validations).
+- Full suite: **356 → 362 passed**, 0 failed in 181s.
+
+### Commit
+- SHA: `2616705` on `sm/zonal_model`. Not pushed.
+
+### Open items for #10
+- Make `collect_results_from_model` zonal-aware: detect `hasattr(model, "A")` and iterate per-area sub-blocks; emit per-area columns + system totals; populate `OptimizationResults` with `interregional_exchanges` (PRD §6 / commit #11).
+- Then revisit the zonal tests to swap the direct `solver.solve(...)` calls back to `run_solver(...)`.
+
+---
+
 ## Zonal Capacity Expansion — Commit #9a: dispatcher + fast-path lock (2026-05-08)
 
 ### Scope
