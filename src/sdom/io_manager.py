@@ -6,7 +6,17 @@ import csv
 from pyomo.environ import sqrt
 
 from .common.utilities import safe_pyomo_value, check_file_exists, compare_lists, concatenate_dataframes, get_dict_string_void_list_from_keys_in_list
-from .constants import INPUT_CSV_NAMES, MW_TO_KW, VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP, VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP
+from .constants import (
+    INPUT_CSV_NAMES,
+    MW_TO_KW,
+    VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
+    VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP,
+    VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP,
+    DEFAULT_NETWORK_FORMULATION,
+)
+
+# Sentinel used to distinguish 'no default supplied' from 'default is None'.
+_GET_FORMULATION_NO_DEFAULT = object()
 
 
 def check_formulation( formulation:str, valid_formulations ):
@@ -36,29 +46,52 @@ def check_formulation( formulation:str, valid_formulations ):
         raise ValueError(f"Invalid formulation '{formulation}' selected by the user in file 'formulations.csv'. Valid options are: {valid_formulations}")
     return
 
-def get_formulation(data:dict, component:str ='hydro'):
+def get_formulation(data: dict, component: str = 'hydro', *, default=_GET_FORMULATION_NO_DEFAULT):
     """Retrieve the selected formulation for a specific model component.
-    
+
     Extracts the formulation name from the loaded formulations DataFrame for a
-    given component (e.g., hydro, imports, exports). Used throughout model
-    initialization to conditionally add constraints based on formulation.
-    
-    Args:
-        data (dict): Dictionary containing the 'formulations' DataFrame loaded from
-            formulations.csv.
-        component (str, optional): Component name to look up (case-insensitive).
-            Examples: 'hydro', 'Imports', 'Exports'. Defaults to 'hydro'.
-    
-    Returns:
-        str: The formulation name for the specified component (e.g.,
-            'MonthlyBudgetFormulation', 'CapacityPriceNetLoadFormulation', 'NotModel').
-    
-    Notes:
-        Performs case-insensitive matching on component name.
-        Returns the first matching formulation (expects unique component names).
+    given component (e.g., hydro, imports, exports, network). Used throughout
+    model initialization to conditionally add constraints based on formulation.
+
+    Parameters
+    ----------
+    data : dict
+        Dictionary containing the 'formulations' DataFrame loaded from
+        ``formulations.csv``.
+    component : str, optional
+        Component name to look up (case-insensitive). Examples: ``'hydro'``,
+        ``'Imports'``, ``'Exports'``, ``'Network'``. Defaults to ``'hydro'``.
+    default : str, optional
+        Value returned (and logged at INFO level) when the requested component
+        row is absent from ``formulations.csv``. If omitted, a missing row
+        raises ``IndexError`` (preserves the legacy behaviour).
+
+    Returns
+    -------
+    str
+        The formulation name for the specified component.
+
+    Notes
+    -----
+    - Performs case-insensitive matching on component name.
+    - Returns the first matching formulation (expects unique component names).
+    - The ``default`` keyword is keyword-only to keep the function's mandatory
+      positional surface unchanged.
     """
     formulations = data["formulations"]
-    return formulations.loc[ formulations["Component"].str.lower() == component.lower() ]["Formulation"].iloc[0]
+    matches = formulations.loc[
+        formulations["Component"].str.lower() == component.lower()
+    ]["Formulation"]
+    if matches.empty:
+        if default is _GET_FORMULATION_NO_DEFAULT:
+            return matches.iloc[0]  # original IndexError surface
+        logging.info(
+            "Component '%s' not present in formulations.csv. Falling back to default '%s'.",
+            component,
+            default,
+        )
+        return default
+    return matches.iloc[0]
 
 
 def load_data( input_data_dir:str = '.\\Data\\' ):
@@ -208,6 +241,13 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
             "thermal_data": thermal_data,
             "scalars": scalars,
         }
+
+    # --- Network (zonal) formulation: backward-compatible default ---
+    network_formulation = get_formulation(
+        data_dict, component="Network", default=DEFAULT_NETWORK_FORMULATION
+    )
+    check_formulation(network_formulation, VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP.keys())
+    data_dict["network_formulation"] = network_formulation
 
     hydro_formulation = get_formulation(data_dict, component='hydro')
     check_formulation( hydro_formulation, VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP.keys() )

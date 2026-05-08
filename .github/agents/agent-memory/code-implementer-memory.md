@@ -4,6 +4,42 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Phase 2 PRD (2026-05-07)
+
+### Scope
+Authored the Product Requirements Document at `dev_guidelines/zonal_model/PRD.md` based on the locked math model in `dev_guidelines/zonal_model/math_model.md`. Documentation only — no source code changes.
+
+### Key design decisions (locked in PRD)
+- **`Network` row in `formulations.csv`**: `CopperPlateNetwork` (default if missing) vs `AreaTransportationModelNetwork`. New `VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP` constant.
+- **Single signed flow `m.f[L, H] in Reals`** with asymmetric two-sided bounds via `Var(bounds=…)`. No bidirectional flow possible by construction. `f_FT`/`f_TF` are derived **post-solve only**, not decision variables.
+- **Per-area `Block` architecture** (`m.area[a]`) mirroring today's sub-block structure (`pv`, `wind`, `thermal`, `storage`, `hydro`, `imports`, `exports`, `demand`, `nuclear`, `other_renewables`).
+- **Legacy single-area fast path** preserved: when `|A|=1` and `Network=CopperPlateNetwork`, build directly on `m.*` (no area-block indirection) → guarantees zero perf regression. Golden-file regression test enforces objective-value identity.
+- **System-wide expression names preserved** (`m.total_pv_generation`, etc.) so existing CSVs/plots don't break. Per-area mirrors get an `_by_area` suffix or live inside `m.area[a]`.
+- **Single-folder + optional `area_id` column** chosen over per-area subfolders. Wide CSVs use `<area_id>__<entity>` namespaced columns; long CSVs gain `area_id` column. Legacy data with neither falls into synthetic `area_id="default"`.
+- **Aggregation fallback** (zonal data + `CopperPlateNetwork`): sum demands/capacities; capacity-weighted average of import/export prices; emit `WARNING`s.
+- **`io_manager.load_data` refactor**: split into private stages (`_load_formulations`, `_load_areas`, `_load_topology`, `_load_per_area_devices`, `_aggregate_to_single_area`, `_validate`); returned `data: dict` keeps every existing key and adds `areas`, `lines`, `line_cap_ft`, `line_cap_tf`, `per_area_*` views.
+- **`formulations_*.py` refactor pattern**: change first arg from `model` to `host` (either top-level model or area block). Most modules already access sub-blocks (`model.pv.*`) so the change is mechanical. Pre-implementation audit required (§5.4 of PRD).
+- **New module `formulations_network.py`**: holds `add_network_parameters`, `add_network_variables`, `add_network_expressions` (`Z_trans=0` placeholder reserved for future transmission-investment work).
+- **`formulations_system.create_supply_balance_rule`** becomes per-area; legacy 2-arg signature kept as a shim.
+- **`OptimizationResults`** gains optional `area_generation_df: dict[str, pd.DataFrame]`, `area_storage_df`, `area_installed_plants_df`, `interregional_exchanges_df`. All existing fields stay.
+- **New output CSV**: `interregional_exchanges.csv` with `Hour, line_id, from_area, to_area, f, f_FT, f_TF, capacity_FT, capacity_TF, utilization_FT, utilization_TF`.
+- **Test dataset**: `Data/zonal_test/` combining `Data/no_exchange_run_of_river/` (a1) + `Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50/` (a2). Hydro stays global (`MonthlyBudgetFormulation`); a1 budget bounds set equal to degenerate to RoR-equivalent.
+- **Resiliency under zonal**: deferred. `with_resilience_constraints=True` + `Network=AreaTransportationModelNetwork` should raise `NotImplementedError` until follow-up PRD lands.
+
+### Decisions deferred to user/orchestrator
+- Per-area $\tau_a$ targets (math reserved, impl deferred).
+- Per-area formulation choices (e.g. RoR in a1, MonthlyBudget in a2) — out of scope.
+- Wide-CSV namespace separator (`__` proposed).
+- Per-area parametric sweeps (basic path documented; full impl can defer).
+- Output CSV name (`interregional_exchanges.csv` proposed).
+
+### Patterns to apply in Phase 3
+- When refactoring `formulations_*.py`, unit-test each function with both `host=model` and `host=model.area[a]` to catch hidden coupling.
+- Picklability audit: `data` must remain pure DataFrames/lists/dicts; no Pyomo objects (parametric workers deepcopy `data`, rebuild model).
+- Plot helpers should short-circuit on empty `area_generation_df` so they remain safe to call unconditionally from `_single.plot_results`.
+
+---
+
 ## Resiliency Module - Phase 7 (2026-05-05)
 
 ### Scope
