@@ -31,6 +31,7 @@
    
       ~OptimizationResults.gen_mix_target
       ~OptimizationResults.is_optimal
+      ~OptimizationResults.is_zonal
       ~OptimizationResults.solver_status
       ~OptimizationResults.termination_condition
       ~OptimizationResults.total_cap_pv
@@ -53,5 +54,17 @@
       ~OptimizationResults.storage_capacity
       ~OptimizationResults.generation_totals
       ~OptimizationResults.cost_breakdown
+      ~OptimizationResults.areas
+      ~OptimizationResults.lines
+      ~OptimizationResults.area_capacity
+      ~OptimizationResults.area_storage_capacity
+      ~OptimizationResults.area_generation_totals
+      ~OptimizationResults.area_cost_breakdown
+      ~OptimizationResults.area_generation_df
+      ~OptimizationResults.area_storage_df
+      ~OptimizationResults.area_thermal_generation_df
+      ~OptimizationResults.area_installed_plants_df
+      ~OptimizationResults.area_summary_df
+      ~OptimizationResults.interregional_exchanges_df
    
    
