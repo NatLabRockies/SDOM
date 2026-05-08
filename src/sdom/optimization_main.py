@@ -618,13 +618,22 @@ def _initialize_model_zonal(
     # from the legacy initialize_params); we expose top-level copies so the
     # genmix and supply balance constraints have a single dispatch surface.
     # Pyomo forbids sharing Set objects across blocks, so we create a fresh
-    # RangeSet at the top level mirroring the per-area ``h`` (identical
-    # content because hydro is global RoR for the AT path).
+    # RangeSet at the top level mirroring the per-area ``h``. We use the
+    # same ``check_n_hours`` round-up rule the legacy ``initialize_sets``
+    # applies, so budget-formulation hour adjustments stay consistent
+    # between the per-area blocks and the top-level model.
     from pyomo.environ import RangeSet
+    from .constants import VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP
+    from .initializations import check_n_hours
 
-    first_area = next(iter(model.A))
-    n_hours_used = len(model.area[first_area].h)
-    model.h = RangeSet(1, n_hours_used)
+    hydro_formulation = get_formulation(data, component="hydro")
+    if "Budget" in hydro_formulation:
+        n_hours_checked = check_n_hours(
+            n_hours, VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP[hydro_formulation]
+        )
+        model.h = RangeSet(1, n_hours_checked)
+    else:
+        model.h = RangeSet(1, n_hours)
     # GenMix_Target is identical across areas (read from data["scalars"]);
     # expose it on the top-level model for the system-wide constraint.
     model.GenMix_Target = Param(
