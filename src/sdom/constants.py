@@ -63,6 +63,27 @@ VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP = {
     #"CapacityPriceBudgetFormulation": "Formulation to load a time series parameter with the maximum capacity and import prices and dispatch it. Imports allowed always, but limited by a budget.",
 }
 
+# Network (zonal) formulation choices.
+# Used by io_manager.get_formulation(data, "Network") and by initialize_model
+# to dispatch between the legacy single-area copper-plate path and the
+# multi-area transportation network path.
+VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP = {
+    "CopperPlateNetwork": "Single system-wide energy balance (legacy behavior). Default when the 'Network' row is absent from formulations.csv.",
+    "AreaTransportationModelNetwork": "Per-area energy balance linked by a lossless transportation model with signed, asymmetric, time-varying line capacities.",
+}
+
+# Default Network formulation when 'Network' row is missing from formulations.csv
+# (preserves backward compatibility with all legacy data folders).
+DEFAULT_NETWORK_FORMULATION = "CopperPlateNetwork"
+
+# Reserved area_id used when a legacy (non-zonal) data folder is loaded so
+# downstream zonal-aware code can treat all data as belonging to a single area.
+DEFAULT_AREA_ID = "default"
+
+# Reserved character used in wide-CSV column headers to delimit the area-id
+# metadata tag, e.g. "load@A1@". Entity ids and area ids must not contain it.
+AREA_TAG_DELIMITER = "@"
+
 #RESILIENCY CONSTANTS HARD-CODED
 # PCLS - Percentage of Critical Load Served - Constraint : Resilience
 CRITICAL_LOAD_PERCENTAGE = 1  # 10% of the total load
