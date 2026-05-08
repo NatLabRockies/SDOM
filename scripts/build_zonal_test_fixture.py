@@ -23,8 +23,10 @@ Locked decisions
 ----------------
 - Hydro = ``RunOfRiverFormulation`` globally (drop A2's lahy_max/lahy_min).
 - Imports / Exports = ``NotModel`` globally (no Import_*/Export_* templates).
-- Network = ``CopperPlateNetwork`` (commit #6 will introduce the aggregation
-  fallback that handles |areas|>1 + CopperPlate; for now the per-area views
+- Network = ``AreaTransportationModelNetwork`` (the natural setting for the
+  2-area fixture; commit #6 introduced an aggregation fallback so that
+  flipping this row to ``CopperPlateNetwork`` collapses the fixture into a
+  single synthetic ``default`` area). The per-area views
   populated by io_manager are validated by the new tests).
 """
 
@@ -63,7 +65,7 @@ def build() -> None:
              "Imports are not represented in this fixture (zonal_test)."],
             ["Exports", "NotModel",
              "Exports are not represented in this fixture (zonal_test)."],
-            ["Network", "CopperPlateNetwork",
+            ["Network", "AreaTransportationModelNetwork",
              "Single system-wide energy balance; aggregation fallback for "
              "|areas|>1 lands in commit #6."],
         ],
@@ -150,8 +152,8 @@ def build() -> None:
 
     # ----- Zonal topology (commit #5) --------------------------------------
     # Single line A1 <-> A2, constant 500 MW capacity in both directions.
-    # The fixture keeps Network=CopperPlateNetwork for now (commit #12 flips
-    # it), so these files are present-but-not-required.
+    # The fixture uses Network=AreaTransportationModelNetwork, so these
+    # files are required by the validator.
     interconnections = pd.DataFrame(
         [["L_A1_A2", "A1", "A2"]],
         columns=["line_id", "from_area", "to_area"],
