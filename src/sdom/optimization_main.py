@@ -42,9 +42,9 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
 
     - **Legacy fast path** (``Network = CopperPlateNetwork`` and
       ``len(data["areas"]) == 1``): delegates to
-      :func:`_initialize_model_legacy`, which is the historical model body
-      preserved verbatim. This guarantees bit-identical objective values
-      for every legacy data folder (locked by
+      :func:`_initialize_model_copperplate`, which is the historical model
+      body preserved verbatim. This guarantees bit-identical objective
+      values for every legacy data folder (locked by
       ``tests/test_zonal_legacy_regression.py``).
     - **Per-area Block path** (``Network = AreaTransportationModelNetwork``
       or ``len(data["areas"]) > 1``): not yet implemented in this commit;
@@ -87,7 +87,7 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
     )
 
     if is_legacy_fast_path:
-        return _initialize_model_legacy(
+        return _initialize_model_copperplate(
             data,
             n_hours=n_hours,
             with_resilience_constraints=with_resilience_constraints,
@@ -109,7 +109,7 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
     )
 
 
-def _initialize_model_legacy(data, *, n_hours=8760, with_resilience_constraints=False, model_name="SDOM_Model"):
+def _initialize_model_copperplate(data, *, n_hours=8760, with_resilience_constraints=False, model_name="SDOM_Model"):
     """Build the legacy single-area copper-plate SDOM model (verbatim body).
 
     This is the historical body of :func:`initialize_model` extracted into a
@@ -371,41 +371,83 @@ def _add_area_subblocks(area_block, *, with_resilience_constraints):
 def _build_one_area(area_block, data_slice, *, n_hours, with_resilience_constraints):
     """Run the legacy build sequence on a single area block.
 
-    Mirrors the order in :func:`_initialize_model_legacy` but operates on
-    ``area_block`` (a child of ``model.area``) using a per-area
+    Mirrors the order in :func:`_initialize_model_copperplate` but operates
+    on ``area_block`` (a child of ``model.area``) using a per-area
     ``data_slice``. Imports / exports are intentionally skipped (caller
     guards against non-``NotModel`` formulations).
     """
+    a = area_block.index()
+
+    logging.info(f"[area={a}] Initializing model sets...")
     initialize_sets(area_block, data_slice, n_hours=n_hours)
+
+    logging.info(f"[area={a}] Initializing model parameters...")
     initialize_params(area_block, data_slice)
 
+    logging.info(f"[area={a}] Adding variables to the area block...")
+
+    logging.debug(f"[area={a}] -- Adding VRE variables...")
     add_vre_variables(area_block)
+
+    logging.debug(f"[area={a}] -- Adding VRE expressions...")
     add_vre_expressions(area_block)
+
+    logging.debug(f"[area={a}] -- Adding thermal generation variables...")
     add_thermal_variables(area_block)
+
+    logging.debug(f"[area={a}] -- Adding thermal generation expressions...")
     add_thermal_expressions(area_block)
 
     if with_resilience_constraints:
         # Defensive: caller already raises NotImplementedError for AT+resiliency.
+        logging.debug(f"[area={a}] -- Adding resiliency variables...")
         add_resiliency_variables(area_block)
 
+    logging.debug(f"[area={a}] -- Adding storage variables...")
     add_storage_variables(area_block)
+
+    logging.debug(f"[area={a}] -- Adding storage expressions...")
     add_storage_expressions(area_block)
+
+    logging.debug(f"[area={a}] -- Adding hydropower generation variables...")
     add_hydro_variables(area_block)
 
     # Skip imports/exports variables/expressions — guarded above.
+    if get_formulation(data_slice, component="Imports") != IMPORTS_EXPORTS_NOT_MODEL:
+        logging.warning(
+            f"[area={a}] Imports formulation is not '{IMPORTS_EXPORTS_NOT_MODEL}' "
+            f"under '{AREA_TRANSPORTATION_MODEL_NETWORK}' — variables skipped "
+            "(deferred to a follow-up commit)."
+        )
+    if get_formulation(data_slice, component="Exports") != IMPORTS_EXPORTS_NOT_MODEL:
+        logging.warning(
+            f"[area={a}] Exports formulation is not '{IMPORTS_EXPORTS_NOT_MODEL}' "
+            f"under '{AREA_TRANSPORTATION_MODEL_NETWORK}' — variables skipped "
+            "(deferred to a follow-up commit)."
+        )
 
+    logging.debug(f"[area={a}] -- Adding system expressions...")
     add_system_expressions(area_block)
 
+    logging.info(f"[area={a}] Adding constraints to the area block...")
+
+    logging.debug(f"[area={a}] -- Adding VRE balance constraints...")
     add_vre_balance_constraints(area_block)
+
+    logging.debug(f"[area={a}] -- Adding storage constraints...")
     add_storage_constraints(area_block)
+
+    logging.debug(f"[area={a}] -- Adding thermal generation constraints...")
     add_thermal_constraints(area_block)
 
+    logging.debug(f"[area={a}] -- Adding hydropower generation constraints...")
     if get_formulation(data_slice, component="hydro") == RUN_OF_RIVER_FORMULATION:
         add_hydro_run_of_river_constraints(area_block, data_slice)
     else:
         add_hydro_budget_constraints(area_block, data_slice)
 
     if with_resilience_constraints:
+        logging.debug(f"[area={a}] -- Adding resiliency constraints...")
         add_resiliency_constraints(area_block)
 
 

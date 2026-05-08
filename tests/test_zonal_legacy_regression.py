@@ -2,14 +2,15 @@
 
 The ``initialize_model`` dispatcher (PRD #53 commit #9a, see
 ``dev_guidelines/zonal_model/PRD.md`` \u00a75.7) routes single-area
-``CopperPlateNetwork`` data through :func:`sdom.optimization_main._initialize_model_legacy`,
-which is the historical model body preserved verbatim. This test locks the
-behaviour by asserting that every legacy data folder produces the same
-objective value as the existing test suite expects.
+``CopperPlateNetwork`` data through
+:func:`sdom.optimization_main._initialize_model_copperplate`, which is the
+historical model body preserved verbatim. This test locks the behaviour by
+asserting that every legacy data folder produces the same objective value
+as the existing test suite expects.
 
 If this test starts failing, the most likely cause is that the legacy code
 path was modified \u2014 revert the change and instead extend the per-area
-Block path (commit #9b) without touching ``_initialize_model_legacy``.
+Block path (commit #9b) without touching ``_initialize_model_copperplate``.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from sdom import (
 )
 from sdom.constants import COPPER_PLATE_NETWORK
 from sdom.io_manager import get_network_formulation
-from sdom.optimization_main import _initialize_model_legacy
+from sdom.optimization_main import _initialize_model_copperplate
 
 from constants_test import (
     REL_PATH_DATA_DAILY_HYDRO_BUDGET_IMP_EXP_TEST,
@@ -100,7 +101,7 @@ def test_legacy_fast_path_objective_is_bit_compatible(
 
 
 def test_dispatcher_delegates_to_legacy_helper(monkeypatch):
-    """The CopperPlate + single-area path must call ``_initialize_model_legacy``."""
+    """The CopperPlate + single-area path must call ``_initialize_model_copperplate``."""
     data = load_data(_abs_data_path(REL_PATH_DATA_RUN_OF_RIVER_TEST))
 
     calls = {"n": 0}
@@ -108,7 +109,7 @@ def test_dispatcher_delegates_to_legacy_helper(monkeypatch):
     def _spy(data_arg, *, n_hours, with_resilience_constraints, model_name):
         calls["n"] += 1
         # Delegate to the real function so the rest of the test stays valid.
-        return _initialize_model_legacy(
+        return _initialize_model_copperplate(
             data_arg,
             n_hours=n_hours,
             with_resilience_constraints=with_resilience_constraints,
@@ -116,7 +117,7 @@ def test_dispatcher_delegates_to_legacy_helper(monkeypatch):
         )
 
     monkeypatch.setattr(
-        "sdom.optimization_main._initialize_model_legacy", _spy
+        "sdom.optimization_main._initialize_model_copperplate", _spy
     )
 
     model = initialize_model(data, n_hours=24)
