@@ -1,11 +1,12 @@
 import logging
+import re
 import pandas as pd
 import os
 import csv
 
 from pyomo.environ import sqrt
 
-from .common.utilities import safe_pyomo_value, check_file_exists, compare_lists, concatenate_dataframes, get_dict_string_void_list_from_keys_in_list
+from .common.utilities import safe_pyomo_value, check_file_exists, compare_lists, concatenate_dataframes, get_dict_string_void_list_from_keys_in_list, get_complete_path
 from .constants import (
     INPUT_CSV_NAMES,
     MW_TO_KW,
@@ -13,6 +14,16 @@ from .constants import (
     VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP,
     VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP,
     DEFAULT_NETWORK_FORMULATION,
+    DEFAULT_AREA_ID,
+    AREA_TAG_DELIMITER,
+)
+
+# Compiled once: matches "<entity>@<area_id>@" with no extra '@' characters.
+_AREA_TAG_RE = re.compile(
+    rf"^(?P<entity>[^{re.escape(AREA_TAG_DELIMITER)}]*)"
+    rf"{re.escape(AREA_TAG_DELIMITER)}"
+    rf"(?P<area>[^{re.escape(AREA_TAG_DELIMITER)}]+)"
+    rf"{re.escape(AREA_TAG_DELIMITER)}$"
 )
 
 # Sentinel used to distinguish 'no default supplied' from 'default is None'.
@@ -92,6 +103,502 @@ def get_formulation(data: dict, component: str = 'hydro', *, default=_GET_FORMUL
         )
         return default
     return matches.iloc[0]
+
+
+# ---------------------------------------------------------------------------------
+# Per-area (zonal) parsing helpers
+# ---------------------------------------------------------------------------------
+
+
+def _parse_area_tagged_header(header):
+    """Parse a wide-CSV column header for an ``@area_id@`` tag.
+
+    The hybrid encoding for zonal data tags wide-CSV column names with
+    ``<entity><AREA_TAG_DELIMITER><area_id><AREA_TAG_DELIMITER>``. Legacy
+    column names without the delimiter are accepted and reported with
+    ``area_id == None`` so the caller can decide whether to assign
+    ``DEFAULT_AREA_ID`` (legacy file) or raise (mixed legacy + tagged).
+
+    Parameters
+    ----------
+    header : str
+        Column header to parse.
+
+    Returns
+    -------
+    tuple[str, str | None]
+        ``(entity_name, area_id)`` where ``area_id`` is ``None`` when the
+        header contains no delimiter.
+
+    Raises
+    ------
+    ValueError
+        If the delimiter appears in the header but the overall shape is not
+        ``<entity>@<area_id>@`` (stray ``@``, double tag, lone delimiter).
+    """
+    header = str(header)
+    if AREA_TAG_DELIMITER not in header:
+        return header, None
+    match = _AREA_TAG_RE.match(header)
+    if match is None:
+        raise ValueError(
+            f"Invalid area tag in column header '{header}'. Expected format "
+            f"'<entity>{AREA_TAG_DELIMITER}<area_id>{AREA_TAG_DELIMITER}'."
+        )
+    return match.group("entity"), match.group("area")
+
+
+def _split_wide_by_area(df, *, file_label):
+    """Split a wide-format DataFrame into per-area DataFrames using header tags.
+
+    The first column is treated as the time / property key and is preserved
+    in every per-area slice. All non-key columns must be either fully
+    untagged (legacy file → single ``DEFAULT_AREA_ID`` slice) or fully tagged
+    with ``@area_id@`` (zonal file → one slice per observed area).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame or None
+        Source DataFrame. ``None`` or empty returns ``({}, set())``.
+    file_label : str
+        Human-readable file identifier used in error messages.
+
+    Returns
+    -------
+    tuple[dict[str, pandas.DataFrame], set[str]]
+        ``(per_area, observed_areas)``. ``per_area`` maps ``area_id`` to a
+        DataFrame containing the key column and the columns belonging to
+        that area, with the ``@area_id@`` tag stripped from headers.
+        ``observed_areas`` is the set of explicitly tagged area ids (empty
+        for fully untagged legacy files).
+
+    Raises
+    ------
+    ValueError
+        If the file mixes untagged and tagged non-key columns, or any tagged
+        column header has an invalid shape.
+    """
+    if df is None or df.empty:
+        return {}, set()
+
+    key_col = df.columns[0]
+    parsed = []
+    untagged = 0
+    tagged = 0
+    for col in df.columns[1:]:
+        entity, area = _parse_area_tagged_header(col)
+        if area is None:
+            untagged += 1
+        else:
+            tagged += 1
+        parsed.append((col, entity, area))
+
+    if untagged and tagged:
+        raise ValueError(
+            f"{file_label} mixes legacy (untagged) and {AREA_TAG_DELIMITER}area_id"
+            f"{AREA_TAG_DELIMITER}-tagged columns. All non-key columns must be "
+            f"either all untagged or all tagged."
+        )
+
+    if tagged == 0:
+        return {DEFAULT_AREA_ID: df.copy()}, set()
+
+    # Group source columns by area, then build per-area DataFrames in one
+    # shot (avoids pandas PerformanceWarning on fragmented frames).
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    observed: set[str] = set()
+    for orig, entity, area in parsed:
+        observed.add(area)
+        grouped.setdefault(area, []).append((orig, entity))
+
+    per_area: dict[str, pd.DataFrame] = {}
+    for area, items in grouped.items():
+        sources = [orig for orig, _ in items]
+        renames = {orig: entity for orig, entity in items}
+        per_area[area] = df[[key_col, *sources]].rename(columns=renames).copy()
+    return per_area, observed
+
+
+def _split_row_by_area(df, *, id_col, file_label):
+    """Split a row-oriented DataFrame by an optional ``area_id`` column.
+
+    Files such as ``CapSolar.csv`` / ``CapWind.csv`` use Encoding A: an
+    optional ``area_id`` column tags every row. Plant identifiers (``id_col``)
+    must be globally unique across areas. Legacy files (no ``area_id`` column)
+    are returned as a single ``DEFAULT_AREA_ID`` slice.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame or None
+        Source DataFrame. ``None`` or empty returns ``({}, set())``.
+    id_col : str
+        Name of the globally unique row identifier (e.g. ``"sc_gid"``).
+    file_label : str
+        Human-readable file identifier used in error messages.
+
+    Returns
+    -------
+    tuple[dict[str, pandas.DataFrame], set[str]]
+        ``(per_area, observed_areas)``.
+
+    Raises
+    ------
+    ValueError
+        If duplicate ``id_col`` values appear across all areas.
+    """
+    if df is None or df.empty:
+        return {}, set()
+
+    if "area_id" not in df.columns:
+        return {DEFAULT_AREA_ID: df.copy()}, set()
+
+    if id_col in df.columns and df[id_col].duplicated().any():
+        dups = (
+            df.loc[df[id_col].duplicated(keep=False), id_col]
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+        raise ValueError(
+            f"{file_label}: '{id_col}' values must be globally unique across "
+            f"areas; duplicates found: {dups}."
+        )
+
+    per_area: dict[str, pd.DataFrame] = {}
+    observed: set[str] = set()
+    for area, sub in df.groupby("area_id", sort=False):
+        area_str = str(area)
+        observed.add(area_str)
+        per_area[area_str] = sub.copy()
+    return per_area, observed
+
+
+def _split_cf_by_plant_area(cf_df, cap_per_area, *, id_col):
+    """Group capacity-factor columns by area via the cap-table plant→area map.
+
+    ``CFSolar.csv`` / ``CFWind.csv`` keep a single column per plant
+    identifier (already globally unique). The plant→area mapping is recovered
+    from ``CapSolar.csv`` / ``CapWind.csv`` (already split per area).
+
+    Parameters
+    ----------
+    cf_df : pandas.DataFrame or None
+        Wide capacity-factor DataFrame; first column is the time key and
+        every other column header is a plant id.
+    cap_per_area : dict[str, pandas.DataFrame]
+        Per-area capacity tables keyed by ``area_id``.
+    id_col : str
+        Plant-id column name in the cap tables (e.g. ``"sc_gid"``).
+
+    Returns
+    -------
+    dict[str, pandas.DataFrame]
+        Per-area capacity-factor DataFrames; columns are the time key plus
+        the plant ids assigned to that area.
+    """
+    if cf_df is None or cf_df.empty:
+        return {}
+
+    key_col = cf_df.columns[0]
+    plant_to_area: dict[str, str] = {}
+    for area, sub in cap_per_area.items():
+        if id_col not in sub.columns:
+            continue
+        for plant_id in sub[id_col].astype(str):
+            plant_to_area[plant_id] = area
+
+    # Group columns by area first, then assemble each per-area DataFrame in
+    # one go (avoids pandas PerformanceWarning about fragmented frames).
+    cols_by_area: dict[str, list[str]] = {}
+    for col in cf_df.columns[1:]:
+        area = plant_to_area.get(str(col), DEFAULT_AREA_ID)
+        cols_by_area.setdefault(area, []).append(col)
+
+    per_area: dict[str, pd.DataFrame] = {}
+    for area, cols in cols_by_area.items():
+        per_area[area] = cf_df[[key_col, *cols]].copy()
+    return per_area
+
+
+def _combine_per_area_imp_exp(cap_per_area, price_per_area):
+    """Merge per-area capacity and price DataFrames (imports or exports).
+
+    Parameters
+    ----------
+    cap_per_area : dict[str, pandas.DataFrame]
+        Per-area capacity tables (first column is the time key).
+    price_per_area : dict[str, pandas.DataFrame]
+        Per-area price tables (first column is the time key).
+
+    Returns
+    -------
+    dict[str, pandas.DataFrame]
+        Per-area DataFrames containing the time key plus ``cap`` / ``price``
+        columns merged on the time key.
+    """
+    per_area: dict[str, pd.DataFrame] = {}
+    for area in set(cap_per_area) | set(price_per_area):
+        cap = cap_per_area.get(area)
+        price = price_per_area.get(area)
+        if cap is not None and price is not None:
+            key_col = cap.columns[0]
+            per_area[area] = cap.merge(price, on=key_col, how="outer")
+        else:
+            per_area[area] = (cap if cap is not None else price).copy()
+    return per_area
+
+
+def _load_areas(input_data_dir):
+    """Load ``areas.csv`` if present, otherwise synthesize the default area.
+
+    Parameters
+    ----------
+    input_data_dir : str
+        Path to the SDOM input data folder.
+
+    Returns
+    -------
+    tuple[list[dict], bool]
+        ``(areas, present_on_disk)``. ``areas`` is a list of
+        ``{"area_id": str, "description": str}`` dicts (always at least one
+        entry). ``present_on_disk`` is ``True`` when ``areas.csv`` was found.
+
+    Raises
+    ------
+    ValueError
+        If ``areas.csv`` is present but missing the required ``area_id``
+        column.
+    """
+    path = get_complete_path(input_data_dir, "areas.csv")
+    if path:
+        df = pd.read_csv(path)
+        if "area_id" not in df.columns:
+            raise ValueError("areas.csv must include an 'area_id' column.")
+        if "description" not in df.columns:
+            df["description"] = ""
+        df = df.copy()
+        df["area_id"] = df["area_id"].astype(str)
+        df["description"] = df["description"].fillna("").astype(str)
+        return df[["area_id", "description"]].to_dict(orient="records"), True
+
+    return (
+        [{"area_id": DEFAULT_AREA_ID, "description": "Default area"}],
+        False,
+    )
+
+
+def _validate_observed_areas(observed, *, areas, areas_csv_present, source_label):
+    """Validate that observed area_ids reference declared areas.
+
+    When ``areas.csv`` is present, every observed area must appear in
+    ``areas`` (ERROR otherwise). When ``areas.csv`` is absent, any observed
+    area is accepted (the caller will synthesize the area set).
+
+    Parameters
+    ----------
+    observed : set[str]
+        Area ids harvested from the per-device parser.
+    areas : list[dict]
+        Currently-known area list.
+    areas_csv_present : bool
+        Whether ``areas.csv`` was loaded from disk.
+    source_label : str
+        Human-readable identifier of the file that produced ``observed``,
+        used in error messages.
+
+    Raises
+    ------
+    ValueError
+        If ``areas.csv`` is present and ``observed`` references an unknown
+        ``area_id``.
+    """
+    if not observed or not areas_csv_present:
+        return
+    declared = {a["area_id"] for a in areas}
+    unknown = sorted(observed - declared)
+    if unknown:
+        raise ValueError(
+            f"{source_label}: references unknown area_id(s) {unknown} not "
+            f"declared in areas.csv (declared: {sorted(declared)})."
+        )
+
+
+def _augment_with_per_area_views(data, *, input_data_dir):
+    """Populate ``per_area_*`` views and validate the area encoding.
+
+    Post-processing step run after the legacy global keys have been loaded
+    into ``data``. Legacy single-area folders end up with all per-area dicts
+    keyed by ``DEFAULT_AREA_ID`` and the existing global keys untouched.
+
+    Parameters
+    ----------
+    data : dict
+        The data dictionary returned by ``load_data`` so far.
+    input_data_dir : str
+        Path to the SDOM input data folder (used to locate ``areas.csv``).
+
+    Returns
+    -------
+    dict
+        The same ``data`` dict, mutated in place, with the new keys
+        documented in PRD §4.4 (``areas``, ``per_area_demand``,
+        ``per_area_pv_plants``, etc.).
+
+    Raises
+    ------
+    ValueError
+        On any of the validation rules in PRD §4.5 (mixed columns, stray
+        ``@``, unknown area references, duplicate plant ids, …).
+    """
+    areas, areas_present = _load_areas(input_data_dir)
+
+    wide_specs = [
+        ("load_data", "Load_hourly.csv"),
+        ("nuclear_data", "Nucl_hourly.csv"),
+        ("large_hydro_data", "lahy_hourly.csv"),
+        ("large_hydro_max", "lahy_max_hourly.csv"),
+        ("large_hydro_min", "lahy_min_hourly.csv"),
+        ("other_renewables_data", "otre_hourly.csv"),
+        ("cap_imports", "Import_Cap.csv"),
+        ("price_imports", "Import_Prices.csv"),
+        ("cap_exports", "Export_Cap.csv"),
+        ("price_exports", "Export_Prices.csv"),
+    ]
+    splits: dict[str, dict[str, pd.DataFrame]] = {}
+    observed_total: set[str] = set()
+    for key, label in wide_specs:
+        per_area, observed = _split_wide_by_area(data.get(key), file_label=label)
+        _validate_observed_areas(
+            observed,
+            areas=areas,
+            areas_csv_present=areas_present,
+            source_label=label,
+        )
+        splits[key] = per_area
+        observed_total |= observed
+
+    # StorageData.csv is read with index_col=0; rebuild the wide form for parsing.
+    storage_df = data.get("storage_data")
+    if storage_df is not None and not storage_df.empty:
+        index_label = storage_df.index.name or "Property"
+        storage_wide = storage_df.reset_index().rename(
+            columns={storage_df.index.name or "index": index_label}
+        )
+        per_area_storage_wide, observed_storage = _split_wide_by_area(
+            storage_wide, file_label="StorageData.csv"
+        )
+        _validate_observed_areas(
+            observed_storage,
+            areas=areas,
+            areas_csv_present=areas_present,
+            source_label="StorageData.csv",
+        )
+        per_area_storage = {
+            area: sub.set_index(sub.columns[0])
+            for area, sub in per_area_storage_wide.items()
+        }
+    else:
+        per_area_storage, observed_storage = {}, set()
+    observed_total |= observed_storage
+
+    # Data_BalancingUnits.csv is currently row-oriented (Plant_id, MaxCapacity, ...).
+    # Treat it as Encoding A (optional area_id column) for backward compatibility
+    # with the existing fixtures; the PRD's wide-form example is aspirational and
+    # will be revisited when the long-format migration lands.
+    per_area_balancing_units, observed_bu = _split_row_by_area(
+        data.get("thermal_data"), id_col="Plant_id", file_label="Data_BalancingUnits.csv"
+    )
+    _validate_observed_areas(
+        observed_bu,
+        areas=areas,
+        areas_csv_present=areas_present,
+        source_label="Data_BalancingUnits.csv",
+    )
+    observed_total |= observed_bu
+
+    per_area_pv_plants, observed_pv = _split_row_by_area(
+        data.get("cap_solar"), id_col="sc_gid", file_label="CapSolar.csv"
+    )
+    _validate_observed_areas(
+        observed_pv,
+        areas=areas,
+        areas_csv_present=areas_present,
+        source_label="CapSolar.csv",
+    )
+    observed_total |= observed_pv
+
+    per_area_wind_plants, observed_wind = _split_row_by_area(
+        data.get("cap_wind"), id_col="sc_gid", file_label="CapWind.csv"
+    )
+    _validate_observed_areas(
+        observed_wind,
+        areas=areas,
+        areas_csv_present=areas_present,
+        source_label="CapWind.csv",
+    )
+    observed_total |= observed_wind
+
+    per_area_cf_pv = _split_cf_by_plant_area(
+        data.get("cf_solar"), per_area_pv_plants, id_col="sc_gid"
+    )
+    per_area_cf_wind = _split_cf_by_plant_area(
+        data.get("cf_wind"), per_area_wind_plants, id_col="sc_gid"
+    )
+
+    per_area_imports = _combine_per_area_imp_exp(
+        splits["cap_imports"], splits["price_imports"]
+    )
+    per_area_exports = _combine_per_area_imp_exp(
+        splits["cap_exports"], splits["price_exports"]
+    )
+
+    # Hydro composite per area: merge run-of-river / max / min on the time key.
+    hydro_components = {
+        "LargeHydro": splits["large_hydro_data"],
+        "LargeHydro_Max": splits.get("large_hydro_max", {}),
+        "LargeHydro_Min": splits.get("large_hydro_min", {}),
+    }
+    per_area_hydro: dict[str, pd.DataFrame] = {}
+    for label, src in hydro_components.items():
+        for area, sub in src.items():
+            if sub is None or sub.empty:
+                continue
+            key_col = sub.columns[0]
+            value_cols = [c for c in sub.columns if c != key_col]
+            renamed = sub.rename(
+                columns={
+                    c: (label if len(value_cols) == 1 else f"{label}__{c}")
+                    for c in value_cols
+                }
+            )
+            if area not in per_area_hydro:
+                per_area_hydro[area] = renamed
+            else:
+                per_area_hydro[area] = per_area_hydro[area].merge(
+                    renamed, on=key_col, how="outer"
+                )
+
+    # Synthesize areas from observed tags when areas.csv was absent.
+    if not areas_present and observed_total:
+        areas = [
+            {"area_id": area, "description": f"Area {area}"}
+            for area in sorted(observed_total)
+        ]
+
+    data["areas"] = areas
+    data["per_area_demand"] = splits["load_data"]
+    data["per_area_pv_plants"] = per_area_pv_plants
+    data["per_area_wind_plants"] = per_area_wind_plants
+    data["per_area_balancing_units"] = per_area_balancing_units
+    data["per_area_storage"] = per_area_storage
+    data["per_area_hydro"] = per_area_hydro
+    data["per_area_nuclear"] = splits["nuclear_data"]
+    data["per_area_other_renewables"] = splits["other_renewables_data"]
+    data["per_area_imports"] = per_area_imports
+    data["per_area_exports"] = per_area_exports
+    data["per_area_capacity_factors_pv"] = per_area_cf_pv
+    data["per_area_capacity_factors_wind"] = per_area_cf_wind
+    return data
 
 
 def load_data( input_data_dir:str = '.\\Data\\' ):
@@ -299,6 +806,7 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         data_dict["cap_exports"] = cap_exports
         data_dict["price_exports"] = price_exports
     
+    _augment_with_per_area_views(data_dict, input_data_dir=input_data_dir)
     return data_dict
     
 
