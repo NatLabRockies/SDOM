@@ -13,37 +13,37 @@ def initialize_storage_sets(block, data: dict):
 # ----------------------------------- Parameters -----------------------------------|
 ####################################################################################|
 
-def add_storage_parameters(model, data: dict):
+def add_storage_parameters(host, data: dict):
     # Battery life and cycling
     max_cycles_dict = data['storage_data'].loc['MaxCycles'].to_dict()
 
-    model.storage.MaxCycles = Param( model.storage.j,  initialize = max_cycles_dict )
+    host.storage.MaxCycles = Param( host.storage.j,  initialize = max_cycles_dict )
     # Storage data initialization
     storage_dict = data["storage_data"].stack().to_dict()
-    storage_tuple_dict = {(prop, tech): storage_dict[(prop, tech)] for prop in STORAGE_PROPERTIES_NAMES for tech in model.storage.j}
-    model.storage.data = Param( model.storage.properties_set, model.storage.j, initialize = storage_tuple_dict )
+    storage_tuple_dict = {(prop, tech): storage_dict[(prop, tech)] for prop in STORAGE_PROPERTIES_NAMES for tech in host.storage.j}
+    host.storage.data = Param( host.storage.properties_set, host.storage.j, initialize = storage_tuple_dict )
 
-    model.storage.r = Param( initialize = float(data["scalars"].loc["r"].Value) )  # Interest rate
-    model.storage.CRF = Param( model.storage.j, initialize = crf_rule ) #Capital Recovery Factor -STORAGE
+    host.storage.r = Param( initialize = float(data["scalars"].loc["r"].Value) )  # Interest rate
+    host.storage.CRF = Param( host.storage.j, initialize = crf_rule ) #Capital Recovery Factor -STORAGE
 
 ####################################################################################|
 # ------------------------------------ Variables -----------------------------------|
 ####################################################################################|
-def add_storage_variables(model):
+def add_storage_variables(host):
     # Charging power for storage technology j in hour h
-    model.storage.PC = Var(model.h, model.storage.j, domain=NonNegativeReals, initialize=0)
+    host.storage.PC = Var(host.h, host.storage.j, domain=NonNegativeReals, initialize=0)
     # Discharging power for storage technology j in hour h
-    model.storage.PD = Var(model.h, model.storage.j, domain=NonNegativeReals, initialize=0)
+    host.storage.PD = Var(host.h, host.storage.j, domain=NonNegativeReals, initialize=0)
     # State-of-charge for storage technology j in hour h
-    model.storage.SOC = Var(model.h, model.storage.j, domain=NonNegativeReals, initialize=0)
+    host.storage.SOC = Var(host.h, host.storage.j, domain=NonNegativeReals, initialize=0)
     # Charging capacity for storage technology j
-    model.storage.Pcha = Var(model.storage.j, domain=NonNegativeReals, initialize=0)
+    host.storage.Pcha = Var(host.storage.j, domain=NonNegativeReals, initialize=0)
     # Discharging capacity for storage technology j
-    model.storage.Pdis = Var(model.storage.j, domain=NonNegativeReals, initialize=0)
+    host.storage.Pdis = Var(host.storage.j, domain=NonNegativeReals, initialize=0)
     # Energy capacity for storage technology j
-    model.storage.Ecap = Var(model.storage.j, domain=NonNegativeReals, initialize=0)
+    host.storage.Ecap = Var(host.storage.j, domain=NonNegativeReals, initialize=0)
 
-    model.storage.capacity_fraction = Var(model.storage.j, model.h, domain=Binary, initialize=0)
+    host.storage.capacity_fraction = Var(host.storage.j, host.h, domain=Binary, initialize=0)
 
 
 ####################################################################################|
@@ -76,15 +76,15 @@ def _add_storage_expressions(block):
     block.total_fixed_om_cost = Expression( rule = sum( block.fixed_om_cost_expr[j] for j in block.j ) )
 
 
-def add_storage_expressions(model):
-    _add_storage_expressions(model.storage)
+def add_storage_expressions(host):
+    _add_storage_expressions(host.storage)
      
 
 
 ####################################################################################|
 # ----------------------------------- Add_costs -----------------------------------|
 ####################################################################################|
-def add_storage_fixed_costs(model):
+def add_storage_fixed_costs(host):
     """
     Add cost-related variables for storage technologies to the model.
     
@@ -95,10 +95,10 @@ def add_storage_fixed_costs(model):
     Costs sum for storage technologies, including capital and fixed O&M costs.
     """
     return ( # Storage Capex and Fixed O&M
-            model.storage.total_capex_cost  + model.storage.total_fixed_om_cost 
+            host.storage.total_capex_cost  + host.storage.total_fixed_om_cost 
             )
 
-def add_storage_variable_costs(model):
+def add_storage_variable_costs(host):
     """
     Add variable costs for storage technologies to the model.
     
@@ -109,8 +109,8 @@ def add_storage_variable_costs(model):
     Variable costs sum for storage technologies, including variable O&M costs.
     """
     return (
-        sum( model.storage.data['VOM', j] * sum(model.storage.PD[h, j]
-                  for h in model.h) for j in model.storage.j )
+        sum( host.storage.data['VOM', j] * sum(host.storage.PD[h, j]
+                  for h in host.h) for j in host.storage.j )
     )
 
 ####################################################################################|
@@ -135,7 +135,7 @@ def max_cycle_year_rule(model, j): #TODO check here this hardcoded Li-Ion
     iterate = range(1, n_steps + 1)
     return sum(model.PD[h, j] for h in iterate) <= (model.MaxCycles[j] / model.data['Lifetime', j]) * model.Ecap[j]
 
-def add_storage_constraints( model ):
+def add_storage_constraints( host ):
     """
     Add storage-related constraints to the model.
     
@@ -146,28 +146,28 @@ def add_storage_constraints( model ):
     None
     """
     # Ensure that the charging and discharging power do not exceed storage limits
-    model.storage.ChargSt= Constraint(model.h, model.storage.j, rule=lambda m, h, j: m.PC[h, j] <= m.data['Max_P', j] * m.capacity_fraction[j, h])
-    model.storage.DischargeSt = Constraint(model.h, model.storage.j, rule=lambda m, h, j: m.PD[h, j] <= m.data['Max_P', j] * (1 - m.capacity_fraction[j, h]))
+    host.storage.ChargSt= Constraint(host.h, host.storage.j, rule=lambda m, h, j: m.PC[h, j] <= m.data['Max_P', j] * m.capacity_fraction[j, h])
+    host.storage.DischargeSt = Constraint(host.h, host.storage.j, rule=lambda m, h, j: m.PD[h, j] <= m.data['Max_P', j] * (1 - m.capacity_fraction[j, h]))
 
     # Hourly capacity bounds
-    model.storage.MaxHourlyCharging = Constraint(model.h, model.storage.j, rule= lambda m,h,j: m.PC[h, j] <= m.Pcha[j])
-    model.storage.MaxHourlyDischarging = Constraint(model.h, model.storage.j, rule= lambda m,h,j: m.PD[h, j] <= m.Pdis[j])
+    host.storage.MaxHourlyCharging = Constraint(host.h, host.storage.j, rule= lambda m,h,j: m.PC[h, j] <= m.Pcha[j])
+    host.storage.MaxHourlyDischarging = Constraint(host.h, host.storage.j, rule= lambda m,h,j: m.PD[h, j] <= m.Pdis[j])
 
     # Limit state of charge of storage by its capacity
-    model.storage.MaxSOC = Constraint(model.h, model.storage.j, rule=lambda m, h, j: m.SOC[h,j]<= m.Ecap[j])
+    host.storage.MaxSOC = Constraint(host.h, host.storage.j, rule=lambda m, h, j: m.SOC[h,j]<= m.Ecap[j])
     # SOC Balance Constraint
-    model.SOCBalance = Constraint(model.h, model.storage.j, rule=soc_balance_rule)
+    host.SOCBalance = Constraint(host.h, host.storage.j, rule=soc_balance_rule)
 
     # - Constraints on the maximum charging (Pcha) and discharging (Pdis) power for each technology
-    model.storage.MaxPcha = Constraint( model.storage.j, rule=lambda m, j: m.Pcha[j] <= m.data['Max_P', j] )
-    model.storage.MaxPdis = Constraint( model.storage.j, rule=lambda m, j: m.Pdis[j] <= m.data['Max_P', j] )
+    host.storage.MaxPcha = Constraint( host.storage.j, rule=lambda m, j: m.Pcha[j] <= m.data['Max_P', j] )
+    host.storage.MaxPdis = Constraint( host.storage.j, rule=lambda m, j: m.Pdis[j] <= m.data['Max_P', j] )
 
     # Charge and discharge rates are equal -
-    model.storage.PchaPdis = Constraint( model.storage.b, rule=lambda m, j: m.Pcha[j] == m.Pdis[j] )
+    host.storage.PchaPdis = Constraint( host.storage.b, rule=lambda m, j: m.Pcha[j] == m.Pdis[j] )
 
     # Max and min energy capacity constraints (handle uninitialized variables)
-    model.storage.MinEcap = Constraint(model.storage.j, rule= lambda m,j: m.Ecap[j] >= m.data['Min_Duration', j] * m.Pdis[j] / sqrt(m.data['Eff', j]))
-    model.storage.MaxEcap = Constraint(model.storage.j, rule= lambda m,j: m.Ecap[j] <= m.data['Max_Duration', j] * m.Pdis[j] / sqrt(m.data['Eff', j]))
+    host.storage.MinEcap = Constraint(host.storage.j, rule= lambda m,j: m.Ecap[j] >= m.data['Min_Duration', j] * m.Pdis[j] / sqrt(m.data['Eff', j]))
+    host.storage.MaxEcap = Constraint(host.storage.j, rule= lambda m,j: m.Ecap[j] <= m.data['Max_Duration', j] * m.Pdis[j] / sqrt(m.data['Eff', j]))
 
 
-    model.storage.MaxCycleYear_constraint = Constraint( model.storage.j, rule=max_cycle_year_rule)
+    host.storage.MaxCycleYear_constraint = Constraint( host.storage.j, rule=max_cycle_year_rule)
