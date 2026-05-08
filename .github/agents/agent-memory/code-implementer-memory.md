@@ -4,6 +4,45 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #9a: dispatcher + fast-path lock (2026-05-08)
+
+### Scope
+Split commit #9 into 9a (dispatcher + hard fast-path lock + golden-file regression) and 9b (per-area Block construction). 9a is purely structural — zero behavioral change for legacy data.
+
+### Files
+- `src/sdom/optimization_main.py` — extracted historical body of `initialize_model` verbatim into private `_initialize_model_legacy(data, *, n_hours, with_resilience_constraints, model_name)`. New `initialize_model` is a thin dispatcher: `get_network_formulation(data) == COPPER_PLATE_NETWORK and len(data["areas"]) == 1` → legacy helper; otherwise raises `NotImplementedError("...commit #9b...")`. Imported `COPPER_PLATE_NETWORK`, `AREA_TRANSPORTATION_MODEL_NETWORK`, `DEFAULT_AREA_ID`, `get_network_formulation`.
+- `tests/test_zonal_legacy_regression.py` (new, 5 tests) — 4 parametrized golden-file cases (RoR 24h / Monthly 730h / Daily 168h / Daily+Imp/Exp 168h) reusing the historical objective values from existing `test_no_resiliency_*` files; plus a `monkeypatch.setattr` delegation spy that proves the dispatcher actually calls `_initialize_model_legacy`.
+- `tests/test_zonal_model_build.py` (new, 2 tests) — scaffolding for #9b. Asserts `Data/zonal_test` raises `NotImplementedError` with PRD-traceable message and pins the dispatcher classification axis (`get_network_formulation` + `len(data["areas"])`).
+
+### Key decisions
+- **Public signature unchanged**: kept `n_hours` positional in `initialize_model(data, n_hours=8760, ...)` because existing tests call `initialize_model(data, n_hours=24, ...)` (still positional-compatible) and a `*` separator now would silently break callers. PRD §3.4's keyword-only example is a future cleanup, NOT this commit.
+- **Helper signature uses `*`**: `_initialize_model_legacy(data, *, ...)` because it's private and exists only to be called by the dispatcher. Forces named delegation.
+- **Golden values reused, not regenerated**: The legacy regression test pulls the same 4 numbers already enforced by `test_no_resiliency_optimization_cases.py`, `test_no_resiliency_hydro_budget_optimization_cases.py`, `test_no_resiliency_imp_exp_hydro_budget_optimization_cases.py`. This avoids drift — if any of those numbers change, both tests break together.
+- **Tolerance `<= 10` (USD)**: matches the existing tests' tolerance. The existing tests already pass under HiGHS so the same tolerance is sufficient.
+- **`NotImplementedError` message must reference PRD §5/§10 + commit #9b** so a future maintainer hitting it knows where to look.
+
+### Patterns / gotchas
+- The `monkeypatch.setattr("sdom.optimization_main._initialize_model_legacy", _spy)` pattern works because `initialize_model` references the helper by **module-qualified name** at call time (it's looked up in module globals). If we ever inlined `_initialize_model_legacy` into `initialize_model`'s closure, the spy pattern would break — keep the function module-level.
+- The dispatcher uses `data.get("areas", [{"area_id": DEFAULT_AREA_ID}])` for defensive defaulting, but in practice every dict from `load_data` already has `data["areas"]` since commit #4. The default is belt-and-suspenders for callers building `data` by hand.
+- Imported `AREA_TRANSPORTATION_MODEL_NETWORK` even though it's only used inside the f-string indirectly (via `network` runtime value) — kept it explicit so a reader can see both possible network values at the import site.
+
+### Test counts
+- New: 7 tests (5 + 2). All green.
+- Full suite: **349 → 356 passed**, 0 failed in 167s.
+
+### Commit
+- SHA: `621db72` on `sm/zonal_model`. Not pushed.
+
+### Open items for #9b
+- Refactor every `add_*` builder in `formulations_*.py` + `initialize_sets`/`initialize_params` to accept a `data_slice` (user-locked decision B). The slice will be a derived dict where global keys (`cap_solar`, `storage_data`, `load_data`, …) point to the per-area DataFrame from `data["per_area_*"][a]`.
+- Build `model.A` (top-level Set), `model.area = Block(model.A)`, then loop areas calling each builder with `host=model.area[a]` + per-area `data_slice`.
+- Wire `formulations_network` (commit #8): `add_network_sets(model, lines=..., line_from=..., line_to=...)`, `add_network_parameters(model, line_cap_ft=..., line_cap_tf=...)`, `add_network_variables(model)`, `add_network_constraints(model)`, `add_network_expressions(model)`.
+- Replace `formulations_system.create_supply_balance_rule` to operate on a `host` (area block) and add the `NetFlow` term: `+ sum(model.f[l,h] for l in model.L_in[a]) - sum(model.f[l,h] for l in model.L_out[a])`. The rule's first arg becomes the parent `model` (so it can reach `model.f`, `model.L_in`, `model.L_out`); the per-area `host` is captured in the closure.
+- Aggregate the objective over areas: `Z = sum(Z^pv_a + Z^wind_a + ... for a in m.A) + Z^trade + Z^trans`. The cost-sub-functions (`add_vre_fixed_costs`, etc.) currently sum over `host.pv` / `host.wind` etc. — once they take `host=model.area[a]`, the area-level sum becomes `sum(add_vre_fixed_costs(model.area[a]) for a in model.A)`.
+- Resiliency + AT path → `NotImplementedError` (PRD §5.8) — that's commit #12 but the guard could land in #9b's dispatcher already.
+
+---
+
 ## Zonal Capacity Expansion — Commit #8: `formulations_network.py` (2026-05-08)
 
 ### Scope
