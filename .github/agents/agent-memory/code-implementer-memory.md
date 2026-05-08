@@ -4,6 +4,33 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #8: `formulations_network.py` (2026-05-08)
+
+### Scope
+Pure additive new module `src/sdom/models/formulations_network.py` (PRD §5.6). Not yet wired into `initialize_model` (commit #9). 9 new tests in `tests/test_zonal_formulations_network.py`. Full suite: **349 passed** (340 + 9).
+
+### Key decisions
+- **`f_FT` / `f_TF` are `Expression` of *signed* scalars** (`m.f[l,h]` and `-m.f[l,h]`), not `max(.,0)` — `max` is non-linear and would break LP-ness even in an Expression. Documented in module + function docstring that downstream reporting must clip with `max(value(...), 0.0)`. Since at the LP optimum at most one direction carries positive flow, the signed value already encodes both directions losslessly.
+- **`L_in[a]` / `L_out[a]` built from precomputed Python dicts** captured in the closure, not via rules that introspect `m.line_from` / `m.line_to`. Avoids Pyomo deferred-construction ordering surprises (Param indexing inside Set rule is brittle).
+- **`Var.domain` is not accessible on the indexed container**; must check on each element: `m.f[l,h].domain is pyo.Reals`. (Caught by initial test failure.)
+- Used `from pyomo.environ import ...` exclusively (matches `formulations_storage.py` style closely enough).
+
+### Solver fixture pattern (reused)
+```python
+def _highs():
+    for name in ("appsi_highs", "highs"):
+        try:
+            s = pyo.SolverFactory(name)
+            if s is not None and s.available(exception_flag=False):
+                return s
+        except Exception:
+            continue
+    pytest.skip("HiGHS solver not available")
+```
+And `m.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)` for shadow prices.
+
+---
+
 ## Zonal Capacity Expansion — Commit #5: interconnections + line capacities (2026-05-08)
 
 ### Scope
