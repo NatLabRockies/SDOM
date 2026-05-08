@@ -33,6 +33,10 @@ INPUT_CSV_NAMES = {
     "cap_exports": "Export_Cap.csv",
     "price_imports": "Import_Prices.csv",
     "price_exports": "Export_Prices.csv",
+    # --- Zonal (Network=AreaTransportationModelNetwork) topology + line caps ---
+    "interconnections": "interconnections.csv",
+    "line_cap_ft": "LineCap_FT.csv",
+    "line_cap_tf": "LineCap_TF.csv",
     'scalars': 'scalars.csv', #'scalars.csv',
 }
 

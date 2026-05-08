@@ -73,12 +73,21 @@ def test_load_data_accepts_explicit_copper_plate(tmp_path):
 
 
 def test_load_data_accepts_explicit_area_transportation(tmp_path):
-    """Constant is registered; full zonal loading wires up in later commits."""
-    folder = _copy_to(tmp_path)
-    _set_network_row(folder, "AreaTransportationModelNetwork")
+    """AT formulation requires topology files (commit #5 wired this up)."""
+    # Use the zonal fixture, which already ships with interconnections.csv +
+    # LineCap_FT.csv + LineCap_TF.csv.
+    src = Path("Data/zonal_test")
+    folder = tmp_path / "data"
+    shutil.copytree(src, folder)
+    df = pd.read_csv(folder / "formulations.csv")
+    df.loc[df["Component"].str.lower() == "network", "Formulation"] = (
+        "AreaTransportationModelNetwork"
+    )
+    df.to_csv(folder / "formulations.csv", index=False)
 
     data = load_data(str(folder))
     assert data["network_formulation"] == "AreaTransportationModelNetwork"
+    assert len(data["lines"]) == 1
 
 
 def test_load_data_rejects_unknown_network_value(tmp_path):

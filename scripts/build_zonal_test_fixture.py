@@ -148,6 +148,26 @@ def build() -> None:
             raise RuntimeError(f"Plant id collisions in {out_name}: {dups}")
         out.to_csv(OUT_DIR / out_name, index=False)
 
+    # ----- Zonal topology (commit #5) --------------------------------------
+    # Single line A1 <-> A2, constant 500 MW capacity in both directions.
+    # The fixture keeps Network=CopperPlateNetwork for now (commit #12 flips
+    # it), so these files are present-but-not-required.
+    interconnections = pd.DataFrame(
+        [["L_A1_A2", "A1", "A2"]],
+        columns=["line_id", "from_area", "to_area"],
+    )
+    interconnections.to_csv(OUT_DIR / "interconnections.csv", index=False)
+
+    # Match the hour-key column name used by the other 8760-row CSVs ("*Hour").
+    hour_key = _read(A1_DIR / "Load_hourly_2050.csv").columns[0]
+    n_hours = 8760
+    line_cap = pd.DataFrame({
+        hour_key: range(1, n_hours + 1),
+        "L_A1_A2": [500.0] * n_hours,
+    })
+    line_cap.to_csv(OUT_DIR / "LineCap_FT.csv", index=False)
+    line_cap.to_csv(OUT_DIR / "LineCap_TF.csv", index=False)
+
     # ----- Data_BalancingUnits.csv (Encoding A) ----------------------------
     bu1 = _read(A1_DIR / "Data_BalancingUnits_2030(in).csv").copy()
     bu2 = _read(A2_DIR / "Data_BalancingUnits_2025.csv").copy()

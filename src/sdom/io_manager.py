@@ -601,6 +601,231 @@ def _augment_with_per_area_views(data, *, input_data_dir):
     return data
 
 
+# ---------------------------------------------------------------------------------
+# Zonal topology (commit #5): interconnections + per-line hourly capacities
+# ---------------------------------------------------------------------------------
+
+
+def _load_interconnections(input_data_dir, *, areas):
+    """Load the inter-area transmission topology from ``interconnections.csv``.
+
+    Reads the line definitions used by the
+    ``AreaTransportationModelNetwork`` formulation. The file is optional;
+    when absent an empty list is returned so legacy and copper-plate
+    fixtures continue to load. When present, it is fully validated.
+
+    Parameters
+    ----------
+    input_data_dir : str
+        Path to the SDOM input data folder.
+    areas : list of dict
+        Declared areas as returned by ``_load_areas``. Used as the
+        foreign-key target for ``from_area`` / ``to_area``.
+
+    Returns
+    -------
+    list of dict
+        One ``{"line_id": str, "from_area": str, "to_area": str}`` per row,
+        preserving the file order. Returns ``[]`` when the file is absent
+        or empty.
+
+    Raises
+    ------
+    ValueError
+        If required columns are missing, ``line_id`` or
+        ``(from_area, to_area)`` pairs are duplicated, a self-loop is
+        declared, or an area reference does not exist in ``areas``.
+    """
+    path = get_complete_path(input_data_dir, "interconnections.csv")
+    if not path:
+        return []
+
+    df = pd.read_csv(path)
+    required = {"line_id", "from_area", "to_area"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"interconnections.csv is missing required column(s): "
+            f"{sorted(missing)}."
+        )
+
+    if df.empty:
+        return []
+
+    df = df.copy()
+    for col in ("line_id", "from_area", "to_area"):
+        df[col] = df[col].astype(str)
+
+    # Duplicate line_id ----------------------------------------------------
+    dup_ids = df.loc[df["line_id"].duplicated(keep=False), "line_id"].unique().tolist()
+    if dup_ids:
+        raise ValueError(
+            f"interconnections.csv: duplicate line_id value(s) {sorted(dup_ids)}."
+        )
+
+    # Duplicate (from_area, to_area) pairs ---------------------------------
+    pair_dup_mask = df.duplicated(subset=["from_area", "to_area"], keep=False)
+    if pair_dup_mask.any():
+        dup_pairs = (
+            df.loc[pair_dup_mask, ["from_area", "to_area"]]
+            .drop_duplicates()
+            .apply(lambda r: (r["from_area"], r["to_area"]), axis=1)
+            .tolist()
+        )
+        raise ValueError(
+            f"interconnections.csv: duplicate (from_area, to_area) pair(s) "
+            f"{dup_pairs}."
+        )
+
+    # Self-loops -----------------------------------------------------------
+    self_loops = df.loc[df["from_area"] == df["to_area"], "line_id"].tolist()
+    if self_loops:
+        raise ValueError(
+            f"interconnections.csv: self-loops are not allowed; offending "
+            f"line_id(s): {self_loops}."
+        )
+
+    # Foreign-key check on areas ------------------------------------------
+    declared = {a["area_id"] for a in areas}
+    referenced = set(df["from_area"]).union(df["to_area"])
+    unknown = sorted(referenced - declared)
+    if unknown:
+        raise ValueError(
+            f"interconnections.csv: references unknown area_id(s) {unknown} "
+            f"not declared in areas.csv (declared: {sorted(declared)})."
+        )
+
+    return df[["line_id", "from_area", "to_area"]].to_dict(orient="records")
+
+
+def _load_one_line_cap(input_data_dir, filename, *, lines, n_hours, direction):
+    """Load and validate one of ``LineCap_FT.csv`` / ``LineCap_TF.csv``.
+
+    Returns an empty DataFrame when the file is absent (the caller decides
+    whether the absence is acceptable for the active Network formulation).
+
+    Parameters
+    ----------
+    input_data_dir : str
+        Path to the SDOM input data folder.
+    filename : str
+        ``"LineCap_FT.csv"`` or ``"LineCap_TF.csv"``.
+    lines : list of dict
+        Lines returned by ``_load_interconnections``. Used to validate the
+        column set of the capacity file.
+    n_hours : int
+        Expected number of rows (defaults to 8760 in the public wrapper).
+    direction : str
+        Human label (``"FT"`` or ``"TF"``) used in error messages.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Indexed by hour, with one column per ``line_id``. Empty if the
+        file is absent or ``lines`` is empty.
+
+    Raises
+    ------
+    ValueError
+        If the column set differs from ``{l["line_id"] for l in lines}``,
+        the row count differs from ``n_hours``, or any value is negative.
+    """
+    path = get_complete_path(input_data_dir, filename)
+    if not path:
+        return pd.DataFrame()
+
+    df = pd.read_csv(path)
+    if df.shape[1] < 2:
+        raise ValueError(
+            f"{filename}: expected an hour-index column followed by one "
+            f"column per line_id; found {df.shape[1]} column(s)."
+        )
+
+    key_col = df.columns[0]
+    df = df.copy()
+    df[key_col] = pd.to_numeric(df[key_col], errors="coerce")
+    df = df.sort_values(key_col).reset_index(drop=True)
+    cap = df.set_index(key_col)
+    cap.columns = cap.columns.astype(str)
+
+    # Without lines we still return what we read so callers can introspect;
+    # but the column / non-negativity checks below are skipped because they
+    # reference the `lines` set.
+    if not lines:
+        return cap
+
+    expected_cols = {l["line_id"] for l in lines}
+    actual_cols = set(cap.columns)
+    if actual_cols != expected_cols:
+        missing = sorted(expected_cols - actual_cols)
+        extra = sorted(actual_cols - expected_cols)
+        raise ValueError(
+            f"{filename}: column set must match interconnections.csv line_ids. "
+            f"Missing: {missing}; unexpected: {extra}."
+        )
+
+    if len(cap) != n_hours:
+        raise ValueError(
+            f"{filename}: expected {n_hours} hourly rows, found {len(cap)}."
+        )
+
+    neg_mask = (cap < 0)
+    if neg_mask.values.any():
+        # Identify the first offending (row, column) pair for the message.
+        rows, cols = neg_mask.values.nonzero()
+        first_row = int(rows[0])
+        first_col = cap.columns[int(cols[0])]
+        bad_value = cap.iat[first_row, int(cols[0])]
+        raise ValueError(
+            f"{filename}: line capacities must be non-negative; first "
+            f"violation at row index {first_row} (hour={cap.index[first_row]}), "
+            f"line_id='{first_col}', value={bad_value}."
+        )
+
+    # Reorder columns to match the lines listing for stable downstream use.
+    cap = cap[[l["line_id"] for l in lines]]
+    return cap
+
+
+def _load_line_capacities(input_data_dir, *, lines, n_hours=8760):
+    """Load both directional line-capacity files (``FT`` and ``TF``).
+
+    Parameters
+    ----------
+    input_data_dir : str
+        Path to the SDOM input data folder.
+    lines : list of dict
+        Lines returned by ``_load_interconnections``.
+    n_hours : int, optional
+        Expected number of rows in each capacity file. Default ``8760``.
+
+    Returns
+    -------
+    tuple of pandas.DataFrame
+        ``(line_cap_ft, line_cap_tf)``. Empty DataFrames are returned when
+        ``lines`` is empty or the corresponding file is absent. Columns are
+        ordered to match ``lines``.
+
+    Raises
+    ------
+    ValueError
+        Propagated from :func:`_load_one_line_cap` (column set mismatch,
+        wrong row count, negative values).
+    """
+    if not lines:
+        return pd.DataFrame(), pd.DataFrame()
+
+    line_cap_ft = _load_one_line_cap(
+        input_data_dir, "LineCap_FT.csv",
+        lines=lines, n_hours=n_hours, direction="FT",
+    )
+    line_cap_tf = _load_one_line_cap(
+        input_data_dir, "LineCap_TF.csv",
+        lines=lines, n_hours=n_hours, direction="TF",
+    )
+    return line_cap_ft, line_cap_tf
+
+
 def load_data( input_data_dir:str = '.\\Data\\' ):
     """Load all required SDOM input datasets from CSV files in the specified directory.
     
@@ -807,6 +1032,35 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         data_dict["price_exports"] = price_exports
     
     _augment_with_per_area_views(data_dict, input_data_dir=input_data_dir)
+
+    # ------------------------------------------------------------------
+    # Zonal topology + line capacities (commit #5).
+    # Always parsed when present so legacy folders pick up empty defaults
+    # without raising. The AreaTransportationModelNetwork formulation
+    # *requires* all three CSVs.
+    # ------------------------------------------------------------------
+    lines = _load_interconnections(input_data_dir, areas=data_dict["areas"])
+    line_cap_ft, line_cap_tf = _load_line_capacities(
+        input_data_dir, lines=lines
+    )
+
+    if data_dict["network_formulation"] == "AreaTransportationModelNetwork":
+        missing_files = [
+            name for name in (
+                "interconnections.csv", "LineCap_FT.csv", "LineCap_TF.csv",
+            )
+            if not get_complete_path(input_data_dir, name)
+        ]
+        if missing_files:
+            raise ValueError(
+                "Network=AreaTransportationModelNetwork requires the "
+                f"following file(s) to be present: {missing_files}."
+            )
+
+    data_dict["lines"] = lines
+    data_dict["line_cap_ft"] = line_cap_ft
+    data_dict["line_cap_tf"] = line_cap_tf
+
     return data_dict
     
 
