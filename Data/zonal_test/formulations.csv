@@ -1,0 +1,6 @@
+Component,Formulation,Description
+Thermal,NoRampsDispatchFormulation,Thermal aggregations are dispatched without ramping constraints.
+Hydro,RunOfRiverFormulation,Run-of-river: dispatch follows the hourly time series; no monthly/daily budget constraints (locked global choice).
+Imports,NotModel,Imports are not represented in this fixture (zonal_test).
+Exports,NotModel,Exports are not represented in this fixture (zonal_test).
+Network,CopperPlateNetwork,Single system-wide energy balance; aggregation fallback for |areas|>1 lands in commit #6.

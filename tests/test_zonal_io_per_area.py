@@ -1,18 +1,21 @@
-"""Tests for the per-area data parsing in `io_manager` (zonal commit #4).
+"""Tests for the per-area data parsing in `io_manager` (zonal commit #4 / #12).
 
 Covers:
 
 - The private `_parse_area_tagged_header` helper.
 - Wide-CSV `@area_id@` header tag parsing for legacy and zonal layouts.
-- Row-oriented `area_id` column support for ``CapSolar.csv`` / ``CapWind.csv``.
+- Row-oriented `area_id` column support for ``CapSolar.csv`` / ``CapWind.csv``
+  / ``Data_BalancingUnits.csv``.
 - ``areas.csv`` loader (synthesized default and explicit list-of-dicts).
 - Validation rules: mixed legacy/tagged columns, stray ``@`` characters,
   unknown ``area_id`` references, duplicate ``sc_gid`` across areas.
 - The new ``per_area_*`` keys are populated for legacy folders and survive
   ``copy.deepcopy`` (parametric module deep-copies ``data`` per worker).
 
-The tests build minimal in-memory zonal CSV folders inside ``tmp_path``.
-A full ``Data/zonal_test`` fixture lands in commit #12.
+The zonal happy-path tests consume the canonical fixture committed at
+``Data/zonal_test/`` (built by ``scripts/build_zonal_test_fixture.py`` from
+the two existing legacy folders). The validation-error tests copy the
+fixture into ``tmp_path`` and mutate one CSV in the copy.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from sdom.constants import AREA_TAG_DELIMITER, DEFAULT_AREA_ID
 from sdom.io_manager import _parse_area_tagged_header
 
 _LEGACY_FOLDER = "Data/no_exchange_run_of_river"
+_ZONAL_FIXTURE = "Data/zonal_test"
 
 
 # ---------------------------------------------------------------------------
@@ -125,180 +129,184 @@ def test_legacy_folder_per_area_keys_are_pickleable():
 
 
 # ---------------------------------------------------------------------------
-# Zonal fixtures (built on the fly inside tmp_path)
+# Helpers for tmp_path-based mutation tests
 # ---------------------------------------------------------------------------
 
 
-def _copy_legacy_to(tmp_path: Path) -> Path:
-    """Copy the legacy data folder into ``tmp_path/data`` and return the path."""
+def _copy_fixture_to(tmp_path: Path) -> Path:
+    """Copy the canonical zonal fixture into ``tmp_path/data``.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Pytest-provided temporary directory.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the copied fixture root, suitable for ``load_data``.
+    """
     dst = tmp_path / "data"
-    shutil.copytree(_LEGACY_FOLDER, dst)
+    shutil.copytree(_ZONAL_FIXTURE, dst)
     return dst
 
 
-def _resolve(folder: Path, basename: str) -> Path:
-    """Locate the actual filename for ``basename`` inside ``folder`` (year suffixes)."""
-    base_norm = basename.replace("_", "").replace(".csv", "").lower()
-    for path in folder.iterdir():
-        if not path.name.lower().endswith(".csv"):
-            continue
-        norm = path.stem.replace("_", "").lower()
-        if norm.startswith(base_norm):
-            return path
-    raise FileNotFoundError(f"No file matching {basename} in {folder}")
+def _rewrite_csv_header(path: Path, replacements: dict) -> None:
+    """Replace exact column-name strings in a CSV header (line 1) only.
 
+    Parameters
+    ----------
+    path : pathlib.Path
+        CSV file to mutate in place.
+    replacements : dict
+        Mapping of ``old_column_name -> new_column_name``. Each key must
+        appear exactly once on the header line.
 
-def _write_areas(folder: Path, area_ids: list[str]) -> None:
-    rows = [{"area_id": a, "description": f"Area {a}"} for a in area_ids]
-    pd.DataFrame(rows).to_csv(folder / "areas.csv", index=False)
-
-
-def _make_zonal_load(folder: Path, areas: list[str]) -> None:
-    """Replace the hourly load file with a zonal version (``Load@A@``)."""
-    target = _resolve(folder, "Load_hourly.csv")
-    legacy = pd.read_csv(target)
-    key = legacy.columns[0]
-    out = pd.DataFrame({key: legacy[key]})
-    for area in areas:
-        # Equally split the legacy load across areas to preserve totals.
-        out[f"Load{AREA_TAG_DELIMITER}{area}{AREA_TAG_DELIMITER}"] = (
-            legacy[legacy.columns[1]] / len(areas)
+    Raises
+    ------
+    AssertionError
+        If any replacement key is not found in the header.
+    """
+    text = path.read_text(encoding="utf-8")
+    header, _, rest = text.partition("\n")
+    cols = header.split(",")
+    pending = dict(replacements)
+    for i, col in enumerate(cols):
+        if col in pending:
+            cols[i] = pending.pop(col)
+    if pending:
+        raise AssertionError(
+            f"Replacement keys not found in {path.name}: {list(pending)}"
         )
-    out.to_csv(target, index=False)
+    path.write_text(",".join(cols) + "\n" + rest, encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
-# Wide-CSV behavior
+# Zonal happy path — read directly from Data/zonal_test/
 # ---------------------------------------------------------------------------
 
 
-def test_wide_csv_zonal_load_splits_by_area(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1", "A2"])
-    _make_zonal_load(folder, ["A1", "A2"])
+def test_areas_csv_present_is_loaded_as_list_of_dicts():
+    data = load_data(_ZONAL_FIXTURE)
 
-    data = load_data(str(folder))
-
+    assert isinstance(data["areas"], list)
+    assert all(isinstance(item, dict) for item in data["areas"])
     assert {a["area_id"] for a in data["areas"]} == {"A1", "A2"}
+    assert all("description" in a for a in data["areas"])
+
+
+def test_wide_csv_zonal_load_splits_by_area():
+    data = load_data(_ZONAL_FIXTURE)
+
     assert set(data["per_area_demand"]) == {"A1", "A2"}
     a1 = data["per_area_demand"]["A1"]
     a2 = data["per_area_demand"]["A2"]
     assert "Load" in a1.columns
     assert "Load" in a2.columns
-    # Tag should be stripped from column names.
+    # Tag must be stripped from per-area column names.
     assert AREA_TAG_DELIMITER not in "".join(a1.columns)
+    assert AREA_TAG_DELIMITER not in "".join(a2.columns)
+    # Both per-area frames have the full hourly horizon.
+    assert len(a1) == len(a2) == 8760
 
 
-def test_wide_csv_synthesizes_areas_when_areas_csv_absent(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _make_zonal_load(folder, ["A1", "A2"])
-    # No areas.csv → must be synthesized from observed tags.
-    assert not (folder / "areas.csv").exists()
-
-    data = load_data(str(folder))
-
-    assert {a["area_id"] for a in data["areas"]} >= {"A1", "A2"}
-    assert set(data["per_area_demand"]) == {"A1", "A2"}
+def test_wide_csv_zonal_nuclear_splits_by_area():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_nuclear"]
+    assert set(per_area) == {"A1", "A2"}
+    assert "Nuclear" in per_area["A1"].columns
+    assert "Nuclear" in per_area["A2"].columns
 
 
-def test_wide_csv_mixed_legacy_and_tagged_columns_errors(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1"])
-    target = _resolve(folder, "Load_hourly.csv")
-    legacy = pd.read_csv(target)
-    key = legacy.columns[0]
-    pd.DataFrame(
-        {
-            key: legacy[key],
-            "Load": legacy[legacy.columns[1]],
-            f"Load{AREA_TAG_DELIMITER}A1{AREA_TAG_DELIMITER}": legacy[
-                legacy.columns[1]
-            ],
-        }
-    ).to_csv(target, index=False)
-
-    with pytest.raises(ValueError, match="mixes"):
-        load_data(str(folder))
+def test_wide_csv_zonal_other_renewables_splits_by_area():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_other_renewables"]
+    assert set(per_area) == {"A1", "A2"}
+    assert "OtherRenewables" in per_area["A1"].columns
 
 
-def test_wide_csv_stray_at_in_header_errors(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1"])
-    target = _resolve(folder, "Load_hourly.csv")
-    legacy = pd.read_csv(target)
-    key = legacy.columns[0]
-    pd.DataFrame(
-        {
-            key: legacy[key],
-            f"Load{AREA_TAG_DELIMITER}A1": legacy[legacy.columns[1]],
-        }
-    ).to_csv(target, index=False)
-
-    with pytest.raises(ValueError, match="area tag"):
-        load_data(str(folder))
+def test_wide_csv_zonal_hydro_splits_by_area():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_hydro"]
+    assert set(per_area) == {"A1", "A2"}
+    # Run-of-river formulation → only the LargeHydro series; no max/min merge.
+    assert "LargeHydro" in per_area["A1"].columns
+    assert "LargeHydro" in per_area["A2"].columns
 
 
-def test_wide_csv_tag_unknown_area_errors(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1"])  # only A1 declared
-    _make_zonal_load(folder, ["A1", "GHOST"])  # GHOST not in areas.csv
-
-    with pytest.raises(ValueError, match="GHOST"):
-        load_data(str(folder))
-
-
-# ---------------------------------------------------------------------------
-# Row-oriented behavior (CapSolar / CapWind)
-# ---------------------------------------------------------------------------
-
-
-def test_row_csv_legacy_cap_solar_tagged_as_default(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    data = load_data(str(folder))
-
-    assert set(data["per_area_pv_plants"]) == {DEFAULT_AREA_ID}
-    pv_default = data["per_area_pv_plants"][DEFAULT_AREA_ID]
-    assert "sc_gid" in pv_default.columns
+def test_wide_csv_zonal_storage_splits_by_area():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_storage"]
+    assert set(per_area) == {"A1", "A2"}
+    # Tech ids may repeat across areas because @area_id@ disambiguates them
+    # in the source file; per-area frames carry the untagged tech ids.
+    expected_techs = {"Li-Ion", "CAES", "PHS", "H2"}
+    assert set(per_area["A1"].columns) == expected_techs
+    assert set(per_area["A2"].columns) == expected_techs
+    # Property index preserved on each per-area slice.
+    assert "Coupled" in per_area["A1"].index
+    assert "Coupled" in per_area["A2"].index
 
 
-def test_row_csv_zonal_cap_solar_splits_by_area_id(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1", "A2"])
-
-    target = _resolve(folder, "CapSolar.csv")
-    cap = pd.read_csv(target)
-    half = len(cap) // 2
-    cap["area_id"] = ["A1"] * half + ["A2"] * (len(cap) - half)
-    cap.to_csv(target, index=False)
-
-    data = load_data(str(folder))
-
-    assert set(data["per_area_pv_plants"]) == {"A1", "A2"}
-    a1 = data["per_area_pv_plants"]["A1"]
-    a2 = data["per_area_pv_plants"]["A2"]
-    assert (a1["area_id"] == "A1").all()
-    assert (a2["area_id"] == "A2").all()
-    assert len(a1) + len(a2) == len(cap)
+def test_row_csv_zonal_cap_solar_splits_by_area_id():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_pv_plants"]
+    assert set(per_area) == {"A1", "A2"}
+    assert (per_area["A1"]["area_id"] == "A1").all()
+    assert (per_area["A2"]["area_id"] == "A2").all()
+    # 100 reV plants in A1, single ``Nordeste`` plant in A2 (see
+    # build_zonal_test_fixture.py).
+    assert len(per_area["A1"]) == 100
+    assert len(per_area["A2"]) == 1
 
 
-def test_row_csv_duplicate_sc_gid_across_areas_errors(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1", "A2"])
+def test_row_csv_zonal_cap_wind_splits_by_area_id():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_wind_plants"]
+    assert set(per_area) == {"A1", "A2"}
+    assert (per_area["A1"]["area_id"] == "A1").all()
+    assert (per_area["A2"]["area_id"] == "A2").all()
+    assert len(per_area["A1"]) == 100
+    assert len(per_area["A2"]) == 1
 
-    target = _resolve(folder, "CapSolar.csv")
-    cap = pd.read_csv(target)
-    # Force every sc_gid to be the same value, then assign half to A1, half to A2.
-    cap["sc_gid"] = "DUPLICATE_PLANT"
-    half = len(cap) // 2
-    cap["area_id"] = ["A1"] * half + ["A2"] * (len(cap) - half)
-    cap.to_csv(target, index=False)
 
-    with pytest.raises(ValueError, match="globally unique"):
-        load_data(str(folder))
+def test_row_csv_zonal_balancing_units_splits_by_area_id():
+    data = load_data(_ZONAL_FIXTURE)
+    per_area = data["per_area_balancing_units"]
+    assert set(per_area) == {"A1", "A2"}
+    assert (per_area["A1"]["area_id"] == "A1").all()
+    assert (per_area["A2"]["area_id"] == "A2").all()
+    # 2 thermal aggregations in A1 (83_GAS, 83_Coal); 13 in A2.
+    assert len(per_area["A1"]) == 2
+    assert len(per_area["A2"]) == 13
+    assert {"Plant_id", "MaxCapacity"}.issubset(per_area["A1"].columns)
+
+
+def test_capacity_factors_pv_resolved_via_plant_join():
+    data = load_data(_ZONAL_FIXTURE)
+    cf = data["per_area_capacity_factors_pv"]
+    cap = data["per_area_pv_plants"]
+    assert set(cf) == {"A1", "A2"}
+    # Time key + plant columns; #plant cols matches the per-area cap table.
+    for area in ("A1", "A2"):
+        plant_ids = set(cap[area]["sc_gid"].astype(str))
+        cf_plant_cols = set(cf[area].columns[1:].astype(str))
+        assert cf_plant_cols == plant_ids
+
+
+def test_capacity_factors_wind_resolved_via_plant_join():
+    data = load_data(_ZONAL_FIXTURE)
+    cf = data["per_area_capacity_factors_wind"]
+    cap = data["per_area_wind_plants"]
+    assert set(cf) == {"A1", "A2"}
+    for area in ("A1", "A2"):
+        plant_ids = set(cap[area]["sc_gid"].astype(str))
+        cf_plant_cols = set(cf[area].columns[1:].astype(str))
+        assert cf_plant_cols == plant_ids
 
 
 # ---------------------------------------------------------------------------
-# areas.csv loader
+# areas.csv synthesis (legacy + zonal-without-areas.csv)
 # ---------------------------------------------------------------------------
 
 
@@ -309,14 +317,86 @@ def test_areas_csv_absent_synthesizes_default_area():
     ]
 
 
-def test_areas_csv_present_is_loaded_as_list_of_dicts(tmp_path):
-    folder = _copy_legacy_to(tmp_path)
-    _write_areas(folder, ["A1", "A2"])
-    _make_zonal_load(folder, ["A1", "A2"])
+def test_wide_csv_synthesizes_areas_when_areas_csv_absent(tmp_path):
+    folder = _copy_fixture_to(tmp_path)
+    (folder / "areas.csv").unlink()
 
     data = load_data(str(folder))
 
-    assert isinstance(data["areas"], list)
-    assert all(isinstance(item, dict) for item in data["areas"])
     assert {a["area_id"] for a in data["areas"]} == {"A1", "A2"}
-    assert all("description" in a for a in data["areas"])
+    assert set(data["per_area_demand"]) == {"A1", "A2"}
+
+
+# ---------------------------------------------------------------------------
+# Legacy CapSolar (no area_id column) → DEFAULT_AREA_ID
+# ---------------------------------------------------------------------------
+
+
+def test_row_csv_legacy_cap_solar_tagged_as_default():
+    data = load_data(_LEGACY_FOLDER)
+
+    assert set(data["per_area_pv_plants"]) == {DEFAULT_AREA_ID}
+    pv_default = data["per_area_pv_plants"][DEFAULT_AREA_ID]
+    assert "sc_gid" in pv_default.columns
+
+
+# ---------------------------------------------------------------------------
+# Validation errors — mutate a copy of Data/zonal_test/
+# ---------------------------------------------------------------------------
+
+
+def test_wide_csv_mixed_legacy_and_tagged_columns_errors(tmp_path):
+    folder = _copy_fixture_to(tmp_path)
+    target = folder / "Load_hourly.csv"
+    # Drop the @A2@ tag so the file mixes one tagged and one untagged column.
+    _rewrite_csv_header(
+        target,
+        {f"Load{AREA_TAG_DELIMITER}A2{AREA_TAG_DELIMITER}": "Load"},
+    )
+
+    with pytest.raises(ValueError, match="mixes"):
+        load_data(str(folder))
+
+
+def test_wide_csv_stray_at_in_header_errors(tmp_path):
+    folder = _copy_fixture_to(tmp_path)
+    target = folder / "Load_hourly.csv"
+    # Strip the trailing @ → header becomes "Load@A2" (stray delimiter).
+    _rewrite_csv_header(
+        target,
+        {
+            f"Load{AREA_TAG_DELIMITER}A2{AREA_TAG_DELIMITER}":
+                f"Load{AREA_TAG_DELIMITER}A2",
+        },
+    )
+
+    with pytest.raises(ValueError, match="area tag"):
+        load_data(str(folder))
+
+
+def test_wide_csv_tag_unknown_area_errors(tmp_path):
+    folder = _copy_fixture_to(tmp_path)
+    target = folder / "Load_hourly.csv"
+    # Reference an undeclared area_id (areas.csv only declares A1/A2).
+    _rewrite_csv_header(
+        target,
+        {
+            f"Load{AREA_TAG_DELIMITER}A2{AREA_TAG_DELIMITER}":
+                f"Load{AREA_TAG_DELIMITER}GHOST{AREA_TAG_DELIMITER}",
+        },
+    )
+
+    with pytest.raises(ValueError, match="GHOST"):
+        load_data(str(folder))
+
+
+def test_row_csv_duplicate_sc_gid_across_areas_errors(tmp_path):
+    folder = _copy_fixture_to(tmp_path)
+    target = folder / "CapSolar.csv"
+    cap = pd.read_csv(target)
+    # Force every sc_gid to a single value; areas remain split A1/A2.
+    cap["sc_gid"] = "DUPLICATE_PLANT"
+    cap.to_csv(target, index=False)
+
+    with pytest.raises(ValueError, match="globally unique"):
+        load_data(str(folder))

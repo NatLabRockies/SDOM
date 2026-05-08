@@ -1,0 +1,9 @@
+Parameter,Value
+FCR_VRE,0.0
+LifeTimeVRE,30.0
+GenMix_Target,1.0
+AlphaNuclear,1.0
+AlphaLargHy,1.0
+AlphaOtheRe,1.0
+r,0.06
+EUE_max,0.0
