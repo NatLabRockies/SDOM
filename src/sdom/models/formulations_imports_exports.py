@@ -2,6 +2,10 @@ from pyomo.core import Var, Expression, Constraint
 from pyomo.environ import *
 from .models_utils import get_filtered_ts_parameter_dict
 from ..io_manager import get_formulation
+from ..constants import (
+    IMPORTS_EXPORTS_NOT_MODEL,
+    IMPORTS_EXPORTS_WITHOUT_NET_LOAD_CONSTRAINTS,
+)
 
 ####################################################################################|
 # ----------------------------------- Parameters -----------------------------------|
@@ -53,7 +57,7 @@ def add_exports_variables(model):
 # ----------------------------------- Expressions ----------------------------------|
 ####################################################################################|
 def _add_imports_exports_cost_expressions(block, hourly_set, data: dict, component: str):
-    if get_formulation(data, component=component) != "NotModel":
+    if get_formulation(data, component=component) != IMPORTS_EXPORTS_NOT_MODEL:
         block.total_cost_expr = Expression( rule = sum(block.ts_price_parameter[h] * block.variable[h] for h in hourly_set) )
     else:
         block.total_cost_expr = Expression( rule = 0 )
@@ -93,7 +97,7 @@ def add_import_export_binary_variable(model, big_m_constant):
  
 def add_imports_constraints( model, data: dict ):
     formulation = get_formulation(data, component='Imports')
-    if formulation == "WithoutNetLoadConstraints":
+    if formulation == IMPORTS_EXPORTS_WITHOUT_NET_LOAD_CONSTRAINTS:
         add_imports_constraints_without_net_load(model, data)
         return
     big_m_constant = 1e6 #TODO make a logic to get Big M constant from input data/parameters
@@ -110,7 +114,7 @@ def add_imports_constraints( model, data: dict ):
 
 def add_exports_constraints( model, data: dict ):
     formulation = get_formulation(data, component='Exports')
-    if formulation == "WithoutNetLoadConstraints":
+    if formulation == IMPORTS_EXPORTS_WITHOUT_NET_LOAD_CONSTRAINTS:
         add_exports_constraints_without_net_load(model, data)
         return
     big_m_constant = 1e6 #TODO make a logic to get Big M constant from input data/parameters

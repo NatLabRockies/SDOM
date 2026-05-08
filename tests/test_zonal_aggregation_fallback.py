@@ -20,6 +20,7 @@ import pytest
 
 from sdom import load_data
 from sdom.constants import DEFAULT_AREA_ID
+from sdom.io_manager import get_network_formulation
 
 
 _ZONAL_FIXTURE = "Data/zonal_test"
@@ -82,7 +83,7 @@ def test_areas_collapse_to_single_default(tmp_path):
     folder = _zonal_copper_plate_folder(tmp_path)
     data = load_data(str(folder))
 
-    assert data["network_formulation"] == "CopperPlateNetwork"
+    assert get_network_formulation(data) == "CopperPlateNetwork"
     assert data["areas"] == [
         {"area_id": DEFAULT_AREA_ID, "description": "Aggregated default area"}
     ]
@@ -242,7 +243,7 @@ def test_legacy_folder_not_aggregated(tmp_path, caplog):
     with caplog.at_level(logging.WARNING):
         data = load_data("Data/no_exchange_run_of_river")
 
-    assert data["network_formulation"] == "CopperPlateNetwork"
+    assert get_network_formulation(data) == "CopperPlateNetwork"
     assert len(data["areas"]) == 1
     assert not any(
         "Aggregation fallback" in record.message for record in caplog.records

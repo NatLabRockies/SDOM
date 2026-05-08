@@ -16,7 +16,11 @@ from .models.formulations_system import objective_rule, add_system_expressions, 
 from .models.formulations_imports_exports import add_imports_variables, add_exports_variables, add_imports_exports_cost_expressions, add_imports_constraints, add_exports_constraints
 from .models.formulations_hydro import add_hydro_variables, add_hydro_run_of_river_constraints, add_hydro_budget_constraints
 
-from .constants import MW_TO_KW
+from .constants import (
+    MW_TO_KW,
+    RUN_OF_RIVER_FORMULATION,
+    IMPORTS_EXPORTS_NOT_MODEL,
+)
 
 from .io_manager import get_formulation
 from .utils_performance_meassure import ModelInitProfiler
@@ -123,12 +127,12 @@ def initialize_model(data, n_hours = 8760, with_resilience_constraints=False, mo
     profiler.measure_step("Add hydro variables", add_hydro_variables, model)
 
     # Imports variables
-    if get_formulation(data, component="Imports") != "NotModel":
+    if get_formulation(data, component="Imports") != IMPORTS_EXPORTS_NOT_MODEL:
         logging.debug("-- Adding Imports variables...")
         profiler.measure_step("Add imports variables", add_imports_variables, model)
     
     # Exports variables
-    if get_formulation(data, component="Exports") != "NotModel":
+    if get_formulation(data, component="Exports") != IMPORTS_EXPORTS_NOT_MODEL:
         logging.debug("-- Adding Exports variables...")
         profiler.measure_step("Add exports variables", add_exports_variables, model)
 
@@ -173,7 +177,7 @@ def initialize_model(data, n_hours = 8760, with_resilience_constraints=False, mo
 
     # Hydro constraints
     logging.debug("-- Adding hydropower generation constraints...")
-    if get_formulation(data, component="hydro") == "RunOfRiverFormulation":
+    if get_formulation(data, component="hydro") == RUN_OF_RIVER_FORMULATION:
         profiler.measure_step("Add hydro run-of-river constraints", 
                              add_hydro_run_of_river_constraints, model, data)
     else:
@@ -181,12 +185,12 @@ def initialize_model(data, n_hours = 8760, with_resilience_constraints=False, mo
                              add_hydro_budget_constraints, model, data)
 
     # Imports constraints
-    if get_formulation(data, component="Imports") != "NotModel":
+    if get_formulation(data, component="Imports") != IMPORTS_EXPORTS_NOT_MODEL:
         logging.debug("-- Adding Imports constraints...")
         profiler.measure_step("Add imports constraints", add_imports_constraints, model, data)
     
     # Exports constraints
-    if get_formulation(data, component="Exports") != "NotModel":
+    if get_formulation(data, component="Exports") != IMPORTS_EXPORTS_NOT_MODEL:
         logging.debug("-- Adding Exports constraints...")
         profiler.measure_step("Add exports constraints", add_exports_constraints, model, data)
 

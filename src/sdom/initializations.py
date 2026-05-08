@@ -12,7 +12,11 @@ from .models.formulations_storage import add_storage_parameters, initialize_stor
 from .models.formulations_resiliency import add_resiliency_parameters
 from .models.formulations_imports_exports import add_imports_parameters, add_exports_parameters
 
-from .constants import VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP
+from .constants import (
+    VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
+    RUN_OF_RIVER_FORMULATION,
+    IMPORTS_EXPORTS_NOT_MODEL,
+)
 from .io_manager import get_formulation
 
 def initialize_vre_sets(data, block, vre_type: str):
@@ -197,7 +201,7 @@ def initialize_params(model, data):
 
     logging.debug("--Initializing large hydro parameters...")
     add_large_hydro_parameters(model, data)
-    if not (data["formulations"].loc[ data["formulations"]["Component"].str.lower() == 'hydro' ]["Formulation"].iloc[0]  == "RunOfRiverFormulation"):
+    if get_formulation(data, component="hydro") != RUN_OF_RIVER_FORMULATION:
         logging.debug("--Initializing large hydro budget parameters...")
         add_large_hydro_bound_parameters(model, data)
     
@@ -221,11 +225,11 @@ def initialize_params(model, data):
     logging.debug("--Initializing VRE parameters...")
     add_vre_parameters(model, data)
 
-    if get_formulation(data, component="Imports") != "NotModel":
+    if get_formulation(data, component="Imports") != IMPORTS_EXPORTS_NOT_MODEL:
         logging.debug("--Initializing Imports parameters...")
         add_imports_parameters(model, data)
 
-    if get_formulation(data, component="Exports") != "NotModel":
+    if get_formulation(data, component="Exports") != IMPORTS_EXPORTS_NOT_MODEL:
         logging.debug("--Initializing Exports parameters...")
         add_exports_parameters(model, data)
         

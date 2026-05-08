@@ -34,6 +34,7 @@ INPUT_CSV_NAMES = {
     "price_imports": "Import_Prices.csv",
     "price_exports": "Export_Prices.csv",
     # --- Zonal (Network=AreaTransportationModelNetwork) topology + line caps ---
+    "areas": "areas.csv",
     "interconnections": "interconnections.csv",
     "line_cap_ft": "LineCap_FT.csv",
     "line_cap_tf": "LineCap_TF.csv",
@@ -53,17 +54,28 @@ THERMAL_PROPERTIES_NAMES = ['MinCapacity', 'MaxCapacity', 'Lifetime', 'Capex', '
 MONTHLY_BUDGET_HOURS_AGGREGATION = 730
 DAILY_BUDGET_HOURS_AGGREGATION = 24
 RUN_OF_RIVER_AGGREGATION = 1
+
+# Hydro formulation choices.
+MONTHLY_BUDGET_FORMULATION = "MonthlyBudgetFormulation"
+DAILY_BUDGET_FORMULATION = "DailyBudgetFormulation"
+RUN_OF_RIVER_FORMULATION = "RunOfRiverFormulation"
+
 VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP = {
-    "MonthlyBudgetFormulation": MONTHLY_BUDGET_HOURS_AGGREGATION,
-    "DailyBudgetFormulation": DAILY_BUDGET_HOURS_AGGREGATION,
-    "RunOfRiverFormulation": RUN_OF_RIVER_AGGREGATION
+    MONTHLY_BUDGET_FORMULATION: MONTHLY_BUDGET_HOURS_AGGREGATION,
+    DAILY_BUDGET_FORMULATION: DAILY_BUDGET_HOURS_AGGREGATION,
+    RUN_OF_RIVER_FORMULATION: RUN_OF_RIVER_AGGREGATION,
 }
 
+# Imports/Exports formulation choices.
+IMPORTS_EXPORTS_NOT_MODEL = "NotModel"
+IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD = "CapacityPriceNetLoadFormulation"
+IMPORTS_EXPORTS_WITHOUT_NET_LOAD_CONSTRAINTS = "WithoutNetLoadConstraints"
+
 VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP = {
-    "NotModel": "No imports/exports considered in the model.",
+    IMPORTS_EXPORTS_NOT_MODEL: "No imports/exports considered in the model.",
     #"FixedTimeSeriesFormulation": "Formulation to load a time series of import data and fixed it according to that.",
-    "CapacityPriceNetLoadFormulation": "Formulation to load a time series parameter with the import/export maximum capacity and import/export prices and dispatch it. Imports only allowed when net load is positive/negative",
-    "WithoutNetLoadConstraints": "Linear formulation: imports/exports bounded by hourly capacity and priced by hourly price; no net-load binary coupling. Used by the resiliency module.",
+    IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD: "Formulation to load a time series parameter with the import/export maximum capacity and import/export prices and dispatch it. Imports only allowed when net load is positive/negative",
+    IMPORTS_EXPORTS_WITHOUT_NET_LOAD_CONSTRAINTS: "Linear formulation: imports/exports bounded by hourly capacity and priced by hourly price; no net-load binary coupling. Used by the resiliency module.",
     #"CapacityPriceBudgetFormulation": "Formulation to load a time series parameter with the maximum capacity and import prices and dispatch it. Imports allowed always, but limited by a budget.",
 }
 
@@ -71,14 +83,25 @@ VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP = {
 # Used by io_manager.get_formulation(data, "Network") and by initialize_model
 # to dispatch between the legacy single-area copper-plate path and the
 # multi-area transportation network path.
+COPPER_PLATE_NETWORK = "CopperPlateNetwork"
+AREA_TRANSPORTATION_MODEL_NETWORK = "AreaTransportationModelNetwork"
+
 VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP = {
-    "CopperPlateNetwork": "Single system-wide energy balance (legacy behavior). Default when the 'Network' row is absent from formulations.csv.",
-    "AreaTransportationModelNetwork": "Per-area energy balance linked by a lossless transportation model with signed, asymmetric, time-varying line capacities.",
+    COPPER_PLATE_NETWORK: "Single system-wide energy balance (legacy behavior). Default when the 'Network' row is absent from formulations.csv.",
+    AREA_TRANSPORTATION_MODEL_NETWORK: "Per-area energy balance linked by a lossless transportation model with signed, asymmetric, time-varying line capacities.",
 }
 
 # Default Network formulation when 'Network' row is missing from formulations.csv
 # (preserves backward compatibility with all legacy data folders).
-DEFAULT_NETWORK_FORMULATION = "CopperPlateNetwork"
+DEFAULT_NETWORK_FORMULATION = COPPER_PLATE_NETWORK
+
+# Input CSV files required when Network=AreaTransportationModelNetwork is
+# selected. ``load_data`` raises ``ValueError`` if any of these is missing.
+AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS = (
+    INPUT_CSV_NAMES["interconnections"],
+    INPUT_CSV_NAMES["line_cap_ft"],
+    INPUT_CSV_NAMES["line_cap_tf"],
+)
 
 # Reserved area_id used when a legacy (non-zonal) data folder is loaded so
 # downstream zonal-aware code can treat all data as belonging to a single area.

@@ -21,7 +21,7 @@ import pytest
 
 from sdom import load_data
 from sdom.constants import DEFAULT_NETWORK_FORMULATION
-from sdom.io_manager import get_formulation
+from sdom.io_manager import get_formulation, get_network_formulation
 
 # Reuse the existing run-of-river fixture as a clean baseline.
 _LEGACY_FOLDER = "Data/no_exchange_run_of_river"
@@ -57,7 +57,7 @@ def test_load_data_defaults_network_when_row_absent(tmp_path, caplog):
     with caplog.at_level("INFO"):
         data = load_data(str(folder))
 
-    assert data["network_formulation"] == DEFAULT_NETWORK_FORMULATION
+    assert get_network_formulation(data) == DEFAULT_NETWORK_FORMULATION
     assert any(
         "Network" in record.message and "default" in record.message.lower()
         for record in caplog.records
@@ -69,7 +69,7 @@ def test_load_data_accepts_explicit_copper_plate(tmp_path):
     _set_network_row(folder, "CopperPlateNetwork")
 
     data = load_data(str(folder))
-    assert data["network_formulation"] == "CopperPlateNetwork"
+    assert get_network_formulation(data) == "CopperPlateNetwork"
 
 
 def test_load_data_accepts_explicit_area_transportation(tmp_path):
@@ -86,7 +86,7 @@ def test_load_data_accepts_explicit_area_transportation(tmp_path):
     df.to_csv(folder / "formulations.csv", index=False)
 
     data = load_data(str(folder))
-    assert data["network_formulation"] == "AreaTransportationModelNetwork"
+    assert get_network_formulation(data) == "AreaTransportationModelNetwork"
     assert len(data["lines"]) == 1
 
 

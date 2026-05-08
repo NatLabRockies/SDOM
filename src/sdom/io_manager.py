@@ -16,6 +16,11 @@ from .constants import (
     DEFAULT_NETWORK_FORMULATION,
     DEFAULT_AREA_ID,
     AREA_TAG_DELIMITER,
+    COPPER_PLATE_NETWORK,
+    AREA_TRANSPORTATION_MODEL_NETWORK,
+    AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS,
+    RUN_OF_RIVER_FORMULATION,
+    IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD,
 )
 
 # Compiled once: matches "<entity>@<area_id>@" with no extra '@' characters.
@@ -103,6 +108,34 @@ def get_formulation(data: dict, component: str = 'hydro', *, default=_GET_FORMUL
         )
         return default
     return matches.iloc[0]
+
+
+def get_network_formulation(data: dict) -> str:
+    """Return the active Network formulation for a loaded data dict.
+
+    Thin accessor on top of :func:`get_formulation` that hides the storage
+    detail of how the Network row is exposed in ``data``. Production code
+    (and downstream callers) should use this helper instead of indexing
+    ``data`` directly so the underlying representation can evolve without
+    breaking consumers.
+
+    Parameters
+    ----------
+    data : dict
+        Data dictionary as returned by :func:`load_data` (or any partial
+        dict that already contains the ``"formulations"`` DataFrame).
+
+    Returns
+    -------
+    str
+        One of the keys of
+        :data:`~sdom.constants.VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP`,
+        defaulting to :data:`~sdom.constants.DEFAULT_NETWORK_FORMULATION`
+        when the ``Network`` row is absent.
+    """
+    return get_formulation(
+        data, component="Network", default=DEFAULT_NETWORK_FORMULATION
+    )
 
 
 # ---------------------------------------------------------------------------------
@@ -369,7 +402,7 @@ def _load_areas(input_data_dir):
         If ``areas.csv`` is present but missing the required ``area_id``
         column.
     """
-    path = get_complete_path(input_data_dir, "areas.csv")
+    path = get_complete_path(input_data_dir, INPUT_CSV_NAMES["areas"])
     if path:
         df = pd.read_csv(path)
         if "area_id" not in df.columns:
@@ -636,7 +669,7 @@ def _load_interconnections(input_data_dir, *, areas):
         ``(from_area, to_area)`` pairs are duplicated, a self-loop is
         declared, or an area reference does not exist in ``areas``.
     """
-    path = get_complete_path(input_data_dir, "interconnections.csv")
+    path = get_complete_path(input_data_dir, INPUT_CSV_NAMES["interconnections"])
     if not path:
         return []
 
@@ -816,11 +849,11 @@ def _load_line_capacities(input_data_dir, *, lines, n_hours=8760):
         return pd.DataFrame(), pd.DataFrame()
 
     line_cap_ft = _load_one_line_cap(
-        input_data_dir, "LineCap_FT.csv",
+        input_data_dir, INPUT_CSV_NAMES["line_cap_ft"],
         lines=lines, n_hours=n_hours, direction="FT",
     )
     line_cap_tf = _load_one_line_cap(
-        input_data_dir, "LineCap_TF.csv",
+        input_data_dir, INPUT_CSV_NAMES["line_cap_tf"],
         lines=lines, n_hours=n_hours, direction="TF",
     )
     return line_cap_ft, line_cap_tf
@@ -1345,16 +1378,13 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         }
 
     # --- Network (zonal) formulation: backward-compatible default ---
-    network_formulation = get_formulation(
-        data_dict, component="Network", default=DEFAULT_NETWORK_FORMULATION
-    )
+    network_formulation = get_network_formulation(data_dict)
     check_formulation(network_formulation, VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP.keys())
-    data_dict["network_formulation"] = network_formulation
 
     hydro_formulation = get_formulation(data_dict, component='hydro')
     check_formulation( hydro_formulation, VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP.keys() )
 
-    if not (hydro_formulation == "RunOfRiverFormulation"):
+    if not (hydro_formulation == RUN_OF_RIVER_FORMULATION):
         logging.debug("- Hydro was set to MonthlyBudgetFormulation. Trying to load large hydro max/min data...")
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["large_hydro_max"], "large hydro Maximum  capacity data")
@@ -1371,7 +1401,7 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
     logging.debug("- Trying to load imports data...")    
     imports_formulation = get_formulation(data_dict, component='imports')
     check_formulation( imports_formulation, VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP.keys() )
-    if (imports_formulation == "CapacityPriceNetLoadFormulation"):
+    if (imports_formulation == IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD):
         logging.debug("- Imports was set to CapacityPriceNetLoadFormulation. Trying to load capacity and price...")
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cap_imports"], "Imports hourly upper bound capacity data")
@@ -1388,7 +1418,7 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
     logging.debug("- Trying to load exports data...")
     exports_formulation = get_formulation(data_dict, component='exports')
     check_formulation( exports_formulation, VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP.keys() )
-    if (exports_formulation == "CapacityPriceNetLoadFormulation"):
+    if (exports_formulation == IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD):
         logging.debug("- Exports was set to CapacityPriceNetLoadFormulation. Trying to load capacity and price...")
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cap_exports"], "Exports hourly upper bound capacity data")
@@ -1413,20 +1443,20 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
     # ------------------------------------------------------------------
     aggregated = False
     if (
-        data_dict["network_formulation"] == "CopperPlateNetwork"
+        get_network_formulation(data_dict) == COPPER_PLATE_NETWORK
         and len(data_dict.get("areas", [])) > 1
     ):
         _aggregate_to_single_area(data_dict)
         aggregated = True
-        if (
-            get_complete_path(input_data_dir, "interconnections.csv")
-            or get_complete_path(input_data_dir, "LineCap_FT.csv")
-            or get_complete_path(input_data_dir, "LineCap_TF.csv")
+        if any(
+            get_complete_path(input_data_dir, name)
+            for name in AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS
         ):
             logging.warning(
                 "Aggregation fallback: dropping interregional transmission "
-                "files (interconnections.csv, LineCap_FT.csv, LineCap_TF.csv) "
-                "because Network=CopperPlateNetwork has no transmission."
+                "files (%s) because Network=%s has no transmission.",
+                ", ".join(AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS),
+                COPPER_PLATE_NETWORK,
             )
 
     # ------------------------------------------------------------------
@@ -1445,16 +1475,15 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
             input_data_dir, lines=lines
         )
 
-        if data_dict["network_formulation"] == "AreaTransportationModelNetwork":
+        if get_network_formulation(data_dict) == AREA_TRANSPORTATION_MODEL_NETWORK:
             missing_files = [
-                name for name in (
-                    "interconnections.csv", "LineCap_FT.csv", "LineCap_TF.csv",
-                )
+                name
+                for name in AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS
                 if not get_complete_path(input_data_dir, name)
             ]
             if missing_files:
                 raise ValueError(
-                    "Network=AreaTransportationModelNetwork requires the "
+                    f"Network={AREA_TRANSPORTATION_MODEL_NETWORK} requires the "
                     f"following file(s) to be present: {missing_files}."
                 )
 
