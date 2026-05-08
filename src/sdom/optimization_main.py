@@ -20,9 +20,12 @@ from .constants import (
     MW_TO_KW,
     RUN_OF_RIVER_FORMULATION,
     IMPORTS_EXPORTS_NOT_MODEL,
+    COPPER_PLATE_NETWORK,
+    AREA_TRANSPORTATION_MODEL_NETWORK,
+    DEFAULT_AREA_ID,
 )
 
-from .io_manager import get_formulation
+from .io_manager import get_formulation, get_network_formulation
 from .utils_performance_meassure import ModelInitProfiler
 from .results import OptimizationResults, collect_results_from_model
 
@@ -30,31 +33,92 @@ from .results import OptimizationResults, collect_results_from_model
 # Model initialization
 # Safe value function for uninitialized variables/parameters
 
-def initialize_model(data, n_hours = 8760, with_resilience_constraints=False, model_name="SDOM_Model"):
+def initialize_model(data, n_hours=8760, with_resilience_constraints=False, model_name="SDOM_Model"):
+    """Initialize a Pyomo SDOM optimization model (dispatcher).
+
+    Selects the model-construction path based on the ``Network`` formulation
+    declared in ``data["formulations"]`` and the number of areas in
+    ``data["areas"]``:
+
+    - **Legacy fast path** (``Network = CopperPlateNetwork`` and
+      ``len(data["areas"]) == 1``): delegates to
+      :func:`_initialize_model_legacy`, which is the historical model body
+      preserved verbatim. This guarantees bit-identical objective values
+      for every legacy data folder (locked by
+      ``tests/test_zonal_legacy_regression.py``).
+    - **Per-area Block path** (``Network = AreaTransportationModelNetwork``
+      or ``len(data["areas"]) > 1``): not yet implemented in this commit;
+      will be wired in commit #9b together with the builder refactor that
+      lets each ``add_*`` consume a per-area data slice.
+
+    Parameters
+    ----------
+    data : dict
+        Data dictionary as returned by :func:`sdom.io_manager.load_data`.
+        Must contain ``"formulations"`` and ``"areas"`` keys.
+    n_hours : int, optional
+        Number of hours to simulate (default 8760).
+    with_resilience_constraints : bool, optional
+        If True, adds resilience-related constraints. Combined with
+        ``Network = AreaTransportationModelNetwork`` raises
+        :class:`NotImplementedError` (deferred per PRD).
+    model_name : str, optional
+        Name to assign to the Pyomo model instance (default ``"SDOM_Model"``).
+
+    Returns
+    -------
+    pyomo.environ.ConcreteModel
+        A fully initialized Pyomo model ready for optimization, with a
+        ``profiler`` attribute attached.
+
+    Raises
+    ------
+    NotImplementedError
+        When the per-area Block path is required (zonal data or
+        ``Network = AreaTransportationModelNetwork``). This branch lands
+        in commit #9b.
     """
-    Initializes and configures a Pyomo optimization model for the SDOM framework.
-    This function sets up the model structure, including sets, parameters, variables, 
-    objective function, and constraints for power system optimization. It supports 
-    optional resilience constraints and allows customization of the model name and 
-    simulation horizon.
-    
-    Profiling is always enabled: time and memory usage are measured for each 
-    initialization step and a summary table is printed at the end. The profiler
-    is attached to the model as `model.profiler` for programmatic access.
-    
-    Args:
-        data (dict): Input data required for model initialization, including system 
-            parameters, time series, and technology characteristics.
-        n_hours (int, optional): Number of hours to simulate (default is 8760, 
-            representing a full year).
-        with_resilience_constraints (bool, optional): If True, adds resilience-related 
-            constraints to the model (default is False).
-        model_name (str, optional): Name to assign to the Pyomo model instance 
-            (default is "SDOM_Model").
-    Returns:
-        ConcreteModel: A fully initialized Pyomo ConcreteModel object ready for 
-            optimization. The model includes a 'profiler' attribute containing 
-            the ModelInitProfiler instance with detailed timing and memory data.
+    network = get_network_formulation(data)
+    areas = data.get("areas", [{"area_id": DEFAULT_AREA_ID}])
+    n_areas = len(areas)
+
+    is_legacy_fast_path = (
+        network == COPPER_PLATE_NETWORK and n_areas == 1
+    )
+
+    if is_legacy_fast_path:
+        return _initialize_model_legacy(
+            data,
+            n_hours=n_hours,
+            with_resilience_constraints=with_resilience_constraints,
+            model_name=model_name,
+        )
+
+    raise NotImplementedError(
+        "Per-area Block construction (Network='%s', |areas|=%d) is not yet "
+        "wired into initialize_model. The zonal Block path lands in commit "
+        "#9b of PR #53; see dev_guidelines/zonal_model/PRD.md \u00a75 and "
+        "\u00a710. Use a legacy single-area folder (CopperPlateNetwork + 1 "
+        "area) until then." % (network, n_areas)
+    )
+
+
+def _initialize_model_legacy(data, *, n_hours=8760, with_resilience_constraints=False, model_name="SDOM_Model"):
+    """Build the legacy single-area copper-plate SDOM model (verbatim body).
+
+    This is the historical body of :func:`initialize_model` extracted into a
+    private helper so the public dispatcher can route here unchanged for
+    the ``CopperPlateNetwork`` + single-area case. **Do not modify the body
+    without updating the golden-file regression test
+    ``tests/test_zonal_legacy_regression.py``** — it locks the objective
+    values produced by this function.
+
+    Parameters mirror :func:`initialize_model`.
+
+    Returns
+    -------
+    pyomo.environ.ConcreteModel
+        The fully-built Pyomo model (with ``model.profiler`` attached).
     """
 
     # Initialize profiler (always enabled for time and memory measurement)
