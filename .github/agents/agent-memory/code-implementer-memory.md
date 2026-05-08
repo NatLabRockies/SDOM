@@ -4,6 +4,119 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #5: interconnections + line capacities (2026-05-08)
+
+### Scope
+Added `_load_interconnections`, `_load_one_line_cap`, `_load_line_capacities` helpers in `io_manager.py`; wired into `load_data` to populate `data["lines"]`, `data["line_cap_ft"]`, `data["line_cap_tf"]`. Added 3 fixture files to `Data/zonal_test/` (single line `L_A1_A2`, 8760×1 caps at 500 MW). 12 new tests in new `tests/test_zonal_io_lines.py`. Updated 1 placeholder test in `test_zonal_io_validation.py` (the AT-formulation acceptance test now uses the zonal fixture instead of the legacy folder, since AT now requires topology files).
+
+### Files
+- `src/sdom/constants.py` — added 3 entries to `INPUT_CSV_NAMES` (`interconnections`, `line_cap_ft`, `line_cap_tf`).
+- `src/sdom/io_manager.py` — new helpers + wiring; conditional ERROR raised when `Network=AreaTransportationModelNetwork` but any of the 3 files is missing.
+- `scripts/build_zonal_test_fixture.py` — extended (kept in sync with the on-disk fixture).
+- `Data/zonal_test/{interconnections.csv, LineCap_FT.csv, LineCap_TF.csv}` — 3 new files.
+- `tests/test_zonal_io_lines.py` — 12 tests.
+- `tests/test_zonal_io_validation.py` — replaced `test_load_data_accepts_explicit_area_transportation` placeholder.
+
+### Key decisions
+- Empty-`lines` ⇒ return two empty `pd.DataFrame()`s for `line_cap_ft`/`tf` (not `None`). Easier for downstream model code to iterate without `None` checks.
+- Validation only runs when `lines != []`. If lines empty AND files exist, the (empty-lines) case still returns DataFrames raw — but in practice this never occurs because `interconnections.csv` is the FK source.
+- AT-formulation requirement check sits in `load_data` (not in helpers) so helpers stay reusable.
+- Reordered line-cap columns to match `lines` order for stable downstream access.
+- Fixture column header for hour index is `*Hour` (matches the other 8760-row CSVs).
+
+### Patterns / gotchas
+- `get_complete_path` returns `""`/falsy when the file is absent — use `if not path: return …`.
+- `pd.DataFrame.empty` is True for both 0-rows and 0-columns; for the empty-lines return I used the no-arg constructor (no rows AND no cols).
+- Negative-value detection: `(cap < 0).values.nonzero()` returns `(rows, cols)` index arrays — pick `[0]` for the first violation.
+- Updating an existing test counted as "necessary" rather than "touching unrelated tests" because the orchestrator explicitly listed `test_zonal_io_validation.py` as a target file and the placeholder doc-string ("full zonal loading wires up in later commits") signaled the intent.
+
+### Test counts
+- New file: 12 tests, all green.
+- Full suite: **329 passed**, 0 failed (was 317). 2 unknown-mark warnings (`pytest.mark.slow`) — pre-existing.
+
+### Commit
+- SHA: `2cb7ad9` on `sm/zonal_model`. Not pushed.
+
+### Open items for downstream commits
+- Commit #6: copper-plate aggregation fallback for |areas|>1 (still not implemented).
+- Commit #9 will consume `data["lines"]`/`line_cap_*` to build the Pyomo line set + flow vars.
+- Commit #12 flips `Data/zonal_test/formulations.csv` Network row to `AreaTransportationModelNetwork`.
+
+---
+
+## Zonal Capacity Expansion — Commit #12 partial: `Data/zonal_test/` fixture (2026-05-08)
+
+### Scope
+Built the canonical 2-area zonal CSV fixture under `Data/zonal_test/` (combining `Data/no_exchange_run_of_river/` as A1 and `Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50/` as A2) and refactored `tests/test_zonal_io_per_area.py` to consume it. Skipped `interconnections.csv` / `LineCap_*.csv` (commit #5).
+
+### Files
+- `scripts/build_zonal_test_fixture.py` (new, one-shot generator).
+- `Data/zonal_test/*.csv` (13 files: areas, formulations, scalars, 4 hourly, 2 cap, 2 cf, BalancingUnits, StorageData).
+- `tests/test_zonal_io_per_area.py` rewritten: 19 → **27 tests** (5 parser unit + 4 legacy folder + 1 legacy CapSolar + 1 areas-default-synth + 11 zonal happy-path + 1 areas-synth-from-tags + 4 validation-error mutation).
+
+### Locked decisions / fixture spec
+- Hydro = `RunOfRiverFormulation` globally (drop A2's `lahy_max`/`lahy_min`).
+- Imports/Exports = `NotModel` globally (no Import_*/Export_* templates).
+- Network = `CopperPlateNetwork`. With `|areas|>1` aggregation fallback NOT yet implemented (commit #6), `load_data` still succeeds because the global keys are populated raw (tagged columns flow into `data["storage_data"]` etc.); the per-area views are clean. Tests in this file only inspect per-area views + `data["areas"]`, so initialize_model is never called.
+- StorageData uses Encoding B with tagged tech columns (`Li-Ion@A1@`, …); tech ids legitimately repeat across areas because `@area_id@` disambiguates.
+- No sc_gid or Plant_id collisions encountered (A1 uses integer ids + `83_GAS`/`83_Coal`; A2 uses `Nordeste` and lowercase-suffixed ids `83g`, `98g`, …). No suffixing needed.
+
+### Patterns / gotchas
+- Hybrid test strategy (locked by orchestrator): happy-path tests load `Data/zonal_test/` directly; validation-error tests `shutil.copytree` the fixture into `tmp_path/data` and mutate one CSV. Header-only mutations done via a tiny `_rewrite_csv_header(path, replacements)` helper that rewrites line 1 to avoid round-tripping a 8760-row CSV through pandas.
+- `load_data` does NOT crash on tagged StorageData columns: `storage_data.loc["Coupled"]` still returns a Series and `.columns[mask]` works, populating `STORAGE_SET_J_TECHS` with tagged names. Aggregation in commit #6 will need to overwrite these globals (or de-tag them) before `initialize_model` runs.
+- `compare_lists(solar_plants, solar_plants_capex)` only logs warnings — does not raise — so a 100+1 split where order matches across CFSolar/CapSolar passes silently.
+- `lahy_hourly_*` is the only hydro file under RunOfRiver; `_split_wide_by_area` on `large_hydro_max`/`min` returns `({}, set())` when those globals are missing (the `data.get()` lookup yields `None`).
+- Source files use `*Hour` (with leading asterisk) as the time-key column; this becomes the first column of `_split_wide_by_area` output and is preserved verbatim in every per-area slice.
+- Memory-file updates remain out-of-scope of the test commit — staged the fixture, script, and test file only.
+
+### Test counts
+- File: 19 → 27 tests, all green.
+- Full suite: **317 passed**, 0 failed (was 309). 2 unknown-mark warnings (`pytest.mark.slow`) — pre-existing.
+- Run time ~135s.
+
+### Commit
+- SHA: `c095ecb` on `sm/zonal_model`. Not pushed.
+
+### Open items for downstream commits
+- **Commit #5** (`interconnections.csv` + `LineCap_*.csv`): the fixture is missing these intentionally; add them when topology lands.
+- **Commit #6** (aggregation fallback): `data["storage_data"]` columns are tagged in the zonal_test fixture today. Aggregation must either de-tag (`Li-Ion@A1@` → `Li-Ion`) or overwrite globals from `per_area_storage`. Same caveat for `STORAGE_SET_J_TECHS`/`STORAGE_SET_B_TECHS`.
+- The fixture's `scalars.csv` is taken from A1 verbatim; A2 has `FCR_GasCC`, `LifeTimeGasCC`, different `GenMix_Target`/`AlphaNuclear`. Document or reconcile when scalars become per-area.
+
+---
+
+## Zonal Capacity Expansion — Commit #4 (per-area io_manager) (2026-05-08)
+
+### Scope
+Implemented `feat(io): support area_id column and zonal CSV layout` (PR #53, branch `sm/zonal_model`). Adds the per-device parsing layer for the hybrid encoding (Encoding A row-oriented `area_id` column / Encoding B wide-CSV `@area_id@` header tag) without touching topology / LineCap / aggregation (commits #5–#6).
+
+### Files modified
+- `src/sdom/io_manager.py` — added `_parse_area_tagged_header`, `_split_wide_by_area`, `_split_row_by_area`, `_split_cf_by_plant_area`, `_combine_per_area_imp_exp`, `_load_areas`, `_validate_observed_areas`, `_augment_with_per_area_views`. Hooked the augmenter as the last step of `load_data`. Imported `re`, `DEFAULT_AREA_ID`, `AREA_TAG_DELIMITER`, `get_complete_path`.
+- `tests/test_zonal_io_per_area.py` (new) — 19 tests covering parser unit behaviour, legacy folder per-area defaults, pickle/deepcopy survivability, zonal wide/row splits, and all PRD §4.5 validation rules.
+
+### Key learnings / gotchas
+- **`Data_BalancingUnits.csv` is row-oriented today**, despite the PRD §2.3 example showing it as Encoding B. Treated it as Encoding A (optional `area_id` column) keyed on `Plant_id` — documented as an intentional deviation in the function docstring. Revisit when the long-format migration lands.
+- **Avoid pandas fragmentation warnings**: building a per-area DataFrame via repeated `df[col] = ...` insertions triggers `PerformanceWarning`. Group source columns by area first, then assemble each per-area frame in a single `df[[key, *cols]].rename(columns=...).copy()` call.
+- **`StorageData.csv` is read with `index_col=0`**, so `_split_wide_by_area` won't accept it directly. Reset/restore the index before/after splitting (the property index becomes the first column for parsing, then is re-set on each per-area slice).
+- **CRLF-vs-LF normalization noise** during `git commit` shows inflated insertion/deletion counts. The persisted diff (`git show --stat HEAD`) is the authoritative number. For this commit: real diff is +831 / -1 across 2 files.
+- **`get_complete_path`** is the right helper for soft-matching CSV filenames (handles year-suffixed filenames like `Load_hourly_2050.csv`). Don't hard-code basenames in zonal helpers.
+- **Picklability**: keep the new `data` keys as plain `dict[str, pd.DataFrame|pd.Series]`; verified with `pickle.dumps` + `copy.deepcopy` so the parametric deepcopy path stays safe.
+
+### Test counts
+- New: **19** in `tests/test_zonal_io_per_area.py`.
+- Input-data + zonal regression bucket: **50 passed** (10 + 2 + 2 + 11 + 6 + 19).
+- Full suite: **309 passed, 0 failed, 0 skipped** in 307s.
+
+### Commit
+- SHA: `964cd45` on `sm/zonal_model`. Not pushed.
+
+### Open items / blockers for downstream commits
+- **Commit #5** (`interconnections.csv`, `LineCap_FT/TF.csv`, `_load_topology`, `_load_line_capacities`): nothing in this commit constrains it; the `data["areas"]` and per-area dicts are already in place to validate FK references.
+- **Commit #6** (aggregation fallback): the per-area views are the natural input. Existing global keys (`load_data`, `cap_solar`, …) are still loaded by the legacy path and remain intact for legacy folders, so aggregation can either (a) overwrite globals from the per-area dicts when zonal+CopperPlate, or (b) re-derive them via concatenation. Recommend (a) for clarity.
+- **PRD §2.3 Data_BalancingUnits Encoding B example** is currently inconsistent with the actual row-oriented file. Either migrate the file format in a later commit or correct the PRD.
+- `uv.lock` had pre-existing dirty state on the workspace (added `contourpy` etc.); deliberately NOT staged in this commit.
+
+---
+
 ## Zonal Capacity Expansion — Phase 2 PRD (2026-05-07)
 
 ### Scope
