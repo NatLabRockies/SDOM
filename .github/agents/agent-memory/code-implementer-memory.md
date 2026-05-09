@@ -4,6 +4,42 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #11: emit `OutputInterregionalExchanges_{case}.csv` (2026-05-09)
+
+### Scope
+Wire CSV emission for the zonal interregional-exchanges DataFrame populated in commit #10. Pure additive write: extend `_export_from_results_object` in `io_manager.py`; no behavior change on the legacy path or when the DataFrame is empty.
+
+### Files
+- `src/sdom/io_manager.py` — appended a 7-line block to `_export_from_results_object` after the installed-plants emission. Uses `getattr(results, "interregional_exchanges_df", None)` (defensive against older pickled `OptimizationResults` objects without the field) and writes `OutputInterregionalExchanges_{case}.csv` only if the DataFrame is non-empty. Also added a 7-line block to the `export_results` docstring documenting the new output file (PRD §2.4 schema, row count `|L| * n_hours`, conditional on Network=AreaTransportationModelNetwork).
+- `tests/test_zonal_io_export.py` (new) — 3 tests using module-scoped HiGHS fixtures (skipped if HiGHS missing). One zonal solve + export round-trip (schema + row count = `|L| * n_hours`), one legacy solve assertion that the file is NOT emitted (and `OutputGeneration_*.csv` IS), one pure-Python test that constructs `OptimizationResults()` (default empty `interregional_exchanges_df`) and asserts no file is written.
+
+### Key decisions
+- **Did NOT touch `_export_from_model_legacy`.** The legacy path is for callers that pass a raw model object instead of `OptimizationResults`; under the zonal/Block model that legacy export already emits broken output (flat lookups like `model.thermal.*`), and the orchestrator-locked scope is "legacy export path unchanged." All zonal callers must use `OptimizationResults`-based export.
+- **Used `getattr(results, "interregional_exchanges_df", None)`** instead of direct attribute access so that older pickled `OptimizationResults` (pre-#10) loaded by users would not raise `AttributeError` during export. The `is not None and not df.empty` guard then matches the dataclass default (`pd.DataFrame()`).
+- **Test for empty case uses the dataclass default**, not a zonal solve with empty lines. Faster (no HiGHS required for that test) and exercises exactly the empty-DataFrame guard. Combined with the legacy-solve test, both "DataFrame is empty" code paths are covered (default vs. legacy collector).
+- **Module-scoped HiGHS fixtures duplicate the pattern in `test_zonal_results.py`** rather than importing from there (cross-test imports are fragile in pytest collection). Each test file remains self-contained.
+- **PRD §2.4 column order is enforced**: test asserts `list(df.columns) == PRD_2_4_COLUMNS` (not just set equality). The collector in #10 builds the columns in this order so this is a tight contract.
+- **`export_results` docstring update** adds the new output to the existing `Output Files` section. NumPy docstring style retained; no other doc files touched (per orchestrator scope).
+
+### Patterns / gotchas
+- `pd.read_csv` round-trips `flow_signed_MW`/`flow_FT_MW` as float64 even though the in-memory DataFrame already had floats — no schema drift to worry about.
+- `tmp_path` (pytest builtin) is the right scratch dir; `export_results` calls `os.makedirs(output_dir, exist_ok=True)` so an empty `tmp_path` works directly.
+- The `case` param is interpolated into filenames as-is — using a unique case per test (`"zonal_export_test"`, `"legacy_export_test"`, `"empty_case"`) avoids any cross-test contamination even though `tmp_path` is per-test.
+- HiGHS fixture cost: ~2.5s per zonal solve. Module-scoped sharing with `test_zonal_results.py` is not possible across files (pytest fixtures are file-local unless conftest-promoted), so this commit incurs a duplicate ~2.5s solve. Acceptable; conftest promotion would be a wider refactor.
+
+### Test counts
+- New file: 3 tests, all green.
+- Full suite: **369 → 372 passed**, 0 failed in 213s.
+
+### Commit
+- SHA: `a57f65b` on `sm/zonal_model`. Not pushed.
+
+### Open items for #12
+- Build a second copy of `Data/zonal_test/` with both areas using the RunOfRiver-compatible source (A1 = `no_exchange_run_of_river` already; A2 needs to come from a different RoR-compatible folder per user decision 2026-05-08). Current canonical fixture has A2 from the monthly hydro budget folder which leaves a latent risk under hydro=RoR.
+- Add an explicit `NotImplementedError` guard for `resiliency=True + Network=AT` in the dispatcher (currently raised inside `_initialize_model_zonal`; surface earlier).
+
+---
+
 ## Zonal Capacity Expansion — Commit #10: zonal results collector (2026-05-09)
 
 ### Scope
