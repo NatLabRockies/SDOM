@@ -276,10 +276,10 @@ def collect_results_from_model(model, solver_result, case_name: str = "run") -> 
     is_zonal = hasattr(model, "A") and hasattr(model, "area")
     if is_zonal:
         return _collect_results_zonal(model, solver_result, case_name=case_name)
-    return _collect_results_legacy(model, solver_result, case_name=case_name)
+    return _collect_results_copperplate(model, solver_result, case_name=case_name)
 
 
-def _collect_results_legacy(model, solver_result, *, case_name: str = "run") -> OptimizationResults:
+def _collect_results_copperplate(model, solver_result, *, case_name: str = "run") -> OptimizationResults:
     """Collect results from a solved single-area copper-plate model.
 
     This is the historical body of :func:`collect_results_from_model`
@@ -784,7 +784,7 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
     """Collect dispatch and capacity metrics from a single host block.
 
     Mirrors the legacy collection logic in
-    :func:`_collect_results_legacy` but operates on an arbitrary ``host``
+    :func:`_collect_results_copperplate` but operates on an arbitrary ``host``
     (either the top-level model or an area sub-block ``model.area[a]``).
     Imports / exports terms are guarded by ``hasattr`` so this helper is
     safe to call on a zonal area block where the imports / exports
