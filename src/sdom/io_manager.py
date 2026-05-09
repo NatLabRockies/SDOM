@@ -1541,6 +1541,14 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
         Disaggregated hourly thermal generation by plant (only if more than
         one thermal plant exists).
 
+    OutputInterregionalExchanges_{case}.csv
+        Hourly per-line interregional exchanges (PRD §2.4 schema). Emitted
+        only for zonal runs (``Network = AreaTransportationModelNetwork``)
+        when ``results.interregional_exchanges_df`` is non-empty. Columns:
+        ``line_id, from_area, to_area, hour, flow_signed_MW, flow_FT_MW,
+        flow_TF_MW, cap_FT_MW, cap_TF_MW, utilization_FT, utilization_TF``.
+        Row count is ``|L| * n_hours``.
+
     Notes
     -----
     This function accepts either an OptimizationResults dataclass (new API)
@@ -1609,6 +1617,15 @@ def _export_from_results_object(results, case: str, output_dir: str):
     installed_plants_df = results.get_installed_plants_dataframe()
     if not installed_plants_df.empty:
         installed_plants_df.to_csv(os.path.join(output_dir, f"OutputInstalledPowerPlants_{case}.csv"), index=False)
+
+    # Save interregional exchanges results to CSV (zonal / AreaTransportationModelNetwork only)
+    logging.debug("-- Saving interregional exchanges results to CSV...")
+    interregional_df = getattr(results, "interregional_exchanges_df", None)
+    if interregional_df is not None and not interregional_df.empty:
+        interregional_df.to_csv(
+            os.path.join(output_dir, f"OutputInterregionalExchanges_{case}.csv"),
+            index=False,
+        )
 
 
 def _export_from_model_legacy(model, case, output_dir="./results_pyomo/"):
