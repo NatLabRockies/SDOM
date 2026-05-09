@@ -4,6 +4,37 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #12: dispatcher resiliency guard + finalize RoR fixture (2026-05-08)
+
+### Scope
+Two-part commit. (1) Lift the `with_resilience_constraints=True` + `Network=AreaTransportationModelNetwork` guard from inside `_initialize_model_zonal` up to the public `initialize_model` dispatcher per PRD §5.8 — so callers fail fast before any zonal Block construction runs. (2) Finalize `Data/zonal_test/` as the canonical RoR-only fixture per the locked 2026-05-08 decision (both areas = RunOfRiverHydro).
+
+### Files touched
+- `src/sdom/optimization_main.py` — added the resiliency-AT guard right between the legacy fast-path branch and the AT zonal-dispatch branch in `initialize_model`. The same guard remains as a defensive copy at the top of `_initialize_model_zonal` so direct callers of the private helper still get the traceable error.
+- `tests/test_zonal_resiliency_guard.py` (new, 3 tests) — (a) `monkeypatch.setattr` spy on `_initialize_model_zonal` proves the dispatcher raises BEFORE delegating; (b) sanity: legacy CopperPlate + resiliency still works (no false positive); (c) private helper retains its defensive guard.
+- `scripts/build_zonal_test_fixture.py` — updated docstring with the 2026-05-08 decision rationale (option b: drop A2's `lahy_max_hourly` / `lahy_min_hourly` to satisfy global RoR while keeping inter-area heterogeneity). Also fixed an outdated `Network` row description string in the script that had drifted from the checked-in CSV.
+- `tests/test_zonal_fixture_invariants.py` (new, 7 tests) — locks `Hydro=RunOfRiverFormulation`, no `lahy_max/min*.csv` files shipped, both areas carry `LargeHydro@A?@` columns in `lahy_hourly.csv`, `areas == {A1, A2}`, `Network=AreaTransportationModelNetwork`, `Imports/Exports=NotModel`.
+
+### Key decisions / gotchas
+- **Option (b) chosen** for A2's source: `no_exchange_monthly_hydro_budget_multiple_balancing_p50` (sole source providing a `lahy_hourly` file besides the RoR folder), with `lahy_max_hourly` / `lahy_min_hourly` deliberately omitted from the merged fixture so A2's hydro behaves as RoR. Caveat noted: A2's `lahy_hourly_2025.csv` was authored as a *budget profile*, not a RoR generation profile — acceptable for a test fixture whose purpose is to exercise model wiring, not power-system realism.
+- **Why not option (a)** (duplicate `no_exchange_run_of_river` as A2 with renamed plant ids): would make A1 and A2 structurally identical, leaving the transportation line at zero flow at the LP optimum — less interesting as a stress test.
+- **The fixture itself was already in the desired option-(b) state** from commit #4b; this commit only formalized the decision via locked invariants and updated documentation. `git diff Data/zonal_test/` after re-running the build script: empty (bit-identical).
+- Hydro-budget under AT is **still not guarded** in `_initialize_model_zonal`. The fixture's RoR setting is now locked by `test_zonal_fixture_invariants.py`, so this latent risk is contained — but if a future zonal fixture lands with `Hydro=MonthlyHydroBudget` or `DailyHydroBudget`, add an explicit guard analogous to the resiliency one.
+- The pre-existing `test_resiliency_under_zonal_raises_not_implemented` in `tests/test_zonal_model_build.py` continues to pass unchanged because it goes through the public `initialize_model` dispatcher — which now raises one stack-frame earlier.
+
+### Suite status
+372 → 375 (after Part 1) → **382 passed** (after Part 2). Legacy fast-path bit-identical. Two `pytest.mark.slow` warnings unrelated.
+
+### Commits (local, NOT pushed)
+- `74af529` — `feat(zonal): lift resiliency+AT NotImplementedError to dispatcher`
+- `e738d7f` — `test(zonal): finalize Data/zonal_test/ as RoR-only fixture (option b)`
+
+### Follow-ups
+- Commit #13: `feat(parametric,plots): zonal smoke test and optional zonal plots` (last in the 13-commit plan).
+- If a non-RoR zonal fixture ever lands, add an explicit hydro-budget-under-AT guard alongside the resiliency one.
+
+---
+
 ## Zonal Capacity Expansion — Commit #11: emit `OutputInterregionalExchanges_{case}.csv` (2026-05-09)
 
 ### Scope
