@@ -4,6 +4,42 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Capacity Expansion — Commit #13: parametric smoke test + plots deferral (2026-05-08) — **13-plan COMPLETE**
+
+### Scope
+Final commit of the 13-plan for PR #53. Two parts: (1) end-to-end `ParametricStudy` smoke test on `Data/zonal_test/` per PRD §8.2; (2) audit existing plotting modules and document deferral of zonal plotting per PRD §9.
+
+### Files touched
+- `tests/test_zonal_parametric.py` (new, 6 tests, module-scoped fixture) — single `ParametricStudy` run sweeping `scalars.GenMix_Target ∈ {0.5, 1.0}` over the 2-area zonal fixture, `n_hours=24`, `n_cores=2`, HiGHS. Asserts: (a) all scenarios optimal; (b) each result `is_zonal=True`, `areas={A1,A2}`, `lines={L_A1_A2}`; (c) `interregional_exchanges_df` matches PRD §2.4 schema with `|L|*n_hours=24` rows; (d) costs are positive/finite and the sweep produces a >1.0 spread; (e) per-worker deep-copy keeps `base_data["scalars"]` and `base_data["per_area_demand"]` pristine; (f) the multi-area `data` dict round-trips through `pickle.dumps/loads` and `copy.deepcopy`.
+- `dev_guidelines/zonal_model/plots_followup.md` (new, **gitignored — local note only**) — audit table for `Plots.py` (114 LOC) + `Consolidated_plots.py` (1126 LOC). Both are standalone scripts that read `OutputSummary_*.csv`, do not import `sdom`, and are not exercised by `tests/`. New `Area` columns and `OutputInterregionalExchanges_*.csv` only appear in zonal CSVs, so legacy plot scripts cannot regress. Proposed MVP for the follow-up issue: per-area generation stack + interregional line-flow heatmap, both keyed off `OptimizationResults.area_*` and `interregional_exchanges_df`, suggested home `src/sdom/analytic_tools/_zonal.py`.
+
+### Mutation audit (`src/sdom/parametric/mutations.py`)
+Coverage went from 24% (pre-#11) to ~39% (post-#13) — adequate for the smoke-test scope. Key finding from the audit: only `_apply_scalar_mutation` propagates correctly into the zonal model build, because the zonal slice references `data["scalars"]` *by reference* in `_build_per_area_data_slice`. The other two mutations target top-level keys that the zonal slice ignores:
+- `_apply_storage_factor_mutation` writes to `data["storage_data"]`, but the zonal slice consumes `data["per_area_storage"][area_id]` (independent DataFrames, not views).
+- `_apply_ts_mutation` writes to `data["load_data"]` / `data["large_hydro_data"]` / etc., but the zonal slice consumes `data["per_area_demand"][area_id]` / `data["per_area_hydro"][area_id]`.
+This is the **per-area parametric sweep gap** explicitly deferred in PRD §12.1. No code change is needed for #13's scope (a single global scalar suffices to prove the parametric→zonal pipeline works). When this is unlocked in a follow-up PR, the right shape is dotted/tuple keys (e.g. `("per_area_storage", "A1")` → routed to `data["per_area_storage"]["A1"]`), which would also require updating `_apply_*` to walk one level deeper.
+
+### Key decisions / gotchas
+- **Plots: pure deferral, no in-package safety guard.** Initially considered a `is_zonal`-aware crash guard in legacy plot entry points, but the audit confirmed `Plots.py` and `Consolidated_plots.py` are decoupled from the package (they read CSVs only). Legacy CSVs are bit-identical post-PR. Zero crash surface → no guard needed.
+- **`dev_guidelines/zonal_model/` is gitignored** (`.gitignore:221: dev_guidelines/*`). The deferral note at `dev_guidelines/zonal_model/plots_followup.md` is a local-only artifact; the canonical record of the deferral lives here in this memory file (which is tracked).
+- **`data["scalars"]` aliasing in the zonal slice was deliberate**: `_build_per_area_data_slice` does `slice_dict["scalars"] = data["scalars"]` (no copy). After the worker's `copy.deepcopy(case_dict["data"])` at the top of `_run_single_case`, every per-area slice sees the *same* mutated scalars object, which is exactly what's wanted for global parameters like `GenMix_Target`.
+- **`pytest` fixture scope**: `zonal_study_run` is `scope="module"` so the parallel solve happens once and is shared across all 6 tests. `n_cores=2` keeps Windows multiprocess overhead low; the entire test file completes in ~10–11 s on this branch.
+- **`assert c == c` not-NaN check** is a defensive lint-friendly idiom (avoids importing `math.isnan` for a one-liner).
+
+### Suite status
+**388 passed** (382 + 6 new), 0 failed, 2 unrelated `pytest.mark.slow` warnings. Total runtime ~5m42s. Legacy fast-path bit-identical (locked by `tests/test_zonal_legacy_regression.py`).
+
+### Commits (local, NOT pushed)
+- `11be97c` — `test(zonal,parametric): add ParametricStudy smoke test on Data/zonal_test/`
+- (Part 2 has no tracked file changes — deferral is recorded in this memory file and in the PR description.)
+
+### Follow-ups
+- **13-commit plan COMPLETE.** PR #53 ready for a final review pass / push.
+- Open a new issue for zonal plotting MVP (per `plots_followup.md`).
+- Open a new issue for per-area parametric sweeps (PRD §12.1 — already on the deferred list).
+
+---
+
 ## Zonal Capacity Expansion — Commit #12: dispatcher resiliency guard + finalize RoR fixture (2026-05-08)
 
 ### Scope
