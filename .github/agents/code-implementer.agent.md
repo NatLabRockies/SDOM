@@ -62,6 +62,10 @@ def function_name(
 3. **Primary object first**: The main data/object being acted upon
 4. **Sensible defaults**: Optional params should have safe defaults
 5. **Backward compatibility**: Never remove or reorder existing parameters
+6. **Use Test-Driven Development (TDD) approach**:
+   - Write a failing test first
+   - Implement the code to pass the test
+   - Refactor if needed while keeping tests green
 
 ### Example
 
@@ -122,7 +126,7 @@ def function_name(param1, param2, *, option=None):
 
 ### Every Implementation Must Include
 
-1. **Unit tests** for individual functions
+1. **Unit tests** for individual functions. 
 2. **Edge case tests** (empty inputs, boundary values)
 3. **Error handling tests** (expected exceptions)
 
