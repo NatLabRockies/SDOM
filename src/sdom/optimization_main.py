@@ -94,6 +94,20 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
             model_name=model_name,
         )
 
+    # PRD §5.8: resiliency under AreaTransportationModelNetwork is explicitly
+    # out of scope for this phase. Guard at the dispatcher (before any zonal
+    # construction) so callers fail fast with a traceable message.
+    if (
+        network == AREA_TRANSPORTATION_MODEL_NETWORK
+        and with_resilience_constraints
+    ):
+        raise NotImplementedError(
+            "Resiliency under "
+            f"Network='{AREA_TRANSPORTATION_MODEL_NETWORK}' is not "
+            "implemented in this phase (PRD \u00a75.8). Use "
+            f"Network='{COPPER_PLATE_NETWORK}' for resiliency runs."
+        )
+
     if network == AREA_TRANSPORTATION_MODEL_NETWORK:
         return _initialize_model_zonal(
             data,
@@ -598,6 +612,10 @@ def _initialize_model_zonal(
     )
 
     if with_resilience_constraints:
+        # Defensive: the dispatcher (initialize_model) already raises
+        # NotImplementedError for resiliency + AreaTransportationModelNetwork
+        # per PRD §5.8. This guard remains so direct callers of the private
+        # helper get the same traceable error.
         raise NotImplementedError(
             "Resiliency under "
             f"Network='{AREA_TRANSPORTATION_MODEL_NETWORK}' is not "
