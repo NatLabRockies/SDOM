@@ -21,13 +21,27 @@ Encodings produced (see PRD §2)
 
 Locked decisions
 ----------------
-- Hydro = ``RunOfRiverFormulation`` globally (drop A2's lahy_max/lahy_min).
+- **Hydro = ``RunOfRiverFormulation`` globally for both areas** (locked
+  2026-05-08, finalized in commit #12). Only ``no_exchange_run_of_river``
+  is a true RoR-source folder, so A2's ``lahy_hourly_2025`` profile is
+  reused from the monthly-hydro-budget folder with its budget bounds
+  (``lahy_max_hourly`` / ``lahy_min_hourly``) **deliberately dropped** —
+  this "degenerated bounds" approach (option b in the commit-#12 plan)
+  preserves inter-area heterogeneity (different load shapes, VRE, thermal
+  mix) which is desirable for a transportation-network test fixture,
+  while satisfying the global RoR formulation. The profile semantics are
+  acceptable for a *test* fixture whose purpose is to exercise model
+  wiring, not power-system realism.
 - Imports / Exports = ``NotModel`` globally (no Import_*/Export_* templates).
 - Network = ``AreaTransportationModelNetwork`` (the natural setting for the
   2-area fixture; commit #6 introduced an aggregation fallback so that
   flipping this row to ``CopperPlateNetwork`` collapses the fixture into a
-  single synthetic ``default`` area). The per-area views
-  populated by io_manager are validated by the new tests).
+  single synthetic ``default`` area).
+
+Fixture invariants locked by ``tests/test_zonal_fixture_invariants.py``:
+no ``lahy_max_hourly`` / ``lahy_min_hourly`` shipped; both areas carry a
+``LargeHydro@A?@`` column in ``lahy_hourly.csv``; ``Hydro`` row in
+``formulations.csv`` is ``RunOfRiverFormulation``.
 """
 
 from __future__ import annotations
@@ -66,8 +80,8 @@ def build() -> None:
             ["Exports", "NotModel",
              "Exports are not represented in this fixture (zonal_test)."],
             ["Network", "AreaTransportationModelNetwork",
-             "Single system-wide energy balance; aggregation fallback for "
-             "|areas|>1 lands in commit #6."],
+             "Per-area energy balance linked by a lossless transportation "
+             "model with signed asymmetric line capacities."],
         ],
         columns=["Component", "Formulation", "Description"],
     )
