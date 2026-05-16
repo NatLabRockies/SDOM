@@ -105,6 +105,8 @@ def add_imports_constraints( host, data: dict ):
     add_import_export_binary_variable(host, big_m_constant)
     
 
+    # TODO: readability cleanup — use `m.demand.ts_parameter[h]` (instead of
+    # `host.demand.ts_parameter[h]`) inside this lambda for naming consistency.
     host.imp_net_load_constraint = Constraint(
         host.h,
         rule=lambda m, h: m.imports.variable[h] <= m.aux_imp_exp_binary_variable[h] * host.demand.ts_parameter[h]
