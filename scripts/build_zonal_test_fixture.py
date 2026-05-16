@@ -55,6 +55,23 @@ A1_DIR = REPO_ROOT / "Data" / "no_exchange_run_of_river"
 A2_DIR = REPO_ROOT / "Data" / "no_exchange_monthly_hydro_budget_multiple_balancing_p50"
 OUT_DIR = REPO_ROOT / "Data" / "zonal_test"
 
+FIXTURE_README = """# zonal_test fixture notes
+
+This directory contains the canonical 2-area zonal fixture used by tests.
+It is intended for model wiring/integration validation, not power-system realism.
+
+## Hydro semantics (important)
+
+- Global hydro formulation is `RunOfRiverFormulation` for both areas.
+- Area A1 comes from a true run-of-river source folder.
+- Area A2 reuses `lahy_hourly_2025` from the monthly-hydro-budget source.
+- A2 monthly budget bounds (`lahy_max_hourly*` / `lahy_min_hourly*`) are
+  deliberately not shipped in this fixture.
+
+Implication: `LargeHydro@A2@` is acceptable for fixture testing but should not be
+interpreted as a physically realistic run-of-river profile.
+"""
+
 
 def _read(path: Path, **kwargs) -> pd.DataFrame:
     return pd.read_csv(path, **kwargs)
@@ -91,8 +108,9 @@ def build() -> None:
     areas = pd.DataFrame(
         [
             ["A1", "Run-of-river hydro area (from no_exchange_run_of_river)"],
-            ["A2", "Multiple balancing units area "
-             "(from no_exchange_monthly_hydro_budget_multiple_balancing_p50)"],
+            ["A2", "Multiple balancing units area; LargeHydro profile reused "
+             "from monthly-budget source with bounds deliberately dropped "
+             "for fixture testing"],
         ],
         columns=["area_id", "description"],
     )
@@ -198,6 +216,9 @@ def build() -> None:
     # ----- scalars.csv (use A1; A2 differs but tests only check parsing) ---
     scalars = _read(A1_DIR / "scalars.csv")
     scalars.to_csv(OUT_DIR / "scalars.csv", index=False)
+
+    # ----- README.md (fixture provenance and semantics) --------------------
+    (OUT_DIR / "README.md").write_text(FIXTURE_README, encoding="utf-8")
 
     print(f"Built fixture at {OUT_DIR}")
     for path in sorted(OUT_DIR.iterdir()):
