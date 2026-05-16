@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from sdom.resiliency import (
     BaselineState,  # noqa: F401 - ensure package is importable
     OutageSpec,
@@ -23,13 +21,6 @@ from sdom.resiliency import (
 )
 from sdom.utils_performance_meassure import ModelInitProfiler
 
-
-@pytest.fixture
-def designed_system_3mw_pgne():
-    """Reuse the loader fixture from the data-loader test module."""
-    from tests.test_resiliency_data_loader import designed_system_3mw_pgne as fx  # noqa: PLC0415
-
-    return fx.__wrapped__()  # type: ignore[attr-defined]
 
 
 def _designed_system():
