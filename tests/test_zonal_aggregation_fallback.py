@@ -1,4 +1,4 @@
-"""Tests for the aggregation fallback (commit #6).
+"""Tests for the aggregation fallback.
 
 Covers PRD §4.6: when a multi-area input folder is loaded with
 ``Network=CopperPlateNetwork``, ``load_data`` collapses every per-area

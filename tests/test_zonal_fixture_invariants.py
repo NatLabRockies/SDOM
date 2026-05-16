@@ -1,9 +1,9 @@
-"""Lock the canonical ``Data/zonal_test/`` fixture invariants (commit #12).
+"""Lock the canonical ``Data/zonal_test/`` fixture invariants.
 
 The fixture pairs ``no_exchange_run_of_river`` (area A1) with the monthly-
 hydro-budget folder (area A2), then **drops A2's hydro budget bounds** so
 the global ``RunOfRiverFormulation`` is satisfied for both areas (locked
-2026-05-08 decision; option (b) in the commit #12 plan).
+2026-05-08 decision; option (b) in the fixture-finalization plan).
 
 These invariants exist so a future regeneration of the fixture cannot
 silently re-introduce hydro budgets and break the AT path's assumptions.

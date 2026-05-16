@@ -1,4 +1,4 @@
-"""Tests for the zonal topology loaders (commit #5).
+"""Tests for the zonal topology loaders.
 
 Covers:
 

@@ -2,7 +2,7 @@
 
 PRD §5.8 forbids combining ``with_resilience_constraints=True`` with
 ``Network=AreaTransportationModelNetwork`` in this phase. The guard lives
-in the public :func:`sdom.initialize_model` dispatcher (commit #12) so
+in the public :func:`sdom.initialize_model` dispatcher so
 callers fail fast before any zonal Block construction runs.
 
 A defensive copy of the same guard remains inside the private

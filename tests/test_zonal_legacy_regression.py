@@ -1,6 +1,6 @@
 """Golden-file regression test for the legacy fast-path of ``initialize_model``.
 
-The ``initialize_model`` dispatcher (PRD #53 commit #9a, see
+The ``initialize_model`` dispatcher (see
 ``dev_guidelines/zonal_model/PRD.md`` \u00a75.7) routes single-area
 ``CopperPlateNetwork`` data through
 :func:`sdom.optimization_main._initialize_model_copperplate`, which is the
@@ -10,7 +10,7 @@ as the existing test suite expects.
 
 If this test starts failing, the most likely cause is that the legacy code
 path was modified \u2014 revert the change and instead extend the per-area
-Block path (commit #9b) without touching ``_initialize_model_copperplate``.
+Block path without touching ``_initialize_model_copperplate``.
 """
 
 from __future__ import annotations

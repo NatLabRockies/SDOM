@@ -1,4 +1,4 @@
-"""Tests for the per-area data parsing in `io_manager` (zonal commit #4 / #12).
+"""Tests for the per-area data parsing in `io_manager`.
 
 Covers:
 

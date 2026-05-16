@@ -1,6 +1,6 @@
 """End-to-end smoke test for :class:`ParametricStudy` on the zonal fixture.
 
-Covers commit #13 part 1 (PR #53): exercises the parametric pipeline
+Covers the parametric pipeline
 (load → mutate → initialize_model → run_solver → results) on the canonical
 2-area zonal fixture under :data:`Data/zonal_test/`. The sweep varies a
 single global scalar (``scalars.GenMix_Target``) so the mutation flows

@@ -1,6 +1,6 @@
 """Tests for zonal-aware ``OptimizationResults`` and ``collect_results_from_model``.
 
-Covers commit #10 (PR #53): the zonal results collector and the new
+Covers the zonal results collector and the new
 zonal fields on :class:`sdom.results.OptimizationResults`. Drives the
 solver via :func:`sdom.optimization_main.run_solver` end-to-end on
 both the legacy single-area fixture and the canonical 2-area fixture.

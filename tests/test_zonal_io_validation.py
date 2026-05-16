@@ -1,7 +1,6 @@
 """Negative and defaulting tests for the Network formulation in `load_data`.
 
-This file is grown commit-by-commit as the zonal io_manager refactor lands.
-The current scope (commit #3) covers:
+This file covers Network-formulation validation and defaulting behavior:
 
 - Backward-compatible defaulting when `formulations.csv` lacks a `Network` row.
 - Rejection of unknown `Network` formulation values.
@@ -73,7 +72,7 @@ def test_load_data_accepts_explicit_copper_plate(tmp_path):
 
 
 def test_load_data_accepts_explicit_area_transportation(tmp_path):
-    """AT formulation requires topology files (commit #5 wired this up)."""
+    """AT formulation requires topology files."""
     # Use the zonal fixture, which already ships with interconnections.csv +
     # LineCap_FT.csv + LineCap_TF.csv.
     src = Path("Data/zonal_test")

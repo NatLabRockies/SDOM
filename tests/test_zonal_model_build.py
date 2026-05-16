@@ -1,11 +1,11 @@
 """Tests for the zonal Block-construction path of ``initialize_model``.
 
-Covers commit #9b (PR #53): per-area Block dispatch with a transportation
+Covers per-area Block dispatch with a transportation
 model linking areas. Asserts the model topology, per-area sub-blocks,
 signed flow variable, capacity constraints, and end-to-end LP feasibility.
 
 Result-collection (``run_solver`` / ``collect_results_from_model``) under
-the zonal path lands in commit #10 — these tests therefore drive the
+the zonal path lands in the results collector — these tests therefore drive the
 solver via the raw Pyomo solver factory.
 """
 

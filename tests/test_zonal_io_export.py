@@ -1,6 +1,6 @@
 """Tests for zonal-aware CSV export in :func:`sdom.io_manager.export_results`.
 
-Covers commit #11 (PR #53): emission of ``OutputInterregionalExchanges_{case}.csv``
+Covers emission of ``OutputInterregionalExchanges_{case}.csv``
 when the optimization results contain a non-empty ``interregional_exchanges_df``.
 
 Legacy single-area runs must NOT produce this file. The export is a pure
