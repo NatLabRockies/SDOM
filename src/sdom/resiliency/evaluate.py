@@ -51,8 +51,8 @@ def evaluate_resiliency(
     n_workers=None,
     solver="highs",
     solver_options=None,
-    profile_baseline=True,
-    profile_outages=True,
+    profile_baseline=False,
+    profile_outages=False,
 ):
     """End-to-end helper: load -> baseline dispatch -> outage evaluation.
 
@@ -98,11 +98,12 @@ def evaluate_resiliency(
     profile_baseline : bool, optional
         When ``True``, attach a
         :class:`~sdom.utils_performance_meassure.ModelInitProfiler` to the
-        baseline build/solve and print summary tables. Default ``False``.
+        baseline build/solve and print summary tables. Default ``False``
+        (opt-in to avoid runtime/logging overhead in the top-level helper).
     profile_outages : bool, optional
         When ``True`` and ``n_workers == 1``, profile every per-hour outage
         build. Ignored when ``n_workers > 1`` (a per-worker summary is
-        rarely useful). Default ``False``.
+        rarely useful). Default ``False`` (opt-in).
 
     Returns
     -------
@@ -151,17 +152,21 @@ def evaluate_resiliency(
         formulation_overrides=formulation_overrides,
     )
     logger.info("Step 2/4: building baseline dispatch model.")
+    # TODO: in a future major release, consider whether profiling should be
+    # default-on for this top-level helper; for now keep explicit opt-in.
     model = build_baseline_dispatch(
         designed_system,
         n_hours=n_hours,
         min_soc_per_tech=min_soc_per_tech,
         curtailment_penalty=curtailment_penalty,
+        profile=profile_baseline,
     )
     logger.info("Step 3/4: solving baseline dispatch with solver=%r.", solver)
     baseline_results = run_baseline_dispatch(
         model,
         solver=solver,
         solver_options=solver_options,
+        profile=profile_baseline,
     )
     logger.info("Step 4/4: running per-hour resiliency evaluation.")
     results = run_resiliency_evaluation(
@@ -175,6 +180,7 @@ def evaluate_resiliency(
         n_workers=n_workers,
         solver=solver,
         solver_options=solver_options,
+        profile_outages=profile_outages,
     )
     logger.info("evaluate_resiliency: pipeline complete.")
     return results
