@@ -5,6 +5,15 @@ API reference for the `sdom.parametric` sub-package.
 See the [user guide](../user_guide/parametric_analysis.md) for a full
 usage walkthrough and worked examples.
 
+## Zonal Notes
+
+`ParametricStudy` supports zonal runs and can execute global scalar sweeps on zonal datasets.
+
+Current behavior for zonal mode:
+
+- Global scalar mutations (for example `GenMix_Target`) propagate correctly.
+- Per-area targeted mutations are not yet a first-class API (deferred follow-up).
+
 ---
 
 ## ParametricStudy
