@@ -166,6 +166,18 @@ In the path specified by "output_dir", sdom will writhe the following output csv
 | OutputSummary_CASENAME.csv         | Summary of key simulation results and statistics.        |
 | OutputThermalGeneration_CASENAME.csv | Hourly results for thermal generation plants.           |
 | OutputInstalledPowerPlants_CASENAME.csv | Installed capacity for each individual power plant (Solar PV, Wind, Thermal). |
+| OutputInterregionalExchanges_CASENAME.csv | Zonal-only line flows (`line_id`, `from_area`, `to_area`, `hour`, signed and directional flows, directional capacity and utilization). |
+
+## Zonal Results Access
+
+When using `Network=AreaTransportationModelNetwork`, `run_solver` populates zonal fields in `OptimizationResults`:
+
+- `results.is_zonal`
+- `results.areas`, `results.lines`
+- `results.area_generation_df`, `results.area_storage_df`, `results.area_thermal_generation_df`, `results.area_installed_plants_df`, `results.area_summary_df`
+- `results.interregional_exchanges_df`
+
+`results.summary_df` is intentionally empty in the zonal path; use `results.area_summary_df` for per-area summary tables.
 
 ## Troubleshooting
 ### Solver Performance
