@@ -45,6 +45,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=8.4.2,<10.0.0",
+    "pytest-benchmark>=5.1.0,<6.0.0",
     "pytest-cov>=6.0.0,<7.0.0",
     "ruff>=0.13.2,<0.15.0",
     "ty>=0.0.12,<1.0.0",
@@ -76,6 +77,8 @@ addopts = [
 ]
 markers = [
     "integration: marks tests as integration tests (may require solver binaries and full data)",
+    "bench_quick: fast/stable benchmark cases intended for frequent branch comparisons",
+    "bench_deep: slower end-to-end benchmark cases intended for manual or nightly runs",
 ]
 
 [tool.ruff]
