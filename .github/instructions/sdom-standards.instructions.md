@@ -7,6 +7,17 @@ description: "SDOM project conventions, coding standards, and shared knowledge f
 
 This instruction applies to all work in the SDOM (Storage Deployment Optimization Model) repository.
 
+## Reusable Skills (Use Instead of Duplicating Guidance)
+
+- `.github/skills/python-code-implementation-workflow/SKILL.md`
+    - Use for TDD workflow, API signature discipline, single-responsibility patterns, and implementation anti-patterns.
+- `.github/skills/python-documentation-workflow/SKILL.md`
+    - Use for NumPy docstring structure, Markdown documentation workflow, and documentation quality checks.
+- `.github/skills/confidence-score-workflow/SKILL.md`
+    - Use for confidence scoring, one-question clarification loop, and proceed-threshold behavior.
+
+Keep this file focused on SDOM-specific conventions and repository-wide standards.
+
 ## 📦 Project Structure
 
 ```
@@ -25,55 +36,20 @@ src/sdom/
 
 ## 📐 API Design Rules
 
-1. **Maximum 2 mandatory positional arguments** per function
-2. Use `*` separator to force keyword-only arguments
-3. Primary object (data being acted upon) comes first
-4. Maintain backward compatibility for public APIs
+Use `.github/skills/python-code-implementation-workflow/SKILL.md` for full API design and implementation workflow.
 
-```python
-def function_name(
-    primary_object,
-    secondary_input,
-    *,
-    option1=default1,
-    verbose=False,
-):
-    pass
-```
+SDOM enforcement points:
+1. **Maximum 2 mandatory positional arguments** per function.
+2. Use `*` to force keyword-only optional arguments.
+3. Preserve backward compatibility for public APIs.
 
 ## 📝 Docstring Format (NumPy)
 
-All functions and classes MUST use NumPy docstring format:
+Use `.github/skills/python-documentation-workflow/SKILL.md` for NumPy docstring templates and documentation workflow.
 
-```python
-def function_name(param1, *, option=None):
-    """Short one-line summary starting with verb.
-
-    Extended description.
-
-    Parameters
-    ----------
-    param1 : type
-        Description.
-    option : type, optional
-        Description. Default is None.
-
-    Returns
-    -------
-    type
-        Description.
-
-    Raises
-    ------
-    ValueError
-        When invalid input.
-
-    Examples
-    --------
-    >>> result = function_name(x)
-    """
-    pass
-```
+SDOM enforcement points:
+1. Public APIs must include complete NumPy-style docstrings.
+2. Docstrings and docs must remain aligned with SDOM mathematical notation.
 
 ## 🏷️ Git Commit Convention
 
@@ -104,12 +80,18 @@ Types: feat, fix, docs, refactor, test, perf, chore
 
 ## 🧪 Testing
 
-- All new code must have tests in `tests/`
-- Use pytest fixtures for SDOM data
-- Test edge cases and error handling
+Use `.github/skills/python-code-implementation-workflow/SKILL.md` for TDD and test coverage workflow.
+
+SDOM enforcement points:
+- All new code must include tests in `tests/`.
+- Prefer pytest fixtures that reflect SDOM data shapes.
+- Include edge cases and error-path tests.
 
 ## 📚 Documentation
 
-- Update docstrings for any API changes
-- Update relevant `.md` files in `docs/`
-- Math notation must match SDOM standards
+Use `.github/skills/python-documentation-workflow/SKILL.md` for documentation execution details.
+
+SDOM enforcement points:
+- Update docstrings for API changes.
+- Update relevant `.md` files in `docs/`.
+- Keep math notation consistent with SDOM standards.
