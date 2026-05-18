@@ -56,6 +56,24 @@ Documentation for model formulation modules.
    :show-inheritance:
 ```
 
+## Network (Zonal) Formulations
+
+```{eval-rst}
+.. automodule:: sdom.models.formulations_network
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+## Host Pattern in Formulation Builders
+
+Most `add_*_*` model-builder functions now use `host` as the first argument.
+
+- In copper-plate mode, `host` is the top-level model.
+- In zonal mode, `host` is `model.area[a]` for each area.
+
+This pattern allows the same formulation builders to populate either top-level blocks or per-area blocks.
+
 ## Model Utilities
 
 Helper functions for building model components.

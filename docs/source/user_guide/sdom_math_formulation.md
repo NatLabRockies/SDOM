@@ -5,6 +5,8 @@
 > all resources to meet electrical demand at minimum annualized system cost subject to a clean-energy
 > target.
 
+For the zonal multi-area formulation (`Network = AreaTransportationModelNetwork`), see [Zonal Math Formulation](zonal_math_formulation.md).
+
 ---
 
 ## Sets

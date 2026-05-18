@@ -13,6 +13,8 @@ Functions for loading input data and exporting results.
 ```{eval-rst}
 .. autofunction:: sdom.io_manager.get_formulation
 
+.. autofunction:: sdom.io_manager.get_network_formulation
+
 .. autofunction:: sdom.io_manager.check_formulation
 ```
 
@@ -91,3 +93,18 @@ The `load_data()` function returns a dictionary with these keys:
 - `scalars`: System-level parameters
 - `import_cap`, `export_cap` (optional): Trade capacity limits
 - `import_prices`, `export_prices` (optional): Trade prices
+
+Zonal additions when the input folder uses area-aware encoding:
+
+- `areas`: list of area descriptors
+- `lines`: list of line descriptors (`line_id`, `from_area`, `to_area`)
+- `line_cap_ft`, `line_cap_tf`: directional line-capacity DataFrames
+- `per_area_demand`, `per_area_pv_plants`, `per_area_wind_plants`, `per_area_balancing_units`, `per_area_storage`, `per_area_hydro`
+- `per_area_nuclear`, `per_area_other_renewables`, `per_area_imports`, `per_area_exports`
+- `per_area_capacity_factors_pv`, `per_area_capacity_factors_wind`
+
+`load_data()` behavior by network formulation:
+
+- If `Network` is missing from `formulations.csv`, SDOM defaults to `CopperPlateNetwork`.
+- If `Network=AreaTransportationModelNetwork`, SDOM validates and requires `interconnections.csv`, `LineCap_FT.csv`, and `LineCap_TF.csv`.
+- If zonal data is present but `Network=CopperPlateNetwork`, SDOM aggregates areas into a single synthetic `default` area and drops transmission topology/capacity files.
