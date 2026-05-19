@@ -3,6 +3,7 @@ import re
 import pandas as pd
 import os
 import csv
+from datetime import datetime
 
 from pyomo.environ import sqrt
 
@@ -1274,6 +1275,10 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         - Uses flexible filename matching via normalize_string() for CSV files
         - Logs detailed progress at debug level for troubleshooting data loading issues
     """
+    logging.info(
+        "[%s] Starting data load step.",
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    )
     logging.info("Loading SDOM input data...")
     
     logging.debug("- Trying to load formulations data...")

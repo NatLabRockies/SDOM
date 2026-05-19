@@ -1,5 +1,6 @@
 import logging
 import math
+from datetime import datetime
 #from pympler import muppy, summary
 #from pympler import muppy, summary
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, check_available_solvers
@@ -32,6 +33,11 @@ from .results import OptimizationResults, collect_results_from_model
 # ---------------------------------------------------------------------------------
 # Model initialization
 # Safe value function for uninitialized variables/parameters
+
+
+def _timestamp_now() -> str:
+    """Return wall-clock timestamp string for checkpoint logs."""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def initialize_model(data, n_hours=8760, with_resilience_constraints=False, model_name="SDOM_Model"):
     """Initialize a Pyomo SDOM optimization model (dispatcher).
@@ -78,6 +84,8 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
         ``Network = AreaTransportationModelNetwork``). This branch lands
         in commit #9b.
     """
+    logging.info("[%s] Starting Pyomo model instantiation step.", _timestamp_now())
+
     network = get_network_formulation(data)
     areas = data.get("areas", [{"area_id": DEFAULT_AREA_ID}])
     n_areas = len(areas)
@@ -1087,6 +1095,7 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     If the solver does not find an optimal solution, the returned
     OptimizationResults will have is_optimal=False and minimal data populated.
     """
+    logging.info("[%s] Starting solver step.", _timestamp_now())
     logging.info("Starting to solve SDOM model...")
     solver = configure_solver(solver_config_dict)
     solver_name = solver_config_dict.get("solver_name", "")
@@ -1140,5 +1149,18 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
                 "Number of objectives": get_value(problem.get("Number of objectives", 0)),
                 "Number of nonzeros": get_value(problem.get("Number of nonzeros", 0)),
             }
+
+    if results.is_optimal:
+        logging.info(
+            "[%s] Run finished successfully. Objective value = %.6f",
+            _timestamp_now(),
+            float(results.total_cost),
+        )
+    else:
+        logging.info(
+            "[%s] Run finished without optimal solution. Objective value = %.6f",
+            _timestamp_now(),
+            float(results.total_cost),
+        )
 
     return results
