@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from pyomo.opt import SolverStatus, TerminationCondition
 
+from sdom.optimization_main import get_default_solver_config_dict
 from sdom.optimization_main import run_solver
 from sdom.results import OptimizationResults
 
@@ -25,6 +26,19 @@ class _FakeSolver:
 
 class _FakeModel:
     GenMix_Target = SimpleNamespace(value=0.5)
+
+
+def test_solver_config_defaults_to_quiet_streaming():
+    cfg = get_default_solver_config_dict(solver_name="highs")
+    assert cfg["solve_keywords"]["tee"] is False
+
+
+def test_solver_config_allows_streaming_opt_in():
+    cfg = get_default_solver_config_dict(
+        solver_name="highs",
+        stream_solver_output=True,
+    )
+    assert cfg["solve_keywords"]["tee"] is True
 
 
 def test_run_solver_disables_tee_for_appsi_highs(monkeypatch):

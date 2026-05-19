@@ -924,6 +924,7 @@ def get_default_solver_config_dict(
     *,
     mip_gap=0.002,
     time_limit=None,
+    stream_solver_output=False,
 ):
     """Generate a default solver configuration dictionary with standard SDOM settings.
 
@@ -948,6 +949,9 @@ def get_default_solver_config_dict(
         MIP relative optimality gap tolerance. Default is 0.002 (0.2%).
     time_limit : float, optional
         Maximum solve time in seconds. Default is None (no limit).
+    stream_solver_output : bool, optional
+        Whether to stream solver native output live to stdout via ``tee``.
+        Default is False.
 
     Returns
     -------
@@ -983,7 +987,7 @@ def get_default_solver_config_dict(
     """
     # Base configuration for solve() call
     solve_keywords = {
-        "tee": True,
+        "tee": stream_solver_output,
         "load_solutions": True,
         "report_timing": True,
         "timelimit": time_limit,
@@ -1088,7 +1092,7 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     solver_name = solver_config_dict.get("solver_name", "")
 
     target_value = float(model.GenMix_Target.value)
-    solve_tee = solver_config_dict["solve_keywords"].get("tee", True)
+    solve_tee = solver_config_dict["solve_keywords"].get("tee", False)
     if solver_name == "appsi_highs" and solve_tee:
         # Appsi HiGHS always routes output to a logger and, with tee=True,
         # also mirrors it to stdout, which duplicates every solver line.
