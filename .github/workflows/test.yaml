@@ -2,9 +2,13 @@ name: Run Python Tests
 
 on:
   push:
-    branches: ['**']
+    branches:
+      - master
+      - main
   pull_request:
-    branches: ['**']
+    branches:
+      - master
+      - main
 
 jobs:
   test:
