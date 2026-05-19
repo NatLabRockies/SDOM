@@ -1085,13 +1085,19 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     """
     logging.info("Starting to solve SDOM model...")
     solver = configure_solver(solver_config_dict)
+    solver_name = solver_config_dict.get("solver_name", "")
 
     target_value = float(model.GenMix_Target.value)
+    solve_tee = solver_config_dict["solve_keywords"].get("tee", True)
+    if solver_name == "appsi_highs" and solve_tee:
+        # Appsi HiGHS always routes output to a logger and, with tee=True,
+        # also mirrors it to stdout, which duplicates every solver line.
+        solve_tee = False
 
     logging.info(f"Running optimization for GenMix_Target = {target_value:.2f}")
     solver_result = solver.solve(
         model,
-        tee=solver_config_dict["solve_keywords"].get("tee", True),
+        tee=solve_tee,
         load_solutions=solver_config_dict["solve_keywords"].get("load_solutions", True),
         timelimit=solver_config_dict["solve_keywords"].get("timelimit", None),
         report_timing=solver_config_dict["solve_keywords"].get("report_timing", True),

@@ -1,6 +1,18 @@
 import logging
 from .constants import LOG_COLORS
 
+
+def _normalize_third_party_loggers() -> None:
+    """Route third-party logs through SDOM root handlers only.
+
+    Pyomo installs a default ``pyomo`` logger ``StreamHandler`` that writes the
+    raw message (without level prefix). Because that logger also propagates to
+    root, messages can appear twice when SDOM configures root logging.
+    """
+    pyomo_logger = logging.getLogger("pyomo")
+    pyomo_logger.handlers.clear()
+    pyomo_logger.propagate = True
+
 class ColorFormatter(logging.Formatter):
     """Custom logging formatter that adds color codes to log level names.
     
@@ -59,7 +71,5 @@ def configure_logging(level=logging.INFO, log_file=None):
     for handler in handlers:
         handler.setFormatter(formatter)
 
-    logging.basicConfig(
-        level=level,
-        handlers=handlers
-    )
+    logging.basicConfig(level=level, handlers=handlers, force=True)
+    _normalize_third_party_loggers()
