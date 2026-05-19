@@ -53,43 +53,43 @@ def _add_thermal_parameters(block, df):
     block.trans_cap_cost = Param(block.plants_set, initialize=0.0)
 
 
-def add_thermal_parameters(model, data: dict):
+def add_thermal_parameters(host, data: dict):
     df = data["thermal_data"].set_index("Plant_id")
-    _add_thermal_parameters(model.thermal, df)
+    _add_thermal_parameters(host.thermal, df)
     
-    model.thermal.r = Param( initialize = float(data["scalars"].loc["r"].Value) )  # Interest rate
-    model.thermal.FCR = Param( model.thermal.plants_set, initialize = crf_rule ) #Capital Recovery Factor -THERMAL
+    host.thermal.r = Param( initialize = float(data["scalars"].loc["r"].Value) )  # Interest rate
+    host.thermal.FCR = Param( host.thermal.plants_set, initialize = crf_rule ) #Capital Recovery Factor -THERMAL
 
 ####################################################################################|
 # ------------------------------------ Variables -----------------------------------|
 ####################################################################################|
 
-def add_thermal_variables(model):
-    model.thermal.plant_installed_capacity = Var(model.thermal.plants_set, domain=NonNegativeReals, initialize=0)
-    add_generation_variables(model.thermal, model.h, model.thermal.plants_set, domain=NonNegativeReals,  initialize=0)
+def add_thermal_variables(host):
+    host.thermal.plant_installed_capacity = Var(host.thermal.plants_set, domain=NonNegativeReals, initialize=0)
+    add_generation_variables(host.thermal, host.h, host.thermal.plants_set, domain=NonNegativeReals,  initialize=0)
 
     # Compute and set the upper bound for CapCC
     CapCC_upper_bound_value = max(
-        value(model.demand.ts_parameter[h]) - value(model.nuclear.alpha) *
-        value(model.nuclear.ts_parameter[h])
-        - value(model.hydro.alpha) * value(model.hydro.ts_parameter[h])
-        - value(model.other_renewables.alpha) * value(model.other_renewables.ts_parameter[h])
-        for h in model.h
+        value(host.demand.ts_parameter[h]) - value(host.nuclear.alpha) *
+        value(host.nuclear.ts_parameter[h])
+        - value(host.hydro.alpha) * value(host.hydro.ts_parameter[h])
+        - value(host.other_renewables.alpha) * value(host.other_renewables.ts_parameter[h])
+        for h in host.h
     )
-    cap_thermal_units = sum(model.thermal.data["MaxCapacity", bu] for bu in model.thermal.plants_set)
-    if ( len( list(model.thermal.plants_set) ) <= 1 ):
-        model.thermal.plant_installed_capacity[model.thermal.plants_set[1]].setlb( model.thermal.data["MinCapacity", model.thermal.plants_set[1]] )
+    cap_thermal_units = sum(host.thermal.data["MaxCapacity", bu] for bu in host.thermal.plants_set)
+    if ( len( list(host.thermal.plants_set) ) <= 1 ):
+        host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setlb( host.thermal.data["MinCapacity", host.thermal.plants_set[1]] )
         if ( CapCC_upper_bound_value > cap_thermal_units ):
-            model.thermal.plant_installed_capacity[model.thermal.plants_set[1]].setub( CapCC_upper_bound_value )
+            host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setub( CapCC_upper_bound_value )
             logging.warning(f"There is only one thermal balancing unit. " \
             f"Upper bound for Capacity variable was set to {CapCC_upper_bound_value} instead of the input = {cap_thermal_units} to ensure feasibility.")
         else:
-            model.thermal.plant_installed_capacity[model.thermal.plants_set[1]].setub( model.thermal.data["MaxCapacity", model.thermal.plants_set[1]] )
+            host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setub( host.thermal.data["MaxCapacity", host.thermal.plants_set[1]] )
     else:
         
-        for bu in model.thermal.plants_set:
-            model.thermal.plant_installed_capacity[bu].setub( model.thermal.data["MaxCapacity", bu] )
-            model.thermal.plant_installed_capacity[bu].setlb( model.thermal.data["MinCapacity", bu] )
+        for bu in host.thermal.plants_set:
+            host.thermal.plant_installed_capacity[bu].setub( host.thermal.data["MaxCapacity", bu] )
+            host.thermal.plant_installed_capacity[bu].setlb( host.thermal.data["MinCapacity", bu] )
         if ( CapCC_upper_bound_value > cap_thermal_units ):
             logging.warning(f"Total allowed capacity for thermal units is {cap_thermal_units}MW. This value might be insufficient to achieve problem feasibility, consider increase it to at least {CapCC_upper_bound_value}MW.")
 
@@ -129,8 +129,8 @@ def _add_thermal_expressions(block, set_hours):
         rule = sum( block.VOM_M[bu] * block.total_plant_generation[bu] for bu in block.plants_set ) 
         )
 
-def add_thermal_expressions(model):
-    _add_thermal_expressions(model.thermal, model.h)
+def add_thermal_expressions(host):
+    _add_thermal_expressions(host.thermal, host.h)
     
 
 
@@ -138,16 +138,16 @@ def add_thermal_expressions(model):
 # ----------------------------------- Constraints ----------------------------------|
 ####################################################################################|
 
-def add_thermal_constraints( model ):
-    set_hours = model.h
+def add_thermal_constraints( host ):
+    set_hours = host.h
     # Capacity of the backup generation
-    model.thermal.capacity_generation_constraint = Constraint( set_hours, model.thermal.plants_set, rule = lambda m,h,bu: m.plant_installed_capacity[bu] >= m.generation[h,bu]  )
+    host.thermal.capacity_generation_constraint = Constraint( set_hours, host.thermal.plants_set, rule = lambda m,h,bu: m.plant_installed_capacity[bu] >= m.generation[h,bu]  )
 
 
 ####################################################################################|
 # -----------------------------------= Add_costs -----------------------------------|
 ####################################################################################|
-def add_thermal_fixed_costs(model):
+def add_thermal_fixed_costs(host):
     """
     Add cost-related variables for thermal units to the model.
 
@@ -158,10 +158,10 @@ def add_thermal_fixed_costs(model):
     Costs sum for each thermal unit, including capital and fixed O&M costs.
     """
     return (
-        add_generic_fixed_costs(model.thermal)
+        add_generic_fixed_costs(host.thermal)
     )
 
-def add_thermal_variable_costs(model):
+def add_thermal_variable_costs(host):
     """
     Add variable costs (Fuel cost + VOM cost) for thermal units to the model.
 
@@ -172,6 +172,6 @@ def add_thermal_variable_costs(model):
     Variable costs sum for thermal units, including fuel costs.
     """
     return (
-        model.thermal.total_fuel_cost_expr + model.thermal.total_vom_cost_expr
+        host.thermal.total_fuel_cost_expr + host.thermal.total_vom_cost_expr
     )
 

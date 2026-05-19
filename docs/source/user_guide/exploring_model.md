@@ -47,7 +47,7 @@ model.pv.pprint()          # Solar PV block
 model.wind.pprint()         # Wind block
 model.storage.pprint()      # Storage block
 model.thermal.pprint()      # Thermal block
-model.hydro..pprint()        # Hydropower block
+model.hydro.pprint()        # Hydropower block
 model.nuclear.pprint()      # Nuclear block (parameters only)
 model.demand.pprint()       # Demand block (parameters only)
 ```
@@ -76,6 +76,65 @@ You can obtain:
      83c :   1.0
      98c :   1.0
     ```
+
+## Zonal Model Structure (`AreaTransportationModelNetwork`)
+
+When `formulations.csv` includes:
+
+```csv
+Component,Formulation
+Network,AreaTransportationModelNetwork
+```
+
+`initialize_model(...)` builds a zonal model with top-level network objects and per-area blocks.
+
+Top-level zonal objects:
+
+- `model.A`: set of area IDs.
+- `model.area[a]`: area Block for each `a in model.A`.
+- `model.L`: set of interconnections (`line_id`).
+- `model.line_from[l]`, `model.line_to[l]`: line endpoints.
+- `model.LineCap_FT[l,h]`, `model.LineCap_TF[l,h]`: directional hourly capacities.
+- `model.f[l,h]`: signed interregional flow.
+- `model.f_upper[l,h]`, `model.f_lower[l,h]`: directional capacity constraints.
+- `model.L_in[a]`, `model.L_out[a]`: incoming and outgoing lines by area.
+
+Accessing per-area blocks:
+
+```python
+# Example: inspect all area blocks
+for a in model.A:
+    print(f"Area: {a}")
+    model.area[a].pprint()
+
+# Example: inspect area-specific demand and thermal generation
+a0 = list(model.A)[0]
+print(model.area[a0].demand.ts_parameter[1])
+print(model.area[a0].thermal.total_generation)
+```
+
+Accessing network objects:
+
+```python
+# Example: inspect one line and one hour
+l0 = list(model.L)[0]
+h0 = list(model.h)[0]
+
+print(model.line_from[l0], model.line_to[l0])
+print(model.LineCap_FT[l0, h0], model.LineCap_TF[l0, h0])
+print(model.f[l0, h0])
+print(model.f_upper[l0, h0].expr)
+print(model.f_lower[l0, h0].expr)
+```
+
+Zonal supply balance constraints live on each area block:
+
+- `model.area[a].SupplyBalance[h]`
+
+System-wide clean-generation share is top-level:
+
+- `model.GenMix_Share`
+
 ## Model Components
 
 ### Sets

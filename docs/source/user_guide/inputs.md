@@ -13,6 +13,15 @@ In the next sections each file will be listed and the data it is supossed to be 
 >  - Please keep the root names of each file. For instance, in the sample files you can change "2025" for whatever you prefer, but keeping the root name. For example, for "CapSolar_2025.csv" file you need to keep the root name as "CapSolar_".
 >  - Please do not change the column names of each csv files.
 
+## Zonal Mode Inputs
+
+SDOM supports two network formulations:
+
+- `CopperPlateNetwork`: legacy single-area system-wide balance.
+- `AreaTransportationModelNetwork`: multi-area zonal balance with inter-area transport limits.
+
+For full zonal CSV schema, validation rules, and examples, see [Zonal Inputs](zonal_inputs.md).
+
 
 ## Required Files
 
@@ -43,6 +52,8 @@ This file the user selects the modeling approach (formulation) for each major sy
 | Imports | CapacityPriceNetLoadFormulation | Price-based import optimization |
 | Exports | NotModel | No exports modeled |
 | Exports | CapacityPriceNetLoadFormulation | Price-based export optimization |
+| Network | CopperPlateNetwork | Single-area legacy network model |
+| Network | AreaTransportationModelNetwork | Multi-area transportation network |
 
 **Example**:
 ```csv
@@ -50,6 +61,7 @@ Component,Formulation
 hydro,MonthlyBudgetFormulation
 Imports,CapacityPriceNetLoadFormulation
 Exports,NotModel
+Network,CopperPlateNetwork
 ```
 
 ### 2. Load Data

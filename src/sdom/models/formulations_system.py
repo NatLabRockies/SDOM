@@ -58,8 +58,8 @@ def net_load_rule(model, h):
             - model.nuclear.alpha * model.nuclear.ts_parameter[h] - model.other_renewables.alpha * model.other_renewables.ts_parameter[h]
             - model.hydro.generation[h] )
 
-def add_system_expressions(model):
-    model.net_load = Expression(model.h, rule=net_load_rule)
+def add_system_expressions(host):
+    host.net_load = Expression(host.h, rule=net_load_rule)
     return
 
 
@@ -155,7 +155,7 @@ def genmix_share_rule(model):
         sum(model.storage.PD[h, j] for j in model.storage.j) for h in model.h
         )
 
-def add_system_constraints(model, data):
+def add_system_constraints(host, data):
     """
     Adds system constraints to the optimization model.
 
@@ -176,7 +176,7 @@ def add_system_constraints(model, data):
 
     # Create and add supply balance constraint with appropriate terms
     supply_balance_rule = create_supply_balance_rule(has_imports, has_exports)
-    model.SupplyBalance = Constraint(model.h, rule=supply_balance_rule)
+    host.SupplyBalance = Constraint(host.h, rule=supply_balance_rule)
 
     # Generation mix share constraint
-    model.GenMix_Share = Constraint(rule=genmix_share_rule)
+    host.GenMix_Share = Constraint(rule=genmix_share_rule)

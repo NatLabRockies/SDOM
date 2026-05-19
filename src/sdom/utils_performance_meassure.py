@@ -125,7 +125,12 @@ class ModelInitProfiler:
         else:
             return f"{bytes_val / (1024 * 1024):.2f} MB"
     
-    def print_summary_table(self, logger: Optional[logging.Logger] = None):
+    def print_summary_table(
+        self,
+        logger: Optional[logging.Logger] = None,
+        *,
+        title: str = "MODEL INITIALIZATION PROFILING SUMMARY",
+    ):
         """
         Print a formatted summary table of all profiled steps.
         
@@ -135,6 +140,8 @@ class ModelInitProfiler:
         Args:
             logger (logging.Logger, optional): Logger to use for output. 
                 If None, prints to stdout.
+            title (str, optional): Heading rendered between the top separators.
+                Defaults to ``"MODEL INITIALIZATION PROFILING SUMMARY"``.
         """
         if not self.enabled or not self.steps:
             return
@@ -156,7 +163,7 @@ class ModelInitProfiler:
         lines = [
             "",
             "=" * len(header),
-            "MODEL INITIALIZATION PROFILING SUMMARY",
+            title,
             "=" * len(header),
             header,
             separator

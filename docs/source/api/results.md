@@ -153,3 +153,25 @@ print(f"Binary Variables: {problem_info['Number of binary variables']}")
 | `storage_df` | pd.DataFrame | Hourly storage operation |
 | `thermal_generation_df` | pd.DataFrame | Disaggregated thermal generation |
 | `summary_df` | pd.DataFrame | Summary metrics |
+
+### Zonal Fields
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `is_zonal` | bool | True when collected from a zonal model (`model.A` and `model.area` present). |
+| `areas` | list | Area IDs in the solved zonal model. |
+| `lines` | list | Line metadata (`line_id`, `from_area`, `to_area`). |
+| `area_capacity` | dict | Per-area installed capacities. |
+| `area_storage_capacity` | dict | Per-area storage capacities (`charge`, `discharge`, `energy`). |
+| `area_generation_totals` | dict | Per-area generation totals. |
+| `area_cost_breakdown` | dict | Per-area cost breakdown. |
+| `area_generation_df` | dict[str, pd.DataFrame] | Hourly generation by area. |
+| `area_storage_df` | dict[str, pd.DataFrame] | Hourly storage operation by area. |
+| `area_thermal_generation_df` | dict[str, pd.DataFrame] | Thermal generation by area. |
+| `area_installed_plants_df` | dict[str, pd.DataFrame] | Installed plants by area. |
+| `area_summary_df` | dict[str, pd.DataFrame] | Per-area summary DataFrames. |
+| `interregional_exchanges_df` | pd.DataFrame | Per-line/per-hour flow, directional capacity, and utilization. |
+
+Collector dispatch behavior:
+
+- `collect_results_from_model(...)` uses the zonal collector when both `model.A` and `model.area` exist.
+- In zonal mode, `summary_df` is intentionally left empty and replaced by `area_summary_df`.
