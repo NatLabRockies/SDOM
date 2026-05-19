@@ -164,29 +164,31 @@ def test_evaluate_resiliency_passes_through_kwargs(tmp_path, monkeypatch):
 
     def fake_build(designed_system, *, n_hours=8760, min_soc_per_tech=None,
                     curtailment_penalty=0.0, formulation_overrides=None,
-                    model_name="SDOM_BaselineDispatch"):
+                    model_name="SDOM_BaselineDispatch", profile=False):
         captured["build"] = dict(
             n_hours=n_hours,
             min_soc_per_tech=min_soc_per_tech,
             curtailment_penalty=curtailment_penalty,
+            profile=profile,
         )
         return real_build(
             designed_system,
             n_hours=n_hours,
             min_soc_per_tech=min_soc_per_tech,
             curtailment_penalty=curtailment_penalty,
+            profile=profile,
         )
 
-    def fake_run_baseline(model, *, solver="highs", solver_options=None, tee=False):
+    def fake_run_baseline(model, *, solver="highs", solver_options=None, tee=False, profile=False):
         captured["run_baseline"] = dict(
-            solver=solver, solver_options=solver_options
+            solver=solver, solver_options=solver_options, profile=profile,
         )
-        return real_run_baseline(model, solver=solver, solver_options=solver_options, tee=tee)
+        return real_run_baseline(model, solver=solver, solver_options=solver_options, tee=tee, profile=profile)
 
     def fake_run_eval(baseline_results, *, outage_spec, designed_system=None,
                        hours=None, slack_penalty=10_000.0, curtailment_penalty=0.0,
                        min_soc_per_tech=None, n_hours=8760, n_workers=None,
-                       solver="highs", solver_options=None):
+                       solver="highs", solver_options=None, profile_outages=False):
         captured["run_eval"] = dict(
             slack_penalty=slack_penalty,
             curtailment_penalty=curtailment_penalty,
@@ -196,6 +198,7 @@ def test_evaluate_resiliency_passes_through_kwargs(tmp_path, monkeypatch):
             solver=solver,
             solver_options=solver_options,
             hours=None if hours is None else list(hours),
+            profile_outages=profile_outages,
         )
         return real_run_eval(
             baseline_results,
@@ -209,6 +212,7 @@ def test_evaluate_resiliency_passes_through_kwargs(tmp_path, monkeypatch):
             n_workers=n_workers,
             solver=solver,
             solver_options=solver_options,
+            profile_outages=profile_outages,
         )
 
     monkeypatch.setattr(evaluate_module, "load_designed_system", fake_loader)
