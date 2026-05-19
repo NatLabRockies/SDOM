@@ -1,0 +1,44 @@
+# Configuration for GitHub's auto-generated release notes.
+# Categorizes merged PRs by their labels and/or title prefix.
+# Docs: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - dependencies
+    authors:
+      - dependabot
+  categories:
+    - title: "Features"
+      labels:
+        - feat
+        - feature
+        - enhancement
+    - title: "Bug Fixes"
+      labels:
+        - fix
+        - bug
+    - title: "Performance"
+      labels:
+        - perf
+        - performance
+    - title: "Refactors"
+      labels:
+        - refactor
+    - title: "Documentation"
+      labels:
+        - docs
+        - documentation
+    - title: "Tests"
+      labels:
+        - test
+        - tests
+    - title: "Chores & CI"
+      labels:
+        - chore
+        - ci
+        - build
+    - title: "Other Changes"
+      labels:
+        - "*"
