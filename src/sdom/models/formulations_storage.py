@@ -1,7 +1,7 @@
 from pyomo.core import Var, Constraint, Expression
-from pyomo.environ import Set, Param, Binary, NonNegativeReals, sqrt
+from pyomo.environ import Set, Param, Binary, NonNegativeReals, sqrt, quicksum
 from ..constants import STORAGE_PROPERTIES_NAMES, MW_TO_KW
-from .models_utils import crf_rule
+from .models_utils import build_annualization_factor_map
 
 def initialize_storage_sets(block, data: dict):
     block.j = Set( initialize = data['STORAGE_SET_J_TECHS'] )
@@ -23,8 +23,14 @@ def add_storage_parameters(host, data: dict):
     storage_tuple_dict = {(prop, tech): storage_dict[(prop, tech)] for prop in STORAGE_PROPERTIES_NAMES for tech in host.storage.j}
     host.storage.data = Param( host.storage.properties_set, host.storage.j, initialize = storage_tuple_dict )
 
-    host.storage.r = Param( initialize = float(data["scalars"].loc["r"].Value) )  # Interest rate
-    host.storage.CRF = Param( host.storage.j, initialize = crf_rule ) #Capital Recovery Factor -STORAGE
+    r = float(data["scalars"].loc["r"].Value)
+    host.storage.r = Param(initialize=r)  # Interest rate
+    lifetimes_by_tech = {
+        tech: data["storage_data"].loc["Lifetime", tech]
+        for tech in host.storage.j
+    }
+    crf_values = build_annualization_factor_map(r, lifetimes_by_tech)
+    host.storage.CRF = Param(host.storage.j, initialize=crf_values)  # Capital Recovery Factor - STORAGE
 
 ####################################################################################|
 # ------------------------------------ Variables -----------------------------------|
@@ -72,8 +78,8 @@ def _add_storage_expressions(block):
 
     block.fixed_om_cost_expr = Expression(block.j,  rule = storage_fixed_om_cost_expr_rule )
 
-    block.total_capex_cost = Expression( rule = sum( block.capex_cost_expr[j] for j in block.j ) )
-    block.total_fixed_om_cost = Expression( rule = sum( block.fixed_om_cost_expr[j] for j in block.j ) )
+    block.total_capex_cost = Expression(rule=quicksum(block.capex_cost_expr[j] for j in block.j))
+    block.total_fixed_om_cost = Expression(rule=quicksum(block.fixed_om_cost_expr[j] for j in block.j))
 
 
 def add_storage_expressions(host):
@@ -108,9 +114,9 @@ def add_storage_variable_costs(host):
     Returns:
     Variable costs sum for storage technologies, including variable O&M costs.
     """
-    return (
-        sum( host.storage.data['VOM', j] * sum(host.storage.PD[h, j]
-                  for h in host.h) for j in host.storage.j )
+    return quicksum(
+        host.storage.data['VOM', j] * quicksum(host.storage.PD[h, j] for h in host.h)
+        for j in host.storage.j
     )
 
 ####################################################################################|

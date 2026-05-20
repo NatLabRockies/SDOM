@@ -485,6 +485,7 @@ def _augment_with_per_area_views(data, *, input_data_dir):
         ``@``, unknown area references, duplicate plant ids, …).
     """
     areas, areas_present = _load_areas(input_data_dir)
+    storage_df = data.get("storage_data")
 
     wide_specs = [
         ("load_data", "Load_hourly.csv"),
@@ -498,6 +499,98 @@ def _augment_with_per_area_views(data, *, input_data_dir):
         ("cap_exports", "Export_Cap.csv"),
         ("price_exports", "Export_Prices.csv"),
     ]
+
+    # Fast path for legacy single-area folders: no areas.csv and no area encoding
+    # in headers or row tables. This avoids expensive split/validation work while
+    # preserving the exact per_area_* key surface expected downstream.
+    has_tagged_wide_headers = any(
+        df is not None
+        and not df.empty
+        and any(
+            AREA_TAG_DELIMITER in str(col)
+            for col in df.columns[1:]
+        )
+        for key, _ in wide_specs
+        for df in [data.get(key)]
+    )
+    has_tagged_storage_headers = (
+        storage_df is not None
+        and not storage_df.empty
+        and any(AREA_TAG_DELIMITER in str(col) for col in storage_df.columns)
+    )
+    has_row_area_column = any(
+        df is not None and not df.empty and "area_id" in df.columns
+        for df in [
+            data.get("thermal_data"),
+            data.get("cap_solar"),
+            data.get("cap_wind"),
+        ]
+    )
+
+    if (
+        not areas_present
+        and not has_tagged_wide_headers
+        and not has_tagged_storage_headers
+        and not has_row_area_column
+    ):
+        default_area = DEFAULT_AREA_ID
+        if not areas:
+            areas = [
+                {
+                    "area_id": default_area,
+                    "description": f"Area {default_area}",
+                }
+            ]
+
+        def _single_area_view(df):
+            if df is None or df.empty:
+                return {}
+            return {default_area: df.copy()}
+
+        per_area_hydro = {}
+        for label, key in (
+            ("LargeHydro", "large_hydro_data"),
+            ("LargeHydro_Max", "large_hydro_max"),
+            ("LargeHydro_Min", "large_hydro_min"),
+        ):
+            sub = data.get(key)
+            if sub is None or sub.empty:
+                continue
+            key_col = sub.columns[0]
+            value_cols = [c for c in sub.columns if c != key_col]
+            renamed = sub.rename(
+                columns={
+                    c: (label if len(value_cols) == 1 else f"{label}__{c}")
+                    for c in value_cols
+                }
+            )
+            if default_area not in per_area_hydro:
+                per_area_hydro[default_area] = renamed
+            else:
+                per_area_hydro[default_area] = per_area_hydro[default_area].merge(
+                    renamed, on=key_col, how="outer"
+                )
+
+        data["areas"] = areas
+        data["per_area_demand"] = _single_area_view(data.get("load_data"))
+        data["per_area_pv_plants"] = _single_area_view(data.get("cap_solar"))
+        data["per_area_wind_plants"] = _single_area_view(data.get("cap_wind"))
+        data["per_area_balancing_units"] = _single_area_view(data.get("thermal_data"))
+        data["per_area_storage"] = _single_area_view(storage_df)
+        data["per_area_hydro"] = per_area_hydro
+        data["per_area_nuclear"] = _single_area_view(data.get("nuclear_data"))
+        data["per_area_other_renewables"] = _single_area_view(data.get("other_renewables_data"))
+        data["per_area_imports"] = _combine_per_area_imp_exp(
+            _single_area_view(data.get("cap_imports")),
+            _single_area_view(data.get("price_imports")),
+        )
+        data["per_area_exports"] = _combine_per_area_imp_exp(
+            _single_area_view(data.get("cap_exports")),
+            _single_area_view(data.get("price_exports")),
+        )
+        data["per_area_capacity_factors_pv"] = _single_area_view(data.get("cf_solar"))
+        data["per_area_capacity_factors_wind"] = _single_area_view(data.get("cf_wind"))
+        return data
     splits: dict[str, dict[str, pd.DataFrame]] = {}
     observed_total: set[str] = set()
     for key, label in wide_specs:
@@ -512,7 +605,6 @@ def _augment_with_per_area_views(data, *, input_data_dir):
         observed_total |= observed
 
     # StorageData.csv is read with index_col=0; rebuild the wide form for parsing.
-    storage_df = data.get("storage_data")
     if storage_df is not None and not storage_df.empty:
         index_label = storage_df.index.name or "Property"
         storage_wide = storage_df.reset_index().rename(
@@ -1299,28 +1391,28 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
 
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cf_solar"], "Capacity factors for pv solar")
     if input_file_path != "":
-        cf_solar = pd.read_csv( input_file_path ).round(5)
+        cf_solar = pd.read_csv(input_file_path).round(5)
         cf_solar.columns = cf_solar.columns.astype(str)
         solar_plants = cf_solar.columns[1:].tolist()
         logging.debug( f"-- It were loaded a total of {len( solar_plants )} solar plants profiles." )
     
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cf_wind"], "Capacity factors for wind")
     if input_file_path != "":
-        cf_wind = pd.read_csv( input_file_path ).round(5)
+        cf_wind = pd.read_csv(input_file_path).round(5)
         cf_wind.columns = cf_wind.columns.astype(str)
         wind_plants = cf_wind.columns[1:].tolist()
         logging.debug( f"-- It were loaded a total of {len( wind_plants )} wind plants profiles." )
 
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cap_solar"], "Capex information for solar")
     if input_file_path != "":
-        cap_solar = pd.read_csv( input_file_path ).round(5)
+        cap_solar = pd.read_csv(input_file_path).round(5)
         cap_solar['sc_gid'] = cap_solar['sc_gid'].astype(str)
         solar_plants_capex = cap_solar['sc_gid'].tolist()
         compare_lists(solar_plants, solar_plants_capex, text_comp="solar plants", list_names=["CF", "Capex"])
 
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cap_wind"], "Capex information for wind")
     if input_file_path != "":
-        cap_wind = pd.read_csv( input_file_path ).round(5)
+        cap_wind = pd.read_csv(input_file_path).round(5)
         cap_wind['sc_gid'] = cap_wind['sc_gid'].astype(str)
         wind_plants_capex = cap_wind['sc_gid'].tolist()
         compare_lists(wind_plants, wind_plants_capex, text_comp="wind plants", list_names=["CF", "Capex"])
@@ -1328,34 +1420,34 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
     logging.debug("- Trying to load demand data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["load_data"], "load data")
     if input_file_path != "":
-        load_data = pd.read_csv( input_file_path ).round(5)
+        load_data = pd.read_csv(input_file_path).round(5)
 
     logging.debug("- Trying to load nuclear data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["nuclear_data"], "nuclear data")
     if input_file_path != "":
-        nuclear_data = pd.read_csv( input_file_path ).round(5)
+        nuclear_data = pd.read_csv(input_file_path).round(5)
 
     logging.debug("- Trying to load large hydro data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["large_hydro_data"], "large hydro data")
     if input_file_path != "":
-        large_hydro_data = pd.read_csv( input_file_path ).round(5)
+        large_hydro_data = pd.read_csv(input_file_path).round(5)
 
     logging.debug("- Trying to load other renewables data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["other_renewables_data"], "other renewables data")
     if input_file_path != "":
-        other_renewables_data = pd.read_csv( input_file_path ).round(5)
+        other_renewables_data = pd.read_csv(input_file_path).round(5)
 
     logging.debug("- Trying to load storage data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["storage_data"], "Storage data")
     if input_file_path != "":
-        storage_data = pd.read_csv( input_file_path, index_col=0 ).round(5)
+        storage_data = pd.read_csv(input_file_path, index_col=0).round(5)
         storage_set_j_techs = storage_data.columns[0:].astype(str).tolist()
         storage_set_b_techs = storage_data.columns[ storage_data.loc["Coupled"] == 1 ].astype( str ).tolist()
 
     logging.debug("- Trying to load thermal generation data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["thermal_data"], "thermal data")
     if input_file_path != "":
-        thermal_data = pd.read_csv( input_file_path ).round(5)
+        thermal_data = pd.read_csv(input_file_path).round(5)
 
     logging.debug("- Trying to load scalars data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["scalars"], "scalars")
@@ -1394,11 +1486,11 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["large_hydro_max"], "large hydro Maximum  capacity data")
         if input_file_path != "":
-            large_hydro_max = pd.read_csv( input_file_path ).round(5)
+            large_hydro_max = pd.read_csv(input_file_path).round(5)
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["large_hydro_min"], "large hydro Minimum capacity data")
         if input_file_path != "":
-            large_hydro_min = pd.read_csv( input_file_path ).round(5)
+            large_hydro_min = pd.read_csv(input_file_path).round(5)
         data_dict["large_hydro_max"] = large_hydro_max
         data_dict["large_hydro_min"] = large_hydro_min
     
@@ -1411,11 +1503,11 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cap_imports"], "Imports hourly upper bound capacity data")
         if input_file_path != "":
-            cap_imports = pd.read_csv( input_file_path ).round(5)
+            cap_imports = pd.read_csv(input_file_path).round(5)
 
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["price_imports"], "Imports hourly price data")
         if input_file_path != "":
-            price_imports = pd.read_csv( input_file_path ).round(5)
+            price_imports = pd.read_csv(input_file_path).round(5)
         data_dict["cap_imports"] = cap_imports
         data_dict["price_imports"] = price_imports
 
@@ -1428,11 +1520,11 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
         
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["cap_exports"], "Exports hourly upper bound capacity data")
         if input_file_path != "":
-            cap_exports = pd.read_csv( input_file_path ).round(5)
+            cap_exports = pd.read_csv(input_file_path).round(5)
 
         input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["price_exports"], "Exports hourly price data")
         if input_file_path != "":
-            price_exports = pd.read_csv( input_file_path ).round(5)
+            price_exports = pd.read_csv(input_file_path).round(5)
         data_dict["cap_exports"] = cap_exports
         data_dict["price_exports"] = price_exports
     

@@ -72,6 +72,24 @@ def test_dispatcher_classification_helpers_are_consistent(zonal_data):
     assert len(zonal_data["areas"]) >= 2
 
 
+def test_zonal_profiler_memory_tracking_is_disabled_by_default(zonal_data, monkeypatch):
+    """Zonal initialization should not start tracemalloc unless explicitly enabled."""
+    monkeypatch.delenv("SDOM_PROFILE_MEMORY", raising=False)
+    model = initialize_model(
+        zonal_data, n_hours=24, with_resilience_constraints=False
+    )
+    assert model.profiler.track_memory is False
+
+
+def test_zonal_profiler_memory_tracking_is_opt_in(zonal_data, monkeypatch):
+    """Zonal initialization should honor SDOM_PROFILE_MEMORY opt-in values."""
+    monkeypatch.setenv("SDOM_PROFILE_MEMORY", "1")
+    model = initialize_model(
+        zonal_data, n_hours=24, with_resilience_constraints=False
+    )
+    assert model.profiler.track_memory is True
+
+
 # ---------------------------------------------------------------------------
 # Topology + per-area sub-blocks
 # ---------------------------------------------------------------------------

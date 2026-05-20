@@ -1,4 +1,5 @@
 from pyomo.core import Expression, Constraint
+from pyomo.environ import quicksum
 
 
 from .formulations_vre import add_vre_fixed_costs
@@ -89,14 +90,14 @@ def create_supply_balance_rule(has_imports, has_exports):
         # Base supply balance expression
         balance = (
             model.demand.ts_parameter[h]
-            + sum(model.storage.PC[h, j] for j in model.storage.j)
-            - sum(model.storage.PD[h, j] for j in model.storage.j)
+            + quicksum(model.storage.PC[h, j] for j in model.storage.j)
+            - quicksum(model.storage.PD[h, j] for j in model.storage.j)
             - model.nuclear.alpha * model.nuclear.ts_parameter[h]
             - model.hydro.generation[h]
             - model.other_renewables.alpha * model.other_renewables.ts_parameter[h]
             - model.pv.generation[h]
             - model.wind.generation[h]
-            - sum(model.thermal.generation[h, bu] for bu in model.thermal.plants_set)
+            - quicksum(model.thermal.generation[h, bu] for bu in model.thermal.plants_set)
         )
 
         # Conditionally add imports (imports reduce the need for other generation)
@@ -145,15 +146,20 @@ def genmix_share_rule(model):
     - The constraint uses hasattr() to check if imports are available,
       making it robust to different model configurations.
     """
-    return ( model.thermal.total_generation + 
-        sum(
-        model.imports.variable[h] if hasattr(model.imports, 'variable') else 0 for h in model.h
-        ) 
-        ) <= (1 - model.GenMix_Target) * sum(
-        model.demand.ts_parameter[h] + 
-        sum(model.storage.PC[h, j] for j in model.storage.j)- 
-        sum(model.storage.PD[h, j] for j in model.storage.j) for h in model.h
-        )
+    imports_total = (
+        quicksum(model.imports.variable[h] for h in model.h)
+        if hasattr(model.imports, "variable")
+        else 0
+    )
+    adjusted_demand = quicksum(
+        model.demand.ts_parameter[h]
+        + quicksum(model.storage.PC[h, j] for j in model.storage.j)
+        - quicksum(model.storage.PD[h, j] for j in model.storage.j)
+        for h in model.h
+    )
+    return (model.thermal.total_generation + imports_total) <= (
+        (1 - model.GenMix_Target) * adjusted_demand
+    )
 
 def add_system_constraints(host, data):
     """

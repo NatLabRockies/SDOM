@@ -32,6 +32,19 @@ This agent file contains SDOM-specific constraints and repository context.
 - **ALWAYS** after completing your task, update your memory file with most important learnings and decisions in ".github\agents\agent-memory\code-implementer-memory.md"
 - **MAXIMUM 2** mandatory positional arguments per function
 
+### Performance Preference (Vectorization-First)
+
+For performance-sensitive data-processing and result-collection code, prefer the following patterns by default:
+
+- **Prefer NumPy/pandas vectorization over Python row-by-row loops** when behavior can be preserved.
+- **Prefer one-pass extraction** of values into NumPy arrays (for example with `np.fromiter`) and reuse those arrays for totals, filtering, and exports.
+- **Prefer building DataFrames once from column arrays** rather than repeated list appends inside loops.
+- **Prefer flatten/repeat/tile patterns** (`reshape`, `repeat`, `tile`) for cartesian-index tables (e.g., `(hour, tech)` and `(line, hour)`).
+- **Preserve exact output schema and column ordering** when refactoring to vectorized code.
+- **Use Python loops only** when vectorization would reduce clarity significantly or alter semantics.
+
+When touching code like `src/sdom/results.py`, use these vectorization patterns unless there is a clear, documented reason not to.
+
 
 ## 🎯 Your Responsibilities
 

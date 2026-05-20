@@ -27,6 +27,17 @@ Reusable workflow for implementing Python code with predictable quality and test
 - Make all remaining parameters keyword-only.
 - Preserve backward compatibility for public APIs unless explicitly approved.
 
+## Performance Defaults (Vectorization-First)
+
+For performance-sensitive data-processing and result-collection code:
+
+- Prefer NumPy/pandas vectorization over Python row-by-row loops when behavior can be preserved.
+- Prefer one-pass extraction into arrays (for example with `np.fromiter`) and reuse arrays for totals, filtering, and exports.
+- Prefer constructing DataFrames once from column arrays instead of repeated list appends in loops.
+- Prefer `reshape`/`repeat`/`tile` patterns for cartesian-index outputs (for example `(hour, tech)` and `(line, hour)`).
+- Preserve exact output schema and column ordering when refactoring to vectorized paths.
+- Use Python loops only when vectorization would materially reduce clarity or change semantics.
+
 ## Procedure
 
 ### 1. Define Behavior First
@@ -122,6 +133,19 @@ def process_data(data, scale=1.0, save_path=None):
         with open(save_path, "w", encoding="utf-8") as file_obj:
             file_obj.write(str(transformed))
     return transformed
+```
+
+### Vectorization Patterns
+```python
+# GOOD: one-pass extraction + vectorized DataFrame build
+values = np.fromiter((get_value(i) for i in idx), dtype=float, count=len(idx))
+df = pd.DataFrame({"idx": np.asarray(idx), "value": values})
+
+# BAD: row-by-row append in hot paths
+rows = []
+for i in idx:
+    rows.append({"idx": i, "value": get_value(i)})
+df = pd.DataFrame(rows)
 ```
 
 ### TDD Patterns

@@ -1,7 +1,8 @@
 from pyomo.core import Var, Constraint, Expression
-from pyomo.environ import Set, Param, value, NonNegativeReals
+from pyomo.environ import Set, Param, value, NonNegativeReals, quicksum
+import numpy as np
 import logging
-from .models_utils import crf_rule, generic_fixed_om_cost_expr_rule, different_fcr_capex_cost_expr_rule, sum_installed_capacity_by_plants_set_expr_rule, add_generic_fixed_costs, add_generation_variables
+from .models_utils import build_annualization_factor_map, generic_fixed_om_cost_expr_rule, different_fcr_capex_cost_expr_rule, sum_installed_capacity_by_plants_set_expr_rule, add_generic_fixed_costs, add_generation_variables
 from ..constants import MW_TO_KW, THERMAL_PROPERTIES_NAMES
 
 def initialize_thermal_sets(block, data):
@@ -57,8 +58,11 @@ def add_thermal_parameters(host, data: dict):
     df = data["thermal_data"].set_index("Plant_id")
     _add_thermal_parameters(host.thermal, df)
     
-    host.thermal.r = Param( initialize = float(data["scalars"].loc["r"].Value) )  # Interest rate
-    host.thermal.FCR = Param( host.thermal.plants_set, initialize = crf_rule ) #Capital Recovery Factor -THERMAL
+    r = float(data["scalars"].loc["r"].Value)
+    host.thermal.r = Param(initialize=r)  # Interest rate
+    lifetimes_by_unit = {bu: df.loc[bu, "Lifetime"] for bu in host.thermal.plants_set}
+    fcr_values = build_annualization_factor_map(r, lifetimes_by_unit)
+    host.thermal.FCR = Param(host.thermal.plants_set, initialize=fcr_values)  # Capital Recovery Factor - THERMAL
 
 ####################################################################################|
 # ------------------------------------ Variables -----------------------------------|
@@ -69,13 +73,18 @@ def add_thermal_variables(host):
     add_generation_variables(host.thermal, host.h, host.thermal.plants_set, domain=NonNegativeReals,  initialize=0)
 
     # Compute and set the upper bound for CapCC
-    CapCC_upper_bound_value = max(
-        value(host.demand.ts_parameter[h]) - value(host.nuclear.alpha) *
-        value(host.nuclear.ts_parameter[h])
-        - value(host.hydro.alpha) * value(host.hydro.ts_parameter[h])
-        - value(host.other_renewables.alpha) * value(host.other_renewables.ts_parameter[h])
-        for h in host.h
-    )
+    hours = list(host.h)
+    demand_vals = np.fromiter((value(host.demand.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
+    nuclear_vals = np.fromiter((value(host.nuclear.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
+    hydro_vals = np.fromiter((value(host.hydro.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
+    other_vals = np.fromiter((value(host.other_renewables.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
+
+    CapCC_upper_bound_value = float(np.max(
+        demand_vals
+        - value(host.nuclear.alpha) * nuclear_vals
+        - value(host.hydro.alpha) * hydro_vals
+        - value(host.other_renewables.alpha) * other_vals
+    ))
     cap_thermal_units = sum(host.thermal.data["MaxCapacity", bu] for bu in host.thermal.plants_set)
     if ( len( list(host.thermal.plants_set) ) <= 1 ):
         host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setlb( host.thermal.data["MinCapacity", host.thermal.plants_set[1]] )
@@ -112,21 +121,21 @@ def total_thermal_expr_rule(m):
     return sum(m.GenCC[h, bu] for h in m.h for bu in m.thermal.plants_set)
 
 def _add_thermal_expressions(block, set_hours):
-    block.total_plant_generation = Expression( block.plants_set, rule = lambda m, bu:sum(m.generation[h, bu] for h in set_hours ) )
-    block.total_generation = Expression( rule = sum(block.total_plant_generation[bu] for bu in block.plants_set) )
+    block.total_plant_generation = Expression(block.plants_set, rule=lambda m, bu: quicksum(m.generation[h, bu] for h in set_hours))
+    block.total_generation = Expression(rule=quicksum(block.total_plant_generation[bu] for bu in block.plants_set))
     block.total_installed_capacity = Expression( rule = sum_installed_capacity_by_plants_set_expr_rule )
 
     block.fixed_om_cost_expr = Expression( rule = generic_fixed_om_cost_expr_rule )
     block.capex_cost_expr = Expression( rule = different_fcr_capex_cost_expr_rule )
 
-    block.total_fuel_cost_expr = Expression( 
-        rule = sum(
+    block.total_fuel_cost_expr = Expression(
+        rule = quicksum(
             ( block.fuel_price[bu] * block.heat_rate[bu] ) * ( block.total_plant_generation[bu] )
-            for bu in block.plants_set ) 
+            for bu in block.plants_set )
             )
     
-    block.total_vom_cost_expr = Expression( 
-        rule = sum( block.VOM_M[bu] * block.total_plant_generation[bu] for bu in block.plants_set ) 
+    block.total_vom_cost_expr = Expression(
+        rule = quicksum(block.VOM_M[bu] * block.total_plant_generation[bu] for bu in block.plants_set)
         )
 
 def add_thermal_expressions(host):

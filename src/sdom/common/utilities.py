@@ -3,6 +3,9 @@ import pandas as pd
 import os
 import logging
 
+_NO_VALUE = object()
+
+
 def safe_pyomo_value(var):
     """Safely extract the value from a Pyomo variable or expression.
     
@@ -21,10 +24,20 @@ def safe_pyomo_value(var):
         This function is essential when collecting results from solved models, as it
         prevents ValueErrors when accessing uninitialized or optional model components.
     """
-    try:
-        return value(var) if var is not None else None
-    except ValueError:
+    if var is None:
         return None
+
+    # Fast path for VarData / ParamData where .value is already materialized.
+    direct_value = getattr(var, "value", _NO_VALUE)
+    if direct_value is not _NO_VALUE and not callable(direct_value):
+        return direct_value
+
+    try:
+        return value(var)
+    except (ValueError, TypeError):
+        return None
+    
+    
 def normalize_string(name:str) -> str:
     """Normalize a string for case-insensitive filename comparison.
     

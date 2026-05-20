@@ -1,8 +1,7 @@
 from pyomo.core import Var, Constraint, Expression
-from pyomo.core import Var, Constraint, Expression
-from pyomo.environ import Param, NonNegativeReals
+from pyomo.environ import Param, NonNegativeReals, quicksum
 from ..constants import VRE_PROPERTIES_NAMES, MW_TO_KW
-from .models_utils import fcr_rule, generic_fixed_om_cost_expr_rule, generic_capex_cost_expr_rule, sum_installed_capacity_by_plants_set_expr_rule, add_generic_fixed_costs, add_generation_variables
+from .models_utils import compute_annualization_factor, generic_fixed_om_cost_expr_rule, generic_capex_cost_expr_rule, sum_installed_capacity_by_plants_set_expr_rule, add_generic_fixed_costs, add_generation_variables
 import pandas as pd
 
 ####################################################################################|
@@ -27,10 +26,18 @@ def _add_vre_parameters(block,
     block.max_capacity = Param( block.plants_set, initialize = filtered_cap_solar_dict )
 
 
-    # Solar capacity factor initialization
-    cf_vre_melted = data[key_cf_data].melt(id_vars='Hour', var_name='plant', value_name='CF')
-    cf_vre_filtered = cf_vre_melted[(cf_vre_melted['plant'].isin(block.plants_set)) & (cf_vre_melted['Hour'].isin(set_hours))]
-    cf_vre_dict = cf_vre_filtered.set_index(['Hour', 'plant'])['CF'].to_dict()
+    # Capacity-factor initialization in one pass (no melt).
+    cf_df = data[key_cf_data]
+    hour_col = cf_df.columns[0]
+    set_hours_list = list(set_hours)
+    plants_set_list = [str(p) for p in block.plants_set]
+    cf_indexed = cf_df.set_index(hour_col)
+    present_cols = [c for c in plants_set_list if c in cf_indexed.columns]
+    cf_filtered = cf_indexed.loc[cf_indexed.index.isin(set_hours_list), present_cols]
+    cf_vre_dict = {
+        (h, plant): value
+        for (h, plant), value in cf_filtered.stack().items()
+    }
     block.capacity_factor = Param( set_hours, block.plants_set, initialize = cf_vre_dict )
 
 
@@ -50,7 +57,10 @@ def add_vre_parameters(host, data: dict):
                       key_comp_data = "complete_wind_data",
                       key_cf_data = "cf_wind")
     
-    host.FCR_VRE = Param( initialize = fcr_rule( host, float(data["scalars"].loc["LifeTimeVRE"].Value) ) )
+    r = float(data["scalars"].loc["r"].Value)
+    lifetime = float(data["scalars"].loc["LifeTimeVRE"].Value)
+    fcr_vre = compute_annualization_factor(r, lifetime)
+    host.FCR_VRE = Param(initialize=fcr_vre)
 
 
 ####################################################################################|
@@ -89,10 +99,9 @@ def _add_vre_expresions ( block, fcr_vre, set_hours ):
     block.capex_cost_expr = Expression (rule = lambda model: fcr_vre * generic_capex_cost_expr_rule(model) )
 
     block.total_hourly_availability = Expression(set_hours, rule=lambda block, h: block.generation[h] + block.curtailment[h])
-    block.total_hourly_plant_availability = Expression(set_hours, block.plants_set, rule=lambda block, h, k: block.capacity_factor[h, k] * block.max_capacity[k] * block.capacity_fraction[k])
 
-    block.total_generation = Expression( rule = sum(block.generation[h] for h in set_hours) )
-    block.total_curtailment = Expression( rule = sum(block.curtailment[h] for h in set_hours) )
+    block.total_generation = Expression(rule=quicksum(block.generation[h] for h in set_hours))
+    block.total_curtailment = Expression(rule=quicksum(block.curtailment[h] for h in set_hours))
 
 
 def add_vre_expressions(host):
@@ -125,7 +134,10 @@ def add_vre_fixed_costs(host):
 ####################################################################################|
 # - Solar balance : generation + curtailed generation = capacity factor * capacity
 def vre_balance_rule(block, h):
-    return block.total_hourly_availability[h] == sum(block.total_hourly_plant_availability[h, k] for k in block.plants_set)
+    return block.total_hourly_availability[h] == quicksum(
+        block.capacity_factor[h, k] * block.max_capacity[k] * block.capacity_fraction[k]
+        for k in block.plants_set
+    )
 
 
 def add_vre_balance_constraints(host):

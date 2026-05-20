@@ -123,3 +123,21 @@ def test_dispatcher_delegates_to_legacy_helper(monkeypatch):
     model = initialize_model(data, n_hours=24)
     assert model is not None
     assert calls["n"] == 1
+
+
+def test_legacy_profiler_memory_tracking_is_disabled_by_default(monkeypatch):
+    """Legacy initialization should not start tracemalloc unless explicitly enabled."""
+    monkeypatch.delenv("SDOM_PROFILE_MEMORY", raising=False)
+    data = load_data(_abs_data_path(REL_PATH_DATA_RUN_OF_RIVER_TEST))
+
+    model = initialize_model(data, n_hours=24)
+    assert model.profiler.track_memory is False
+
+
+def test_legacy_profiler_memory_tracking_is_opt_in(monkeypatch):
+    """Legacy initialization should honor SDOM_PROFILE_MEMORY opt-in values."""
+    monkeypatch.setenv("SDOM_PROFILE_MEMORY", "1")
+    data = load_data(_abs_data_path(REL_PATH_DATA_RUN_OF_RIVER_TEST))
+
+    model = initialize_model(data, n_hours=24)
+    assert model.profiler.track_memory is True

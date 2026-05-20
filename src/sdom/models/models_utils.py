@@ -2,48 +2,44 @@ from pyomo.environ import Param, NonNegativeReals
 from pyomo.core import Var
 from ..constants import MW_TO_KW
 
-def fcr_rule( model, lifetime = 30 ):
-    """Calculate the Fixed Charge Rate (FCR) for capital cost annualization.
-    
-    Computes the fixed charge rate used to annualize capital expenditures for
-    VRE technologies (solar PV, wind) and thermal generators. The FCR converts
-    upfront capital costs into equivalent annual payments.
-    
-    Args:
-        model: The Pyomo model instance containing the discount rate parameter (model.r).
-        lifetime (int, optional): Expected lifetime of the technology in years.
-            Defaults to 30.
-    
-    Returns:
-        float: The calculated fixed charge rate as a fraction.
-    
-    Notes:
-        Formula: FCR = [r * (1+r)^lifetime] / [(1+r)^lifetime - 1]
-        where r is the discount rate from model.r.
+
+def compute_annualization_factor(rate: float, lifetime: float) -> float:
+    """Compute the fixed-charge/capital-recovery factor as a float.
+
+    Parameters
+    ----------
+    rate : float
+        Discount/interest rate.
+    lifetime : float
+        Asset lifetime in years.
+
+    Returns
+    -------
+    float
+        Annualization factor ``r(1+r)^n / ((1+r)^n - 1)``.
     """
-    return ( model.r * (1 + model.r) ** lifetime ) / ( (1 + model.r) ** lifetime - 1 )
+    return (rate * (1 + rate) ** lifetime) / ((1 + rate) ** lifetime - 1)
 
 
-def crf_rule( model, j ):
-    """Calculate the Capital Recovery Factor (CRF) for storage technologies.
-    
-    Computes the capital recovery factor used to annualize capital expenditures
-    for storage technologies. The CRF is technology-specific based on each
-    storage type's expected lifetime.
-    
-    Args:
-        model: The Pyomo model instance containing discount rate and storage data.
-        j (str): Storage technology identifier (e.g., 'Li-Ion', 'CAES', 'PHS', 'H2').
-    
-    Returns:
-        float: The calculated capital recovery factor for the specified storage technology.
-    
-    Notes:
-        Formula: CRF = [r * (1+r)^lifetime] / [(1+r)^lifetime - 1]
-        Lifetime is retrieved from model.data['Lifetime', j] for technology j.
+def build_annualization_factor_map(rate: float, lifetimes_by_key: dict) -> dict:
+    """Build annualization factors for a keyed lifetime mapping.
+
+    Parameters
+    ----------
+    rate : float
+        Discount/interest rate.
+    lifetimes_by_key : dict
+        Mapping from item key to lifetime value.
+
+    Returns
+    -------
+    dict
+        Mapping from the same keys to annualization factors.
     """
-    lifetime = model.data['Lifetime', j]
-    return ( model.r * (1 + model.r) ** lifetime ) / ( (1 + model.r) ** lifetime - 1 )
+    return {
+        key: compute_annualization_factor(rate, float(lifetime))
+        for key, lifetime in lifetimes_by_key.items()
+    }
 
 
 ####################################################################################|
