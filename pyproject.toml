@@ -1,6 +1,6 @@
 [project]
 name = "sdom"
-version = "0.2.0"
+version = "0.2.1"
 readme = "README.md"
 authors = [
     { name = "Omar Jose Guerra Fernandez", email = "OmarJose.GuerraFernandez@nlr.gov" },
