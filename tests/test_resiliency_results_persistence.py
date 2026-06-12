@@ -99,3 +99,40 @@ def test_summary_json_contents(tmp_path):
 def test_load_missing_files_raises(tmp_path):
     with pytest.raises(FileNotFoundError, match="per_hour.parquet"):
         ResiliencyResults.load(tmp_path / "nonexistent")
+
+
+def test_summary_contains_expected_metric_keys(tmp_path):
+    """summary.json includes the probability-weighted expected metrics (#69)."""
+    results = _make_results()
+    results.save(tmp_path)
+
+    payload = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+    agg = payload["aggregate_metrics"]
+
+    assert "EUE_expected" in agg
+    assert "USE_hours_expected" in agg
+    assert isinstance(agg["EUE_expected"], float)
+    assert isinstance(agg["USE_hours_expected"], float)
+
+
+def test_load_summary_missing_expected_keys_is_backward_compatible(tmp_path):
+    """An older ``summary.json`` without expected keys still loads cleanly."""
+    original = _make_results()
+    original.save(tmp_path)
+
+    # Rewrite summary.json with the legacy aggregate_metrics shape (no
+    # ``EUE_expected`` / ``USE_hours_expected``), mimicking a pre-#69 file.
+    summary_path = tmp_path / "summary.json"
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    payload["aggregate_metrics"] = {
+        k: v
+        for k, v in payload["aggregate_metrics"].items()
+        if k not in {"EUE_expected", "USE_hours_expected"}
+    }
+    summary_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = ResiliencyResults.load(tmp_path)
+    # Loader must not raise; recomputed metrics expose the new keys.
+    m = loaded.metrics(level="aggregate")
+    assert "EUE_expected" in m
+    assert "USE_hours_expected" in m

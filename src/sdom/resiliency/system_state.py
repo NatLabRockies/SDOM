@@ -50,16 +50,29 @@ class DesignedSystem:
     ----------
     storage_caps : dict
         Mapping ``{tech: {"Cap_Pch", "Cap_Pdis", "Cap_E", "eta_ch",
-        "eta_dis", "soc_min_frac", "vom"}}`` for each storage technology with
-        non-zero capacity. Capacities are in MW / MWh.
+        "eta_dis", "soc_min_frac", "vom", "fom", "cost_ratio"}}`` for each
+        storage technology with non-zero capacity. Capacities are in MW / MWh.
+        ``fom`` is the fixed-O&M rate (USD/kW-yr) and ``cost_ratio`` is the
+        share of that rate billed against the charge-side power capacity
+        (the remainder is billed against the discharge-side power capacity),
+        matching the CEM accounting in
+        :func:`sdom.models.formulations_storage.storage_fixed_om_cost_expr_rule`.
     thermal_caps : dict
         Mapping ``{tech: {"capacity_MW", "heat_rate", "fuel_cost",
-        "vom", "var_cost"}}`` for each thermal technology with non-zero
-        capacity. ``var_cost = heat_rate * fuel_cost + vom``.
+        "vom", "var_cost", "fom"}}`` for each thermal technology with non-zero
+        capacity. ``var_cost = heat_rate * fuel_cost + vom``. ``fom`` is the
+        fixed-O&M rate (USD/kW-yr) aggregated across plants.
     solar_caps : dict
         Mapping ``{plant_id: capacity_MW}`` for selected solar plants.
     wind_caps : dict
         Mapping ``{plant_id: capacity_MW}`` for selected wind plants.
+    solar_fom, wind_fom : dict
+        Mapping ``{plant_id: fom_USD_per_kW_yr}`` for the selected solar /
+        wind plants. Values come from the ``FOM_M`` column of the
+        ``CapSolar_*.csv`` / ``CapWind_*.csv`` previous-stage inputs.
+        Carried for auditing and downstream reporting; the baseline-dispatch
+        objective itself sources FOM from the CEM block expressions so the
+        two paths cannot diverge.
     load, nuclear, hydro, other_renewables : pandas.Series
         Hourly time-series (length 8760) indexed by hour-of-year (1..8760).
     cf_solar, cf_wind : pandas.DataFrame
@@ -78,12 +91,20 @@ class DesignedSystem:
     formulation_map : dict
         Mapping ``{component: formulation_name}`` resolved from defaults
         plus user-provided overrides.
+    cem_data : dict, optional
+        CEM-shaped data dict (as returned by
+        :func:`sdom.io_manager.load_data`) used by the baseline dispatch
+        builder to reuse the planning-model formulations in
+        :mod:`sdom.models`. ``None`` when the previous-stage inputs were
+        not reloaded for that purpose.
     """
 
     storage_caps: dict[str, dict[str, float]] = field(default_factory=dict)
     thermal_caps: dict[str, dict[str, float]] = field(default_factory=dict)
     solar_caps: dict[str, float] = field(default_factory=dict)
     wind_caps: dict[str, float] = field(default_factory=dict)
+    solar_fom: dict[str, float] = field(default_factory=dict)
+    wind_fom: dict[str, float] = field(default_factory=dict)
 
     load: pd.Series | None = None
     cf_solar: pd.DataFrame | None = None
@@ -104,6 +125,12 @@ class DesignedSystem:
     scenario_id: int = 1
     year: int = 2030
     formulation_map: dict[str, str] = field(default_factory=dict)
+
+    # CEM-shaped data dict (as produced by ``sdom.io_manager.load_data``) used
+    # by the baseline dispatch builder to call the planning-model formulations
+    # in ``sdom.models`` with their native parameter layout. Populated by
+    # :func:`load_designed_system` when ``attach_cem_data=True`` (the default).
+    cem_data: dict | None = None
 
 
 @dataclass
@@ -156,6 +183,13 @@ class BaselineDispatchResults:
         Solver termination condition (e.g. ``"optimal"``).
     metadata : dict, optional
         Free-form solver / run metadata.
+    cost_breakdown : dict, optional
+        Per-component USD totals reconciling to ``objective_value``. Keys:
+        ``thermal_var_USD``, ``storage_var_USD``, ``imports_USD``,
+        ``exports_USD`` (positive; objective contribution is
+        ``-exports_USD``), ``demand_charges_USD``, ``curtailment_USD``,
+        ``fom_USD``, ``total_USD``. Empty dict when the model carries no
+        component metadata.
     """
 
     soc_trajectory: pd.DataFrame | None = None
@@ -174,6 +208,7 @@ class BaselineDispatchResults:
     objective_value: float | None = None
     solver_status: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    cost_breakdown: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -233,7 +268,19 @@ class ResiliencyResults:
         return df
 
     def _aggregate_metrics(self) -> dict:
-        """Compute the aggregate-metrics dict (Phase 6 spec)."""
+        """Compute the aggregate-metrics dict (Phase 6 + #69).
+
+        Notes
+        -----
+        Probability-weighted expected metrics use the renormalize convention
+        (issue #69, Q1): each evaluated anchor hour carries weight
+        ``P(h) = 1 / len(hours)`` over the evaluated (non-errored) anchor
+        set. Consequently ``EUE_expected`` collapses to
+        ``mean_EUE`` and ``USE_hours_expected`` collapses to ``LOLE`` when
+        the per-hour probabilities are uniform; this is by design, not a
+        bug. The keys are persisted so future severity-weighted schemes
+        can replace the uniform weight without changing the schema.
+        """
         df = self._evaluated_frame()
         n_eval = int(len(df))
         if "solver_status" in self.per_hour.columns:
@@ -250,6 +297,8 @@ class ResiliencyResults:
                 "EUE_p50": float("nan"),
                 "EUE_p95": float("nan"),
                 "EUE_p99": float("nan"),
+                "EUE_expected": float("nan"),
+                "USE_hours_expected": float("nan"),
                 "n_hours_evaluated": 0,
                 "n_errors": n_err,
             }
@@ -260,6 +309,9 @@ class ResiliencyResults:
         else:
             use_hours = np.zeros(n_eval)
 
+        # Q1=renormalize: P(h) = 1 / len(hours) over the evaluated anchor set.
+        prob = 1.0 / n_eval
+
         return {
             "LOLP": float(np.mean(eue > 0.0)),
             "LOLE": float(np.mean(use_hours)),
@@ -268,6 +320,8 @@ class ResiliencyResults:
             "EUE_p50": float(np.percentile(eue, 50, method="linear")),
             "EUE_p95": float(np.percentile(eue, 95, method="linear")),
             "EUE_p99": float(np.percentile(eue, 99, method="linear")),
+            "EUE_expected": float(np.sum(prob * eue)),
+            "USE_hours_expected": float(np.sum(prob * use_hours)),
             "n_hours_evaluated": n_eval,
             "n_errors": n_err,
         }

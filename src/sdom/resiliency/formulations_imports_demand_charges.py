@@ -28,7 +28,10 @@ import pyomo.environ as pyo
 logger = logging.getLogger(__name__)
 
 
-__all__ = ["add_imports_with_demand_charges"]
+__all__ = [
+    "add_imports_with_demand_charges",
+    "add_demand_charges_to_existing_imports",
+]
 
 
 def _validate_phi_fix_monthly_constancy(
@@ -181,4 +184,88 @@ def add_imports_with_demand_charges(
         + sum(block.D_fix[m] + block.D_var[m] for m in block.M)
     )
 
+    return block
+
+
+def add_demand_charges_to_existing_imports(
+    model,
+    *,
+    phi_fix_t: pd.Series,
+    phi_var_t: pd.Series,
+    month_of_hour: pd.Series,
+    import_var_path: str = "imports.variable",
+    block_name: str = "demand_charges",
+):
+    """Attach a monthly demand-charges block to an existing imports variable.
+
+    Unlike :func:`add_imports_with_demand_charges`, this builder does NOT
+    create an import-power variable. It binds the monthly fixed and variable
+    demand-charge variables (:math:`D^{fix}_m`, :math:`D^{var}_m`) to an
+    import variable already attached to ``model`` (for instance the
+    ``model.imports.variable[h]`` variable created by the CEM
+    :func:`~sdom.models.formulations_imports_exports.add_imports_variables`).
+    This allows the resiliency dispatch to reuse the CEM imports formulation
+    verbatim and layer demand charges on top.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Host model. Must already define ``model.h`` and an import variable
+        located at ``import_var_path``.
+    phi_fix_t : pandas.Series
+        Hourly fixed demand-charge tariff (USD/MW). Must be constant within
+        each calendar month.
+    phi_var_t : pandas.Series
+        Hourly variable demand-charge tariff (USD/MW).
+    month_of_hour : pandas.Series
+        Mapping hour -> month integer.
+    import_var_path : str, optional
+        Dotted path to the import variable on ``model``. Default
+        ``"imports.variable"``.
+    block_name : str, optional
+        Name of the sub-block attached to ``model``. Default
+        ``"demand_charges"``.
+
+    Returns
+    -------
+    pyomo.environ.Block
+        The block that was attached to ``model``. It exposes
+        ``D_fix[m]``, ``D_var[m]`` and a ``total_cost_expr`` summing both.
+    """
+    if not hasattr(model, "h"):
+        raise AttributeError("model must declare an hourly set 'model.h'.")
+
+    obj = model
+    for attr in import_var_path.split("."):
+        obj = getattr(obj, attr)
+    import_var = obj
+
+    _validate_phi_fix_monthly_constancy(phi_fix_t, month_of_hour)
+
+    block = pyo.Block()
+    model.add_component(block_name, block)
+
+    months_sorted = sorted({int(v) for v in month_of_hour.unique()})
+    block.M = pyo.Set(initialize=months_sorted, ordered=True)
+    block.D_fix = pyo.Var(block.M, domain=pyo.NonNegativeReals, initialize=0.0)
+    block.D_var = pyo.Var(block.M, domain=pyo.NonNegativeReals, initialize=0.0)
+
+    block.phi_fix_param = pyo.Param(model.h, initialize=phi_fix_t.to_dict(), mutable=False)
+    block.phi_var_param = pyo.Param(model.h, initialize=phi_var_t.to_dict(), mutable=False)
+
+    month_map = {int(t): int(m) for t, m in month_of_hour.items()}
+
+    def _dc_fix_rule(b, t):
+        return b.D_fix[month_map[t]] >= b.phi_fix_param[t] * import_var[t]
+
+    block.demand_charge_fix_constraint = pyo.Constraint(model.h, rule=_dc_fix_rule)
+
+    def _dc_var_rule(b, t):
+        return b.D_var[month_map[t]] >= b.phi_var_param[t] * import_var[t]
+
+    block.demand_charge_var_constraint = pyo.Constraint(model.h, rule=_dc_var_rule)
+
+    block.total_cost_expr = pyo.Expression(
+        expr=sum(block.D_fix[m] + block.D_var[m] for m in block.M)
+    )
     return block

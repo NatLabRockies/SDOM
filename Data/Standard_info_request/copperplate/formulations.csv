@@ -1,0 +1,6 @@
+Component,Formulation,Description
+Thermal,NoRampsDispatchFormulation,Thermal aggregations dispatched without ramping constraints
+Hydro,MonthlyBudgetFormulation,Monthly energy budget constraint
+Imports,NotModel,Imports not represented
+Exports,NotModel,Exports not represented
+Network,CopperPlateNetwork,Single-area legacy network model

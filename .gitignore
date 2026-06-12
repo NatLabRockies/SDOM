@@ -2,8 +2,10 @@
 *.pyo
 *.pyd
 results_pyomo/*
+results/
 .vscode/*
 ___*
+res_runs_paper/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/*
@@ -219,3 +221,4 @@ package_publishing_with_uv*
 
 *test_no_resiliency_optimization_cases_xpress_local.py
 dev_guidelines/*
+results_MEA_case.zip

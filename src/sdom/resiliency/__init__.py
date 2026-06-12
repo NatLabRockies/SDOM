@@ -8,7 +8,7 @@ dataclasses.
 
 from __future__ import annotations
 
-from sdom.resiliency.data_loader import load_designed_system
+from sdom.resiliency.data_loader import load_cem_data, load_designed_system
 from sdom.resiliency.dispatch_model import (
     build_baseline_dispatch,
     run_baseline_dispatch,
@@ -44,6 +44,7 @@ __all__ = [
     "build_baseline_dispatch",
     "build_outage_dispatch",
     "evaluate_resiliency",
+    "load_cem_data",
     "load_designed_system",
     "plot_metric_distribution",
     "run_baseline_dispatch",

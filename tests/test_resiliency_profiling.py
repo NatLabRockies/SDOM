@@ -25,26 +25,33 @@ from sdom.utils_performance_meassure import ModelInitProfiler
 
 def _designed_system():
     """Standalone loader to avoid pulling pytest fixtures across modules."""
-    from pathlib import Path
-
     from sdom.resiliency import load_designed_system
 
-    repo_root = Path(__file__).resolve().parents[1]
-    snap = (
-        repo_root / "Data" / "resiliency_eval"
-        / "3MW_critical_load_24hrs_outage_24hrs_recovery"
+    from _resiliency_fixtures import (
+        INPUTS_DIR_MEA,
+        SCENARIO_ID,
+        SNAPSHOT_DIR_MEA,
+        YEAR,
     )
-    inputs = (
-        repo_root / "Data" / "resiliency_eval"
-        / "inputs_previous_stage" / "Paper_PGnE" / "Paper"
+
+    return load_designed_system(
+        SNAPSHOT_DIR_MEA,
+        inputs_dir=INPUTS_DIR_MEA,
+        year=YEAR,
+        scenario_id=SCENARIO_ID,
     )
-    return load_designed_system(snap, inputs_dir=inputs, year=2030, scenario_id=1)
 
 
-def test_baseline_build_no_profiler_by_default():
+def test_baseline_build_no_profiler_by_default(caplog):
     ds = _designed_system()
-    model = build_baseline_dispatch(ds, n_hours=24)
-    assert not hasattr(model, "profiler")
+    with caplog.at_level(logging.INFO, logger="sdom.resiliency.dispatch_model"):
+        build_baseline_dispatch(ds, n_hours=24)
+    # The CEM builder always attaches its own ``profiler`` to the model, so
+    # ``hasattr(model, "profiler")`` is no longer a reliable signal. What the
+    # resiliency wrapper guarantees when ``profile=False`` is that *its own*
+    # baseline-build summary is not printed.
+    full_log = "\n".join(rec.getMessage() for rec in caplog.records)
+    assert "BASELINE DISPATCH BUILD PROFILING SUMMARY" not in full_log
 
 
 def test_baseline_build_attaches_profiler(caplog):

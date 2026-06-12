@@ -1,4 +1,4 @@
-"""Phase 7 / Deliverable B end-to-end integration test on the real PGnE 24h subset.
+"""Phase 7 / Deliverable B end-to-end integration test on the real MEA 24h subset.
 
 Runs the full resiliency chain (load -> baseline dispatch -> per-hour outage
 evaluation), computes aggregate metrics, persists & reloads the results, and
@@ -24,21 +24,10 @@ from sdom.resiliency import (  # noqa: E402
     plot_metric_distribution,
 )
 
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT_DIR = (
-    REPO_ROOT
-    / "Data"
-    / "resiliency_eval"
-    / "3MW_critical_load_24hrs_outage_24hrs_recovery"
-)
-INPUTS_DIR = (
-    REPO_ROOT
-    / "Data"
-    / "resiliency_eval"
-    / "inputs_previous_stage"
-    / "Paper_PGnE"
-    / "Paper"
+from _resiliency_fixtures import (  # noqa: E402
+    INPUTS_DIR_MEA as INPUTS_DIR,
+    REPO_ROOT,
+    SNAPSHOT_DIR_MEA as SNAPSHOT_DIR,
 )
 
 
@@ -57,10 +46,10 @@ def _highs_available() -> bool:
 @pytest.mark.skipif(not _highs_available(), reason="HiGHS solver not available")
 @pytest.mark.skipif(
     not SNAPSHOT_DIR.exists() or not INPUTS_DIR.exists(),
-    reason="Real PGnE resiliency_eval data not present",
+    reason="Real MEA resiliency data not present",
 )
-def test_resiliency_full_chain_pgne_24h(tmp_path):
-    """End-to-end: load real PGnE inputs, run baseline + 5-hour evaluation,
+def test_resiliency_full_chain_mea_24h(tmp_path):
+    """End-to-end: load real MEA inputs, run baseline + 5-hour evaluation,
     compute metrics, save & reload, generate one plot."""
     spec = OutageSpec(
         duration_hours=4,

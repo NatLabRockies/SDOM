@@ -47,6 +47,7 @@ def evaluate_resiliency(
     min_soc_per_tech=None,
     slack_penalty=10_000.0,
     curtailment_penalty=0.0,
+    soc_slack_penalty=1_000.0,
     formulation_overrides=None,
     n_workers=None,
     solver="highs",
@@ -82,6 +83,10 @@ def evaluate_resiliency(
         Default ``10_000``.
     curtailment_penalty : float, optional
         Penalty applied to curtailed VRE energy (USD/MWh). Default ``0``.
+    soc_slack_penalty : float, optional
+        Penalty (USD/MWh) on the per-tech SOC recovery-target slack in the
+        outage LP. Forwarded to :func:`run_resiliency_evaluation` and
+        :func:`build_outage_dispatch`. Default ``1_000``.
     formulation_overrides : dict, optional
         Component formulation overrides forwarded to
         :func:`load_designed_system`.
@@ -175,6 +180,7 @@ def evaluate_resiliency(
         hours=hours,
         slack_penalty=slack_penalty,
         curtailment_penalty=curtailment_penalty,
+        soc_slack_penalty=soc_slack_penalty,
         min_soc_per_tech=min_soc_per_tech,
         n_hours=n_hours,
         n_workers=n_workers,

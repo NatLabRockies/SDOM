@@ -114,7 +114,8 @@ def _solve_one_hour(payload: dict[str, Any]) -> dict[str, Any]:
         Flat dictionary with keys
         ``baseline_results``, ``outage_spec``, ``designed_system``,
         ``start_hour``, ``slack_penalty``, ``curtailment_penalty``,
-        ``min_soc_per_tech``, ``n_hours``, ``solver``, ``solver_options``.
+        ``soc_slack_penalty``, ``min_soc_per_tech``, ``n_hours``,
+        ``solver``, ``solver_options``.
 
     Returns
     -------
@@ -160,6 +161,7 @@ def _solve_one_hour(payload: dict[str, Any]) -> dict[str, Any]:
             designed_system=designed_system,
             slack_penalty=float(payload["slack_penalty"]),
             curtailment_penalty=float(payload["curtailment_penalty"]),
+            soc_slack_penalty=float(payload.get("soc_slack_penalty", 1_000.0)),
             min_soc_per_tech=payload.get("min_soc_per_tech"),
             n_hours=n_hours,
             profile=bool(payload.get("profile", False)),
@@ -239,6 +241,7 @@ def run_resiliency_evaluation(
     hours=None,
     slack_penalty=10_000.0,
     curtailment_penalty=0.0,
+    soc_slack_penalty=1_000.0,
     min_soc_per_tech=None,
     n_hours=8760,
     n_workers=None,
@@ -275,6 +278,10 @@ def run_resiliency_evaluation(
         Penalty (USD/MWh) applied to slack ``u[t]``. Default ``10_000``.
     curtailment_penalty : float, optional
         Penalty applied to curtailed VRE energy (USD/MWh). Default ``0``.
+    soc_slack_penalty : float, optional
+        Penalty (USD/MWh) applied to the per-tech SOC recovery-target
+        slack variable in the outage LP. Forwarded to
+        :func:`build_outage_dispatch`. Default ``1_000``.
     min_soc_per_tech : dict, optional
         Operational SOC floor per storage tech (fraction of ``Cap_E``);
         forwarded to the outage builder.
@@ -364,6 +371,7 @@ def run_resiliency_evaluation(
             "start_hour": h,
             "slack_penalty": float(slack_penalty),
             "curtailment_penalty": float(curtailment_penalty),
+            "soc_slack_penalty": float(soc_slack_penalty),
             "min_soc_per_tech": min_soc_per_tech,
             "n_hours": n_hours,
             "solver": solver,

@@ -1,0 +1,13 @@
+,Li-Ion
+P_Capex,737
+E_Capex,150
+Eff,0.85
+Min_Duration,2
+Max_Duration,4
+Max_P,20000
+MaxCycles,5000
+Coupled,1
+FOM,18
+VOM,0
+Lifetime,16
+CostRatio,0.5

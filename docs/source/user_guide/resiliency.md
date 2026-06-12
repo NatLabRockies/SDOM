@@ -59,13 +59,23 @@ Three things change relative to (B):
    penalised at $\pi^{slack}$ (default $10^4$ USD/MWh):
 
    $$
-   Z^{O}(h) = Z^{O}_{thermal} + Z^{O}_{storage} + Z^{O}_{imp} + Z^{O}_{exp} + \pi^{slack} \!\sum_{t} u_t + Z^{O}_{curt}.
+   Z^{O}(h) = Z^{O}_{thermal} + Z^{O}_{storage} + Z^{O}_{imp} + Z^{O}_{exp} + \pi^{slack} \!\sum_{t} u_t + \pi^{soc} \!\sum_{s} \sigma^{rec}_s + Z^{O}_{curt} + Z^{O}_{FOM}(h).
    $$
 
-Initial SOC is seeded from problem (B):
-$SOC_{s,h} = SOC^{base}_{s,h}$. A recovery target
-$SOC_{s,\, h + \Delta^{out} + \Delta^{rec}_s} \ge SOC^{rec}_s \cdot Cap^E_s$ is
-enforced at the end of each storage device's recovery window.
+Initial SOC is seeded from problem (B) via the boundary parameter
+$SOC^{init}_{s} = SOC^{base}_{s,h}$, which feeds the storage dynamics
+equation at the anchor hour as the prior state (see
+{doc}`resiliency_math` §5.3, §5.5). A recovery target
+$SOC_{s,\, h + \Delta^{out} + \Delta^{rec}_s} + \sigma^{rec}_s \ge SOC^{rec}_s \cdot Cap^E_s$
+is enforced at the end of each storage device's recovery window as a **soft
+constraint** with non-negative slack $\sigma^{rec}_s$ priced at $\pi^{soc}$
+(default $10^{3}$, below $\pi^{slack}$).
+
+A prorated fixed O&M constant
+$Z^{O}_{FOM}(h) = (H^{out}(h)/8760) \cdot Z^{B}_{FOM}$ is added to the
+objective so that the reported `objective_value` reflects annualized fixed
+costs for the assets carried through the outage horizon (capacities are
+fixed in (O), so this term does not affect the optimal dispatch).
 
 Demand-charge variables are excluded from (O) because the outage horizon is
 sub-monthly.
@@ -278,15 +288,34 @@ results.to_dataframe()        # same data with `hour` promoted to a column
 ```python
 agg = results.metrics(level="aggregate")
 # {
-#   "LOLP":             # P(EUE(h) > 0)
-#   "LOLE":             # mean USE_hours per scenario
+#   "LOLP":              # P(EUE(h) > 0)
+#   "LOLE":              # mean USE_hours per scenario
 #   "mean_EUE":
 #   "max_EUE":
 #   "EUE_p50", "EUE_p95", "EUE_p99":
-#   "n_hours_evaluated": # excludes errored worker rows
+#   "EUE_expected":       # sum_h P(h) * EUE(h)        (issue #69)
+#   "USE_hours_expected": # sum_h P(h) * USE_hours(h)  (issue #69)
+#   "n_hours_evaluated":  # excludes errored worker rows
 #   "n_errors":
 # }
 ```
+
+#### Probability-weighted expected metrics (renormalize)
+
+``EUE_expected`` and ``USE_hours_expected`` apply an outage-start
+probability ``P(h)`` per evaluated anchor hour and report the expected
+value:
+
+``EUE_expected = sum_h P(h) * EUE(h)``,
+``USE_hours_expected = sum_h P(h) * USE_hours(h)``.
+
+The default convention is **renormalize**: ``P(h) = 1 / len(hours)`` over
+the evaluated (non-errored) anchor set so the weights sum to ``1`` even
+when only a subset of the year was simulated. With uniform weights this
+identically equals the existing ``mean_EUE`` / ``LOLE`` values; the keys
+are carried separately so future severity-weighted schemes can replace
+the uniform weight without changing the persisted ``summary.json``
+schema or the existing unweighted metric names.
 
 Convenience accessors mirror common reliability-engineering quantities:
 

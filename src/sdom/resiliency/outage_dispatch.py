@@ -27,6 +27,7 @@ from typing import Any
 import pandas as pd
 import pyomo.environ as pyo
 
+from sdom.constants import MW_TO_KW
 from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
 from sdom.utils_performance_meassure import ModelInitProfiler
 
@@ -56,6 +57,50 @@ def _series_value(series: pd.Series | None, hour: int) -> float:
         return float(series.iloc[hour - 1])
 
 
+def _compute_prorated_fom_USD(
+    designed_system: DesignedSystem,
+    *,
+    horizon_hours: int,
+    year_hours: int = 8760,
+) -> float:
+    """Total fixed-O&M cost (USD) prorated to ``horizon_hours / year_hours``.
+
+    Storage FOM splits by ``CostRatio`` between charge / discharge sides,
+    mirroring
+    :func:`sdom.models.formulations_storage.storage_fixed_om_cost_expr_rule`.
+    Thermal / solar / wind FOM are USD/kW-yr, multiplied by capacity (MW)
+    and :data:`sdom.constants.MW_TO_KW` to give USD/yr, then scaled by the
+    horizon fraction. FOM is independent of dispatch, so this enters the
+    outage LP as a constant.
+    """
+    if horizon_hours <= 0 or year_hours <= 0:
+        return 0.0
+    frac = float(horizon_hours) / float(year_hours)
+
+    fom_annual_USD = 0.0
+    for spec in designed_system.storage_caps.values():
+        fom = float(spec.get("fom", 0.0))
+        cr = float(spec.get("cost_ratio", 0.5))
+        cap_pch = float(spec.get("Cap_Pch", 0.0))
+        cap_pdis = float(spec.get("Cap_Pdis", 0.0))
+        fom_annual_USD += MW_TO_KW * fom * (cr * cap_pch + (1.0 - cr) * cap_pdis)
+
+    for spec in designed_system.thermal_caps.values():
+        fom = float(spec.get("fom", 0.0))
+        cap = float(spec.get("capacity_MW", 0.0))
+        fom_annual_USD += MW_TO_KW * fom * cap
+
+    for k, cap in designed_system.solar_caps.items():
+        fom = float(designed_system.solar_fom.get(k, 0.0))
+        fom_annual_USD += MW_TO_KW * fom * float(cap)
+
+    for k, cap in designed_system.wind_caps.items():
+        fom = float(designed_system.wind_fom.get(k, 0.0))
+        fom_annual_USD += MW_TO_KW * fom * float(cap)
+
+    return fom_annual_USD * frac
+
+
 # ---------------------------------------------------------------------------
 # Sub-block builders (outage variants)
 # ---------------------------------------------------------------------------
@@ -64,6 +109,7 @@ def _add_storage_block_outage(
     designed_system: DesignedSystem,
     soc_min_frac_map: dict[str, float],
     start_hour: int,
+    delta_storage: dict[tuple[str, int], float] | None = None,
 ):
     block = pyo.Block()
     model.add_component("storage", block)
@@ -78,6 +124,8 @@ def _add_storage_block_outage(
     eta_dis = {s: float(designed_system.storage_caps[s].get("eta_dis", 1.0)) for s in techs}
     vom = {s: float(designed_system.storage_caps[s].get("vom", 0.0)) for s in techs}
 
+    delta_storage = delta_storage or {}
+
     block.Cap_Pch = pyo.Param(block.S, initialize=cap_pch)
     block.Cap_Pdis = pyo.Param(block.S, initialize=cap_pdis)
     block.Cap_E = pyo.Param(block.S, initialize=cap_e)
@@ -86,10 +134,10 @@ def _add_storage_block_outage(
     block.vom = pyo.Param(block.S, initialize=vom)
 
     def _pcha_bounds(b, s, t):
-        return (0.0, cap_pch[s])
+        return (0.0, delta_storage.get((s, t), 1.0) * cap_pch[s])
 
     def _pdis_bounds(b, s, t):
-        return (0.0, cap_pdis[s])
+        return (0.0, delta_storage.get((s, t), 1.0) * cap_pdis[s])
 
     def _soc_bounds(b, s, t):
         lb = soc_min_frac_map.get(s, 0.0) * cap_e[s]
@@ -105,12 +153,15 @@ def _add_storage_block_outage(
         block.S, model.h, domain=pyo.NonNegativeReals, bounds=_soc_bounds, initialize=0.0
     )
 
+    # Prior-state boundary: SOC at the start of ``start_hour`` (= SOC at the
+    # end of ``start_hour - 1``). Seeded later by ``_seed_initial_soc``.
+    block.SOC_init = pyo.Param(block.S, mutable=True, initialize=0.0)
+
     def _soc_dynamics(b, s, t):
-        if t == start_hour:
-            return pyo.Constraint.Skip
+        prev = b.SOC_init[s] if t == start_hour else b.SOC[s, t - 1]
         return (
             b.SOC[s, t]
-            == b.SOC[s, t - 1] + b.eta_ch[s] * b.Pcha[s, t] - b.Pdis[s, t] / b.eta_dis[s]
+            == prev + b.eta_ch[s] * b.Pcha[s, t] - b.Pdis[s, t] / b.eta_dis[s]
         )
 
     block.soc_dynamics = pyo.Constraint(block.S, model.h, rule=_soc_dynamics)
@@ -264,6 +315,7 @@ def build_outage_dispatch(
     designed_system=None,
     slack_penalty=10_000.0,
     curtailment_penalty=0.0,
+    soc_slack_penalty=1_000.0,
     min_soc_per_tech=None,
     n_hours=8760,
     model_name="SDOM_OutageDispatch",
@@ -291,6 +343,12 @@ def build_outage_dispatch(
         Default ``10_000.0``.
     curtailment_penalty : float, optional
         Penalty on curtailed VRE energy (USD/MWh). Default ``0.0``.
+    soc_slack_penalty : float, optional
+        Penalty :math:`\\pi^{soc}` (USD/MWh) on the per-storage-tech
+        slack variable that relaxes the SOC recovery-target constraint
+        (see notes). Default ``1_000.0``. The operational SOC floor
+        remains a hard bound; only the end-of-recovery target is
+        relaxed.
     min_soc_per_tech : dict, optional
         Operational SOC floor per storage tech (fraction of ``Cap_E``).
         Same semantics as :func:`build_baseline_dispatch`.
@@ -314,8 +372,10 @@ def build_outage_dispatch(
         A Pyomo LP exposing ``model.h`` (hour set), ``model.u`` (slack,
         ``NonNegativeReals``), the standard dispatch sub-blocks
         (``storage``, ``thermal``, ``solar``, ``wind``, ``imports``,
-        ``exports``) without demand-charge variables, and an objective that
-        minimises operational cost plus slack and curtailment penalties.
+        ``exports``) without demand-charge variables, ``model.fom_cost_expr``
+        (constant fixed-O&M cost prorated to the outage horizon), and an
+        objective that minimises operational cost plus slack and
+        curtailment penalties plus the prorated FOM constant.
 
     Raises
     ------
@@ -328,9 +388,19 @@ def build_outage_dispatch(
 
     Notes
     -----
-    Initial SOC is seeded with :py:meth:`pyomo.environ.Var.fix` rather than
-    via an equality constraint, which keeps the LP tighter and avoids one
-    extra row per storage technology.
+    Initial SOC is seeded by setting the mutable parameter
+    ``model.storage.SOC_init[s]`` from ``baseline_results.soc_trajectory``
+    at ``start_hour``. ``SOC_init`` represents the SOC at the *start* of
+    the outage horizon (i.e., the boundary value :math:`SOC_{s,h-1}` that
+    the dynamics equation at :math:`t = h` reads as its prior state). The
+    SOC dynamics constraint therefore covers every hour in
+    :math:`\\mathcal{T}^{out}_h`, including the anchor hour ``start_hour``,
+    so that the charge and discharge variables at the anchor hour appear
+    in a balance equation. Earlier versions fixed ``SOC[s, start_hour]``
+    via :py:meth:`pyomo.environ.Var.fix` and skipped the dynamics
+    equation at the anchor; under that formulation ``Pcha[s, start_hour]``
+    and ``Pdis[s, start_hour]`` for surviving (non-outaged) storage techs
+    were unconstrained by any SOC balance.
     """
     if designed_system is None:
         designed_system = (baseline_results.metadata or {}).get("designed_system")
@@ -383,6 +453,7 @@ def build_outage_dispatch(
         delta_thermal: dict[tuple[str, int], float] = {}
         delta_wind: dict[tuple[str, int], float] = {}
         delta_solar: dict[tuple[str, int], float] = {}
+        delta_storage: dict[tuple[str, int], float] = {}
         delta_imports: dict[int, float] = {}
         delta_nuc: dict[int, float] = {}
         delta_hydro: dict[int, float] = {}
@@ -401,6 +472,7 @@ def build_outage_dispatch(
         _populate("balancing_units", designed_system.thermal_caps.keys(), delta_thermal)
         _populate("wind", designed_system.wind_caps.keys(), delta_wind)
         _populate("solar", designed_system.solar_caps.keys(), delta_solar)
+        _populate("storage", designed_system.storage_caps.keys(), delta_storage)
 
         rho_imp = outage_spec.resolve_derating("imports", "grid")
         if rho_imp != 1.0:
@@ -426,6 +498,7 @@ def build_outage_dispatch(
             delta_thermal,
             delta_wind,
             delta_solar,
+            delta_storage,
             delta_imports,
             delta_nuc,
             delta_hydro,
@@ -437,6 +510,7 @@ def build_outage_dispatch(
         delta_thermal,
         delta_wind,
         delta_solar,
+        delta_storage,
         delta_imports,
         delta_nuc,
         delta_hydro,
@@ -472,6 +546,7 @@ def build_outage_dispatch(
         designed_system,
         soc_min_frac_map,
         start_hour,
+        delta_storage,
     )
     thermal_block = _run_step(
         profiler,
@@ -605,7 +680,7 @@ def build_outage_dispatch(
             cap_e = float(designed_system.storage_caps[s]["Cap_E"])
             lb = soc_min_frac_map.get(s, 0.0) * cap_e
             init_value = min(max(init_value, lb), cap_e)
-            storage_block.SOC[s, start_hour].fix(init_value)
+            storage_block.SOC_init[s] = init_value
 
     _run_step(profiler, "Seed initial SOC", _seed_initial_soc)
 
@@ -623,11 +698,23 @@ def build_outage_dispatch(
                 float(recovery_target_frac_local.get(s, 0.0)) * cap_e
             )
 
+        # Recovery-target SOC slack (#68): non-negative per-tech relaxation
+        # of the end-of-recovery target. The operational SOC floor stays
+        # a hard bound; only this end-of-recovery target is softened.
+        model.recovery_soc_slack = pyo.Var(
+            storage_block.S,
+            domain=pyo.NonNegativeReals,
+            initialize=0.0,
+        )
+
         def _recovery_target_rule(m, s):
             t_end = recovery_end_hour[s]
             if t_end < start_hour or t_end > end_hour:
                 return pyo.Constraint.Skip
-            return storage_block.SOC[s, t_end] >= recovery_target_MWh_local[s]
+            return (
+                storage_block.SOC[s, t_end] + model.recovery_soc_slack[s]
+                >= recovery_target_MWh_local[s]
+            )
 
         model.recovery_target = pyo.Constraint(
             storage_block.S, rule=_recovery_target_rule
@@ -641,6 +728,19 @@ def build_outage_dispatch(
     # Objective
     slack_pen = float(slack_penalty)
     curt_pen = float(curtailment_penalty)
+    soc_slack_pen = float(soc_slack_penalty)
+    if slack_pen < 0:
+        raise ValueError("slack_penalty must be non-negative.")
+    if curt_pen < 0:
+        raise ValueError("curtailment_penalty must be non-negative.")
+    if soc_slack_pen < 0:
+        raise ValueError("soc_slack_penalty must be non-negative.")
+
+    horizon_hours = end_hour - start_hour + 1
+    fom_cost_USD = _compute_prorated_fom_USD(
+        designed_system, horizon_hours=horizon_hours, year_hours=8760
+    )
+    model.fom_cost_expr = pyo.Expression(expr=float(fom_cost_USD))
 
     def _add_objective():
         obj_expr = (
@@ -649,11 +749,14 @@ def build_outage_dispatch(
             + imports_block.total_cost_expr
             - exports_block.revenue_expr
             + slack_pen * sum(model.u[t] for t in model.h)
+            + soc_slack_pen
+            * sum(model.recovery_soc_slack[s] for s in storage_techs)
             + curt_pen
             * (
                 solar_block.potential_minus_dispatch
                 + wind_block.potential_minus_dispatch
             )
+            + model.fom_cost_expr
         )
         model.objective = pyo.Objective(expr=obj_expr, sense=pyo.minimize)
 
@@ -669,12 +772,16 @@ def build_outage_dispatch(
         "delta_thermal": delta_thermal,
         "delta_wind": delta_wind,
         "delta_solar": delta_solar,
+        "delta_storage": delta_storage,
         "delta_imports": delta_imports,
         "delta_nuclear": delta_nuc,
         "delta_hydro": delta_hydro,
         "delta_other_renewables": delta_other,
         "slack_penalty": slack_pen,
         "curtailment_penalty": curt_pen,
+        "soc_slack_penalty": soc_slack_pen,
+        "horizon_hours": horizon_hours,
+        "fom_cost_USD": float(fom_cost_USD),
         "designed_system": designed_system,
     }
     if profiler is not None:

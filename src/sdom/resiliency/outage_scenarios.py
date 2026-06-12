@@ -28,6 +28,7 @@ VALID_COMPONENTS: tuple[str, ...] = (
     "hydro",
     "nuclear",
     "other_renewables",
+    "storage",
 )
 
 MUST_RUN_COMPONENTS: tuple[str, ...] = ("hydro", "nuclear", "other_renewables")
@@ -46,6 +47,8 @@ def _component_universe(component: str, designed_system) -> list[str]:
         return [str(k) for k in designed_system.wind_caps.keys()]
     if component == "solar":
         return [str(k) for k in designed_system.solar_caps.keys()]
+    if component == "storage":
+        return [str(k) for k in designed_system.storage_caps.keys()]
     if component == "imports":
         return [_GRID_ASSET_ID]
     if component in MUST_RUN_COMPONENTS:

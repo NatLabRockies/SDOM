@@ -1,0 +1,6 @@
+Component,Formulation,Description
+Thermal,NoRampsDispatchFormulation,Thermal aggregations dispatched without ramping constraints
+Hydro,RunOfRiverFormulation,Hourly hydro profile follows time series (no budget)
+Imports,NotModel,Imports not represented
+Exports,NotModel,Exports not represented
+Network,AreaTransportationModelNetwork,Multi-area transportation network with line capacity limits
