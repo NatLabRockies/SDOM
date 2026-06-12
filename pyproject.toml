@@ -68,7 +68,7 @@ docs = [
 
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 testpaths = ["tests"]
 addopts = [
     "--cov=sdom",

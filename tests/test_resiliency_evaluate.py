@@ -161,7 +161,8 @@ def test_evaluate_resiliency_passes_through_kwargs(monkeypatch):
                       hours=None, slack_penalty=10_000.0, curtailment_penalty=0.0,
                       soc_slack_penalty=1_000.0,
                       min_soc_per_tech=None, n_hours=8760, n_workers=None,
-                      solver="highs", solver_options=None, profile_outages=False):
+                      solver="highs", solver_options=None,
+                      critical_load_MW=None, profile_outages=False):
         captured["run_eval"] = dict(
             slack_penalty=slack_penalty,
             curtailment_penalty=curtailment_penalty,
@@ -172,6 +173,7 @@ def test_evaluate_resiliency_passes_through_kwargs(monkeypatch):
             solver=solver,
             solver_options=solver_options,
             hours=None if hours is None else list(hours),
+            critical_load_MW=critical_load_MW,
             profile_outages=profile_outages,
         )
         return real_run_eval(
@@ -187,6 +189,7 @@ def test_evaluate_resiliency_passes_through_kwargs(monkeypatch):
             n_workers=n_workers,
             solver=solver,
             solver_options=solver_options,
+            critical_load_MW=critical_load_MW,
             profile_outages=profile_outages,
         )
 

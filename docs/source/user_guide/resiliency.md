@@ -230,7 +230,51 @@ outage_model = build_outage_dispatch(
 )
 ```
 
-### 3. Optional profiling
+### 3. Constant critical load during the outage window
+
+Resiliency studies often size storage against a **constant critical load**
+(hospital, data center, military base) rather than the original hourly load
+profile, which represents normal operations. Pass
+`critical_load_MW=X` to override the load parameter with the constant
+`X` MW for every hour in the outage sub-horizon
+$[h, h + \Delta^{out} - 1]$. Recovery-window hours continue to use the
+original $D_t$ so storage replenishment toward the end-of-recovery target
+reflects realistic post-outage operations.
+
+```python
+# End-to-end: serve a flat 50 MW critical load during each outage.
+results = evaluate_resiliency(
+    snapshot_dir=snapshot_dir,
+    inputs_dir=inputs_dir,
+    outage_spec=spec,
+    critical_load_MW=50.0,
+)
+
+# Also available on the lower-level entry points.
+results = run_resiliency_evaluation(
+    baseline,
+    outage_spec=spec,
+    critical_load_MW=50.0,
+)
+outage_model = build_outage_dispatch(
+    baseline,
+    start_hour=100,
+    outage_spec=spec,
+    designed_system=ds,
+    critical_load_MW=50.0,
+)
+```
+
+`critical_load_MW=None` (default) preserves the original behaviour: the
+hourly load series is used everywhere. Negative or non-finite values
+(NaN, ±inf) raise `ValueError`; the runner-level entry points
+(`run_resiliency_evaluation`, `evaluate_resiliency`) validate the value
+once in the parent process so a bad input fails fast instead of being
+swallowed by the per-hour error-isolation wrapper. The value used (or
+`None`) is recorded on the built model as
+`model._sdom_outage_meta["critical_load_MW"]`.
+
+### 4. Optional profiling
 
 Each Pyomo-model builder accepts an opt-in `profile=True` flag that wraps
 the build (and solve, in the case of the baseline) with the

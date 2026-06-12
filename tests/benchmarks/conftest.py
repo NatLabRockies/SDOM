@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pyomo.environ as pyo
@@ -10,6 +11,10 @@ from sdom.resiliency import OutageSpec
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+_TESTS_DIR = str(Path(__file__).resolve().parents[1])
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
 
 
 @pytest.fixture(scope="session")

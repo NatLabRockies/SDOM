@@ -52,6 +52,7 @@ def evaluate_resiliency(
     n_workers=None,
     solver="highs",
     solver_options=None,
+    critical_load_MW=None,
     profile_baseline=False,
     profile_outages=False,
 ):
@@ -100,6 +101,12 @@ def evaluate_resiliency(
     solver_options : dict, optional
         Solver options forwarded to both the baseline solve and every
         per-hour outage solve.
+    critical_load_MW : float, optional
+        Constant critical load (MW) used in place of the hourly load
+        series during the outage sub-horizon of each per-hour LP.
+        Forwarded to :func:`run_resiliency_evaluation` and through it to
+        :func:`build_outage_dispatch`. ``None`` (default) preserves the
+        original behaviour. Must be non-negative.
     profile_baseline : bool, optional
         When ``True``, attach a
         :class:`~sdom.utils_performance_meassure.ModelInitProfiler` to the
@@ -186,6 +193,7 @@ def evaluate_resiliency(
         n_workers=n_workers,
         solver=solver,
         solver_options=solver_options,
+        critical_load_MW=critical_load_MW,
         profile_outages=profile_outages,
     )
     logger.info("evaluate_resiliency: pipeline complete.")

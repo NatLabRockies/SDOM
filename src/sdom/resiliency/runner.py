@@ -18,6 +18,7 @@ section 7 (per-hour metrics: EUE, USE_hours, max unserved MW).
 from __future__ import annotations
 
 import logging
+import math
 import os
 import time
 import traceback
@@ -164,6 +165,7 @@ def _solve_one_hour(payload: dict[str, Any]) -> dict[str, Any]:
             soc_slack_penalty=float(payload.get("soc_slack_penalty", 1_000.0)),
             min_soc_per_tech=payload.get("min_soc_per_tech"),
             n_hours=n_hours,
+            critical_load_MW=payload.get("critical_load_MW"),
             profile=bool(payload.get("profile", False)),
         )
         solver = _resolve_solver(str(payload["solver"]))
@@ -247,6 +249,7 @@ def run_resiliency_evaluation(
     n_workers=None,
     solver="highs",
     solver_options=None,
+    critical_load_MW=None,
     profile_outages=False,
 ):
     """Run the per-hour outage evaluation in parallel and aggregate metrics.
@@ -296,6 +299,11 @@ def run_resiliency_evaluation(
         Default ``"highs"``.
     solver_options : dict, optional
         Solver options forwarded to ``solver.solve(..., options=...)``.
+    critical_load_MW : float, optional
+        Constant critical load (MW) used in place of the hourly load
+        series during the outage sub-horizon of each per-hour LP.
+        Forwarded to :func:`build_outage_dispatch`. ``None`` (default)
+        preserves the original behaviour. Must be non-negative.
     profile_outages : bool, optional
         When ``True`` and ``n_workers == 1``, profile every per-hour
         outage build via
@@ -337,6 +345,18 @@ def run_resiliency_evaluation(
     if n_hours <= 0:
         raise ValueError("n_hours must be a positive integer.")
 
+    if critical_load_MW is not None:
+        crit_val = float(critical_load_MW)
+        if not math.isfinite(crit_val):
+            raise ValueError(
+                f"critical_load_MW must be a finite number; got {critical_load_MW}."
+            )
+        if crit_val < 0:
+            raise ValueError(
+                f"critical_load_MW must be non-negative; got {critical_load_MW}."
+            )
+        critical_load_MW = crit_val
+
     if hours is None:
         hour_list = list(range(1, n_hours + 1))
     else:
@@ -376,6 +396,7 @@ def run_resiliency_evaluation(
             "n_hours": n_hours,
             "solver": solver,
             "solver_options": dict(solver_options) if solver_options else {},
+            "critical_load_MW": critical_load_MW,
             "profile": profile_outages_effective,
         }
         for h in hour_list

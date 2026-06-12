@@ -79,6 +79,8 @@ jobs:
       - name: Run base quick benchmarks
         if: ${{ steps.validate.outputs.run_compare == 'true' }}
         shell: bash
+        env:
+          PYTHONPATH: base/tests
         run: |
           uv run --project base --with pytest-benchmark \
             pytest base/tests/benchmarks -m bench_quick -o addopts='' \
@@ -88,6 +90,8 @@ jobs:
       - name: Run head quick benchmarks
         if: ${{ steps.validate.outputs.run_compare == 'true' }}
         shell: bash
+        env:
+          PYTHONPATH: head/tests
         run: |
           uv run --project head --with pytest-benchmark \
             pytest head/tests/benchmarks -m bench_quick -o addopts='' \
