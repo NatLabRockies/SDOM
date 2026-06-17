@@ -67,7 +67,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
 - **Parametric & Sensitivity Analysis:** Built-in [`ParametricStudy`](docs/source/user_guide/parametric_analysis.md) API to run multi-dimensional parameter sweeps in parallel — sweep `GenMix_Target`, technologies CAPEX costs, load growth factors, and more.
 
 - **Platforms:** 
-  - SDOM was originally developed in GAMS (https://github.com/NREL/SDOM). 
+  - SDOM was originally developed in GAMS. 
   
   - In order offer a full open-source solution also was developed this python package. This version requires python 3.10+.
 
