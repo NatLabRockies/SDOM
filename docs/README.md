@@ -220,7 +220,7 @@ python -c "import sdom; print(sdom.__version__)"
 
 ## Continuous Integration
 
-Documentation is automatically built and deployed via GitHub Actions on every push to `master`/`main`.
+Documentation is automatically built and deployed via GitHub Actions on every push to `main`.
 
 The workflow (`.github/workflows/docs.yml`):
 1. Installs Python and `uv`
@@ -233,8 +233,8 @@ The workflow (`.github/workflows/docs.yml`):
 
 1. Go to repository Settings → Pages
 2. Set Source to "GitHub Actions"
-3. Push to master/main to trigger deployment
-4. Documentation will be available at: `https://omar0902.github.io/SDOM/`
+3. Push to main to trigger deployment
+4. Documentation will be available at: `https://natlabrockies.github.io/SDOM/`
 
 ## Alternative: ReadTheDocs
 

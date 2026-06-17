@@ -3,13 +3,11 @@ name: Build and Deploy Documentation
 on:
   push:
     branches:
-      - master
       - main
     tags:
       - "v*.*.*"
   pull_request:
     branches:
-      - master
       - main
 
   workflow_dispatch:
@@ -32,7 +30,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
-        if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}

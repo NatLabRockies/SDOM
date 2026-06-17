@@ -1,6 +1,6 @@
 # Storage Deployment Optimization Model (SDOM)
-[![Tests](https://github.com/Omar0902/SDOM/workflows/Run%20Python%20Tests/badge.svg)](https://github.com/Omar0902/SDOM/actions/workflows/test.yaml)
-[![Documentation](https://github.com/Omar0902/SDOM/workflows/Build%20and%20Deploy%20Documentation/badge.svg)](https://omar0902.github.io/SDOM/)
+[![Tests](https://github.com/NatLabRockies/SDOM/workflows/Run%20Python%20Tests/badge.svg)](https://github.com/NatLabRockies/SDOM/actions/workflows/test.yaml)
+[![Documentation](https://github.com/NatLabRockies/SDOM/workflows/Build%20and%20Deploy%20Documentation/badge.svg)](https://natlabrockies.github.io/SDOM/)
 [![DOI](https://img.shields.io/badge/DOI-OSTI%20Code--111266-blue)](https://www.osti.gov/biblio/code-111266)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/sdom)](https://pypistats.org/packages/sdom)
 
@@ -40,7 +40,7 @@ Outputs include:
 
 An illustrative figure below shows the flow from inputs to optimization results, enabling exploration of storage needs under varying renewable integration levels.
 
-![Illustration about how SDOM works](https://github.com/Omar0902/SDOM/blob/master/docs/source/user_guide/sdom_illustration.png)
+![Illustration about how SDOM works](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/sdom_illustration.png)
 
 # Key Features
 ⚙️
@@ -184,15 +184,15 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
   ```
 
 ## SDOM Input Files
-For detailed information about SDOM input files, please refer to the [SDOM Input Documentation](https://github.com/Omar0902/SDOM/blob/master/docs/source/user_guide/inputs.md).
+For detailed information about SDOM input files, please refer to the [SDOM Input Documentation](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/inputs.md).
 
 ## SDOM simple script example
-For an script about how to run SDOM, please refer to the [SDOM simple script example](https://github.com/Omar0902/SDOM/blob/master/docs/source/user_guide/running_and_outputs.md).
+For an script about how to run SDOM, please refer to the [SDOM simple script example](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/running_and_outputs.md).
 
 # PUBLICATIONS AND USE CASES OF SDOM
 📄
-For a comprehensive list of publications and use cases, please refer to the [SDOM Publications Documentation](https://github.com/Omar0902/SDOM/blob/master/docs/source/sdom_publications.md).
+For a comprehensive list of publications and use cases, please refer to the [SDOM Publications Documentation](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/sdom_publications.md).
 
 # CONTRIBUTING GUIDELINES
 💻
-[Developers Guide](https://github.com/Omar0902/SDOM/blob/master/docs/source/sdom_Developers_guide.md) 
+[Developers Guide](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/sdom_Developers_guide.md) 

@@ -31,9 +31,9 @@ dependencies = [
 
 
 [project.urls]
-Homepage = "https://github.com/Omar0902/SDOM"
-Repository = "https://github.com/Omar0902/SDOM"
-Issues = "https://github.com/Omar0902/SDOM/issues"
+Homepage = "https://github.com/NatLabRockies/SDOM"
+Repository = "https://github.com/NatLabRockies/SDOM"
+Issues = "https://github.com/NatLabRockies/SDOM/issues"
 
 [project.optional-dependencies]
 xpress = ["xpress>=9.0.0,<9.8"]  # Upper bound depends on your license version
