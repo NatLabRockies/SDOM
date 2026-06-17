@@ -5,6 +5,9 @@
 
 import os
 import sys
+from pathlib import Path
+
+import tomllib
 
 # -- Path setup --------------------------------------------------------------
 # Add the project root to the path so autodoc can find the modules
@@ -16,8 +19,15 @@ sys.path.insert(0, os.path.abspath('../../src'))
 project = 'SDOM'
 copyright = '2026, NREL SDOM Team'
 author = 'Omar Jose Guerra Fernandez, Mariya Koleva, Sebastian de Jesus Manrique Machado'
-release = '0.0.11'
-version = '0.0.11'
+
+# Read version from the single source of truth in pyproject.toml.
+_repo_root = Path(__file__).resolve().parents[2]
+_pyproject_path = _repo_root / 'pyproject.toml'
+with _pyproject_path.open('rb') as _f:
+    _pyproject_data = tomllib.load(_f)
+
+release = _pyproject_data['project']['version']
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

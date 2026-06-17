@@ -8,6 +8,7 @@ Run with: pytest tests/test_docs_build.py
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,22 @@ def test_requirements_file_exists():
     repo_root = Path(__file__).parent.parent
     req_file = repo_root / "docs" / "requirements.txt"
     assert req_file.exists(), "docs/requirements.txt not found"
+
+
+def test_docs_version_matches_pyproject():
+    """Test that docs version in conf.py matches pyproject.toml."""
+    repo_root = Path(__file__).parent.parent
+    pyproject_path = repo_root / "pyproject.toml"
+    conf_path = repo_root / "docs" / "source" / "conf.py"
+
+    with pyproject_path.open("rb") as f:
+        pyproject_data = tomllib.load(f)
+    expected_version = pyproject_data["project"]["version"]
+
+    conf_text = conf_path.read_text(encoding="utf-8")
+    assert "release = _pyproject_data['project']['version']" in conf_text
+    assert "version = release" in conf_text
+    assert expected_version, "pyproject.toml project.version is empty"
 
 
 @pytest.mark.skipif(
