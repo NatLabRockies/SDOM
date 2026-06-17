@@ -113,7 +113,7 @@ master_doc = 'index'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 # Theme configuration - using PyData Sphinx Theme
-html_theme = 'pydata_sphinx_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options
 html_theme_options = {
