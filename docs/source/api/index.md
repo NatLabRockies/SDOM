@@ -42,8 +42,6 @@ The most commonly used functions are:
    export_results
    get_default_solver_config_dict
    configure_logging
-   OptimizationResults
-   ParametricStudy
 ```
 
 ## Package Structure

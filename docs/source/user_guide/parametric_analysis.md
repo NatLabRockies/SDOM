@@ -108,23 +108,19 @@ The figures below are the actual outputs obtained by running the example above
 
 **Installed capacity by technology**
 
-![Capacity comparison](_static/parametric_example/sensitivity_plots/capacity_comparison.png)
+![Capacity comparison](../_static/parametric_example/sensitivity_plots/capacity_comparison.png)
 
 **Total generation by technology**
 
-![Generation comparison](_static/parametric_example/sensitivity_plots/generation_comparison.png)
+![Generation comparison](../_static/parametric_example/sensitivity_plots/generation_comparison.png)
 
 **VRE curtailment (absolute, MWh)**
 
-![Curtailment — absolute](_static/parametric_example/sensitivity_plots/curtailment_absolute.png)
+![Curtailment — absolute](../_static/parametric_example/sensitivity_plots/curtailment_absolute.png)
 
 **VRE curtailment (percentage)**
 
-![Curtailment — percentage](_static/parametric_example/sensitivity_plots/curtailment_percentage.png)
-
-**CAPEX and OPEX by technology**
-
-![Cost comparison](_static/parametric_example/sensitivity_plots/cost_comparison.png)
+![Curtailment — percentage](../_static/parametric_example/sensitivity_plots/curtailment_percentage.png)
 
 ### Per-case plots
 
@@ -133,19 +129,19 @@ The sample below is from case `GenMix_Target=1.0 | P_Capex×1.0 | load×1.0`.
 
 **Installed capacity donut**
 
-![Capacity donut](_static/parametric_example/case_plots/capacity_donut.png)
+![Capacity donut](../_static/parametric_example/case_plots/capacity_donut.png)
 
 **Capacity and generation donuts (side by side)**
 
-![Capacity and generation donuts](_static/parametric_example/case_plots/capacity_generation_donuts.png)
+![Capacity and generation donuts](../_static/parametric_example/case_plots/capacity_generation_donuts.png)
 
 **Hourly dispatch heatmap — VRE generation**
 
-![Heatmap — VRE generation](_static/parametric_example/case_plots/heatmap_vre_generation.png)
+![Heatmap — VRE generation](../_static/parametric_example/case_plots/heatmap_vre_generation.png)
 
 **Hourly dispatch heatmap — net load**
 
-![Heatmap — net load](_static/parametric_example/case_plots/heatmap_net_load.png)
+![Heatmap — net load](../_static/parametric_example/case_plots/heatmap_net_load.png)
 
 ---
 

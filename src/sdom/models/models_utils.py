@@ -65,7 +65,7 @@ def get_filtered_ts_parameter_dict( hourly_set, data: dict, key_ts: str, key_col
               only include hours in hourly_set.
     
     Notes:
-        Expects DataFrame to have a '*Hour' column for indexing.
+        Expects DataFrame to have a ``*Hour`` column for indexing.
     """
     selected_data          = data[key_ts].set_index('*Hour')[key_col].to_dict()
     filtered_selected_data = {h: selected_data[h] for h in hourly_set if h in selected_data}
