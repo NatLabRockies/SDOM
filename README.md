@@ -162,25 +162,25 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
   You should see output similar to:
 
   ```bash
-Package         Version
---------------- -----------
-contourpy       1.3.3
-cycler          0.12.1
-fonttools       4.63.0
-highspy         1.14.0
-kiwisolver      1.5.0
-matplotlib      3.10.9
-numpy           2.4.6
-packaging       26.2
-pandas          2.3.3
-pillow          12.2.0
-pyomo           6.10.0
-pyparsing       3.3.2
-python-dateutil 2.9.0.post0
-pytz            2026.2
-sdom            0.2.3
-six             1.17.0
-tzdata          2026.2
+    Package         Version
+    --------------- -----------
+    contourpy       1.3.3
+    cycler          0.12.1
+    fonttools       4.63.0
+    highspy         1.14.0
+    kiwisolver      1.5.0
+    matplotlib      3.10.9
+    numpy           2.4.6
+    packaging       26.2
+    pandas          2.3.3
+    pillow          12.2.0
+    pyomo           6.10.0
+    pyparsing       3.3.2
+    python-dateutil 2.9.0.post0
+    pytz            2026.2
+    sdom            0.2.3
+    six             1.17.0
+    tzdata          2026.2
   ```
 
 ## SDOM Input Files
