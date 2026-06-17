@@ -17,7 +17,7 @@
     Print the tag that would be created/pushed without making any changes.
 
 .PARAMETER Force
-    Skip the "are you on master with a clean tree?" safety checks.
+    Skip the "are you on main with a clean tree?" safety checks.
     Use only if you know what you're doing.
 
 .EXAMPLE
@@ -62,8 +62,8 @@ Write-Host "Tag to create/push:     $tag" -ForegroundColor Cyan
 # --- Safety checks ---
 if (-not $Force) {
     $branch = (git rev-parse --abbrev-ref HEAD).Trim()
-    if ($branch -ne "master") {
-        throw "Current branch is '$branch', expected 'master'. Use -Force to override."
+    if ($branch -ne "main") {
+        throw "Current branch is '$branch', expected 'main'. Use -Force to override."
     }
 
     $status = git status --porcelain
@@ -71,12 +71,12 @@ if (-not $Force) {
         throw "Working tree is not clean. Commit or stash changes first. Use -Force to override."
     }
 
-    # Make sure the local master is up to date with the remote.
+    # Make sure the local main is up to date with the remote.
     git fetch $Remote --quiet
     $localSha  = (git rev-parse "HEAD").Trim()
-    $remoteSha = (git rev-parse "$Remote/master").Trim()
+    $remoteSha = (git rev-parse "$Remote/main").Trim()
     if ($localSha -ne $remoteSha) {
-        throw "Local master ($localSha) differs from $Remote/master ($remoteSha). Pull/push first. Use -Force to override."
+        throw "Local main ($localSha) differs from $Remote/main ($remoteSha). Pull/push first. Use -Force to override."
     }
 }
 
@@ -108,4 +108,4 @@ if ($LASTEXITCODE -ne 0) { throw "git push failed" }
 
 Write-Host ""
 Write-Host "Done. Watch the workflow:" -ForegroundColor Green
-Write-Host "  https://github.com/Omar0902/SDOM/actions/workflows/release.yml" -ForegroundColor Green
+Write-Host "  https://github.com/NatLabRockies/SDOM/actions/workflows/release.yml" -ForegroundColor Green
