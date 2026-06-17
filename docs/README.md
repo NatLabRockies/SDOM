@@ -286,7 +286,7 @@ python -c "import sys; print(sys.path)"
 **Theme not found**
 ```bash
 # Reinstall theme
-uv pip install --upgrade pydata-sphinx-theme
+uv pip install --upgrade sphinx-rtd-theme
 ```
 
 **Autodoc import errors**
@@ -310,8 +310,8 @@ make html
 
 - Sphinx documentation: https://www.sphinx-doc.org/
 - MyST Parser: https://myst-parser.readthedocs.io/
-- PyData Theme: https://pydata-sphinx-theme.readthedocs.io/
-- SDOM Issues: https://github.com/Omar0902/SDOM/issues
+- Read the Docs Theme: https://sphinx-rtd-theme.readthedocs.io/
+- SDOM Issues: https://github.com/NatLabRockies/SDOM/issues
 
 ## Configuration
 

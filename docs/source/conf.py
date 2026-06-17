@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('../../src'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'SDOM'
-copyright = '2026, NREL SDOM Team'
+copyright = '2026, NLR SDOM Team'
 author = 'Omar Jose Guerra Fernandez, Mariya Koleva, Sebastian de Jesus Manrique Machado'
 
 # Read version from the single source of truth in pyproject.toml.
@@ -112,32 +112,30 @@ master_doc = 'index'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-# Theme configuration - using PyData Sphinx Theme
-html_theme = "pydata_sphinx_theme"
+# Theme configuration - using Read the Docs Sphinx Theme
+html_theme = "sphinx_rtd_theme"
 
 # Theme options
 html_theme_options = {
-    "logo": {
-        "text": "SDOM Documentation",
-    },
-    "github_url": "https://github.com/Omar0902/SDOM",
     "collapse_navigation": False,
     "navigation_depth": 3,
-    "show_nav_level": 2,
-    "show_toc_level": 2,
-    "navbar_align": "left",
-    "footer_start": ["copyright"],
-    "footer_end": ["sphinx-version"],
+    "sticky_navigation": True,
+    "includehidden": True,
+    "titles_only": False,
 }
 
 # Custom sidebar templates
 html_sidebars = {
-    "**": ["search-field", "sidebar-nav-bs"]
+    "**": ["globaltoc.html", "relations.html", "searchbox.html"]
 }
 
 # HTML context
 html_context = {
-    "default_mode": "light"
+    "display_github": True,
+    "github_user": "NatLabRockies",
+    "github_repo": "SDOM",
+    "github_version": "main",
+    "conf_py_path": "/docs/source/",
 }
 
 # Additional HTML options
