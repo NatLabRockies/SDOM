@@ -92,7 +92,7 @@ This file provides the system hourly electricity demand time-series.
 #### Solar PV
 
 ##### **Capacity Factors**: `CFSolar.csv`
-This file defines the hourly solar/wind capacity factors for each one of the potential sites defined in 2.1.1. This information can be obtained using, for instance [NLR SAM simulations](https://sam.nrel.gov/download.html) or [reV](https://www.nrel.gov/gis/renewable-energy-potential).
+This file defines the hourly solar/wind capacity factors for each one of the potential sites defined in 2.1.1. This information can be obtained using, for instance [NLR SAM simulations](https://sam.nlr.gov/download.html) or [reV](https://www.nlr.gov/gis/rev).
 - Columns: `*Hour`, `plant_1`, `plant_2`, ..., `plant_n`
 - Values: Capacity factors (0-1) for each hour and plant
 
@@ -207,7 +207,7 @@ This CSV input file provides key technical and economic parameters for diverse e
 
 **Cost Data Sources**
 Some sources to get cost data for storage technologies are:
- - [NLR Annual Technology Baseline (ATB)](https://atb.nrel.gov/electricity/2024/utility-scale_battery_storage)
+ - [NLR Annual Technology Baseline (ATB)](https://atb.nrel.gov/electricity/2024b/utility-scale_battery_storage)
  - [PNNL “Energy Storage Cost and Performance Database v2024”](https://www.pnnl.gov/projects/esgc-cost-performance/download-reports)
 
 
