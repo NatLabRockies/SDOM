@@ -1,0 +1,2275 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SDOM Formulation &mdash; SDOM v0.2.4</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6ffd866b"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Zonal Math Formulation" href="zonal_math_formulation.html" />
+    <link rel="prev" title="Exploring the Pyomo Model" href="exploring_model.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SDOM
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction to SDOM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#how-sdom-works">How SDOM Works</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="introduction.html#input-data">Input Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="introduction.html#outputs">Outputs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#simplified-mathematical-formulation">Simplified Mathematical Formulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#model-components">Model Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#key-features">Key Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="introduction.html#temporal-resolution">Temporal Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="introduction.html#storage-representation">Storage Representation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="introduction.html#spatial-resolution">Spatial Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="introduction.html#flexibility">Flexibility</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#computational-considerations">Computational Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">SDOM Input Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#input-data-structure">Input Data Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#zonal-mode-inputs">Zonal Mode Inputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#required-files">Required Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#formulations-configuration">1. Formulations Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#load-data">2. Load Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#vre-variable-renewable-energy-data">3. VRE (Variable Renewable Energy) Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#fixed-generation-sources">4. Fixed Generation Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#storage-technology-data">5. Storage Technology Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#thermal-generation-data">6. Thermal Generation Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#system-scalars">7. System Scalars</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inputs.html#import-export-data-optional">8. Import/Export Data (Optional)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#data-validation">Data Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#example-data-loading">Example Data Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#tips-for-data-preparation">Tips for Data Preparation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="zonal_inputs.html">Zonal Inputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="zonal_inputs.html#zonal-conventions">Zonal Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_inputs.html#network-selector">Network Selector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#formulations-csv">formulations.csv</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_inputs.html#new-zonal-files">New Zonal Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#areas-csv">areas.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#interconnections-csv">interconnections.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#linecap-ft-csv">LineCap_FT.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#linecap-tf-csv">LineCap_TF.csv</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_inputs.html#modified-existing-files-in-zonal-mode">Modified Existing Files in Zonal Mode</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#row-oriented-files-with-area-column">Row-oriented files with area column</a></li>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#wide-files-with-tagged-headers">Wide files with tagged headers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="zonal_inputs.html#capacity-factor-files">Capacity-factor files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_inputs.html#copperplate-aggregation-fallback">CopperPlate Aggregation Fallback</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_inputs.html#validation-summary">Validation Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="running_and_outputs.html">Running SDOM and Understanding Outputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#running-an-optimization">Running an Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#basic-workflow">Basic Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#shorter-time-horizons">Shorter Time Horizons</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#solver-configuration">Solver Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#cbc-solver-open-source">CBC Solver (Open-Source)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#highs-solver-open-source">HiGHS Solver (Open-Source)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#xpress-solver-commercial">Xpress Solver (Commercial)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#solver-option-reference">Solver Option Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#outputs-results">Outputs/Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#zonal-results-access">Zonal Results Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#solver-performance">Solver Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#infeasible-solutions">Infeasible Solutions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#visualising-results">Visualising Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#generated-figures">Generated figures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#controlling-the-output-directory">Controlling the output directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="running_and_outputs.html#full-workflow-example">Full workflow example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#running-parametric-sensitivity-studies">Running Parametric &amp; Sensitivity Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="running_and_outputs.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="zonal_model.html">Zonal Model Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="zonal_model.html#when-to-use-zonal-mode">When to Use Zonal Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_model.html#minimal-setup">Minimal Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_model.html#run-example">Run Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_model.html#pyomo-object-access">Pyomo Object Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_model.html#results-and-outputs">Results and Outputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_model.html#known-limits-current-scope">Known Limits (Current Scope)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="parametric_analysis.html">Parametric &amp; Sensitivity Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#when-to-use-parametric-analysis">When to use parametric analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#quick-start-example">Quick-start example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#sample-results-of-this-example">Sample results of this example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#cross-case-sensitivity-plots">Cross-case sensitivity plots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#per-case-plots">Per-case plots</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#sweep-types">Sweep types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#scalar-sweep-add-scalar-sweep-data-key-param-name-values">Scalar sweep — <code class="docutils literal notranslate"><span class="pre">add_scalar_sweep(data_key,</span> <span class="pre">param_name,</span> <span class="pre">values)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#storage-factor-sweep-add-storage-factor-sweep-param-name-factors">Storage factor sweep — <code class="docutils literal notranslate"><span class="pre">add_storage_factor_sweep(param_name,</span> <span class="pre">factors)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#time-series-sweep-add-ts-sweep-ts-key-factors">Time-series sweep — <code class="docutils literal notranslate"><span class="pre">add_ts_sweep(ts_key,</span> <span class="pre">factors)</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#cartesian-product-and-case-naming">Cartesian product and case naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#output-structure">Output structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#performance-guidance">Performance guidance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parametric_analysis.html#visualising-parametric-results">Visualising parametric results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#grouping-strategy">Grouping strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parametric_analysis.html#additional-options">Additional options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="resiliency.html">Resiliency Evaluation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#two-optimization-problems">Two Optimization Problems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#problem-b-baseline-annual-dispatch">Problem (B) - Baseline annual dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#problem-o-per-hour-outage-dispatch">Problem (O) - Per-hour outage dispatch</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#inputs">Inputs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#snapshot-directory-snapshot-dir">1. Snapshot directory (<code class="docutils literal notranslate"><span class="pre">snapshot_dir</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#previous-stage-inputs-directory-inputs-dir">2. Previous-stage inputs directory (<code class="docutils literal notranslate"><span class="pre">inputs_dir</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#outage-specification">Outage Specification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#quickstart">Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#end-to-end-with-evaluate-resiliency">1. End-to-end with <code class="docutils literal notranslate"><span class="pre">evaluate_resiliency</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#step-by-step-more-control-advanced">2. Step-by-step (more control, advanced)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#constant-critical-load-during-the-outage-window">3. Constant critical load during the outage window</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#optional-profiling">4. Optional profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#results">Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#per-hour-dataframe">Per-hour DataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#aggregate-metrics">Aggregate metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency.html#persistence">Persistence</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#plotting">Plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency.html#logging">Logging</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="resiliency_math.html">Resiliency Mathematical Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#sets">1. Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#parameters">2. Parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#designed-capacities-fixed">2.1 Designed capacities (fixed)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#time-series">2.2 Time series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#costs">2.3 Costs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#outage-operational">2.4 Outage / operational</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#variables">3. Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#objective-functions">4. Objective Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#problem-b-baseline-annual-dispatch">4.1 Problem (B): Baseline annual dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#problem-o-per-hour-outage-dispatch-starting-at-h">4.2 Problem (O): Per-hour outage dispatch starting at <span class="math notranslate nohighlight">\(h\)</span></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#constraints">5. Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#power-balance">5.1 Power balance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#capacity-bounds-with-de-rating">5.2 Capacity bounds with de-rating</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#storage-dynamics-charge-discharge-bounds">5.3 Storage dynamics, charge / discharge bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#demand-charge-linking-problem-b">5.4 Demand-charge linking (Problem (B))</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#outage-problem-coupling-problem-o-starting-at-h">5.5 Outage problem coupling (Problem (O), starting at <span class="math notranslate nohighlight">\(h\)</span>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#outage-modeling-formalism">6. Outage Modeling Formalism</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#capacity-bounded-assets">6.1 Capacity-bounded assets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#must-run-time-series-sources">6.2 Must-run time-series sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#recovery-window-semantics">6.3 Recovery window semantics</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="resiliency_math.html#resiliency-metrics">7. Resiliency Metrics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#per-scenario-anchored-at-h">7.1 Per-scenario (anchored at <span class="math notranslate nohighlight">\(h\)</span>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#aggregate">7.2 Aggregate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resiliency_math.html#probability-weighted-expected-metrics">7.3 Probability-weighted expected metrics</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="exploring_model.html">Exploring the Pyomo Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#model-architecture">Model Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#zonal-model-structure-areatransportationmodelnetwork">Zonal Model Structure (<code class="docutils literal notranslate"><span class="pre">AreaTransportationModelNetwork</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#model-components">Model Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#sets">Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#parameters">Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#variables">Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#expressions">Expressions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#constraints">Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#inspecting-the-model">Inspecting the Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#print-model-summary">Print Model Summary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#examine-specific-constraints">Examine Specific Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#display-variable-bounds">Display Variable Bounds</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#model-modifications">Model Modifications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#changing-parameters-between-runs">Changing Parameters Between Runs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#adding-custom-constraints">Adding Custom Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#debugging-model-issues">Debugging Model Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#check-for-infeasibility">Check for Infeasibility</a></li>
+<li class="toctree-l3"><a class="reference internal" href="exploring_model.html#validate-model-construction">Validate Model Construction</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#advanced-direct-pyomo-operations">Advanced: Direct Pyomo Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#model-formulation-files">Model Formulation Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="exploring_model.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SDOM Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#sets">Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parameters">Parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#derived-quantities">Derived quantities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#system">System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fixed-generation-profiles">Fixed generation profiles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#renewable-investment">Renewable investment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#balancing-units">Balancing units</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hydro">Hydro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trade">Trade</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#storage">Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#variables">Variables</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#renewable-investment-and-dispatch">Renewable (investment and dispatch)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#balancing-units-investment-and-dispatch">Balancing units (investment and dispatch)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#storage-investment-and-operations">Storage (investment and operations)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Hydro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Trade</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#objective-function">Objective Function</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pv-cost">PV cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wind-cost">Wind cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#balancing-unit-cost">Balancing unit cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#storage-cost">Storage cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trade-cost">Trade cost</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#constraints">Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#system-constraints">System constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vre-balance-constraints">VRE balance constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#balancing-unit-constraints">Balancing unit constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#storage-constraints">Storage constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hydro-budget-constraints">Hydro budget constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#import-and-export-constraints">Import and export constraints</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="zonal_math_formulation.html">Zonal Math Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#sets">Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#parameters">Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#variables">Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#network-constraints">Network Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#per-area-supply-balance">Per-Area Supply Balance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#system-wide-clean-share-constraint">System-Wide Clean Share Constraint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zonal_math_formulation.html#objective">Objective</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html">Core Optimization Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html">Results Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html">Model Formulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/io_manager.html">Data I/O Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html">Utility Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/parametric.html"><code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> — Parametric Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html">Resiliency Module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#quick-links">Quick Links</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#main-functions">Main Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/_autosummary/sdom.load_data.html">sdom.load_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/_autosummary/sdom.initialize_model.html">sdom.initialize_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/_autosummary/sdom.run_solver.html">sdom.run_solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/_autosummary/sdom.export_results.html">sdom.export_results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/_autosummary/sdom.get_default_solver_config_dict.html">sdom.get_default_solver_config_dict</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/_autosummary/sdom.configure_logging.html">sdom.configure_logging</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#package-structure">Package Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/core.html">Core Optimization Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html#model-initialization">Model Initialization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#sdom.optimization_main.initialize_model"><code class="docutils literal notranslate"><span class="pre">initialize_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html#solver-configuration">Solver Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#sdom.optimization_main.get_default_solver_config_dict"><code class="docutils literal notranslate"><span class="pre">get_default_solver_config_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#sdom.optimization_main.configure_solver"><code class="docutils literal notranslate"><span class="pre">configure_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html#running-optimization">Running Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#sdom.optimization_main.run_solver"><code class="docutils literal notranslate"><span class="pre">run_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html#configuration">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#sdom.config_sdom.configure_logging"><code class="docutils literal notranslate"><span class="pre">configure_logging()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/core.html#sdom.config_sdom.ColorFormatter"><code class="docutils literal notranslate"><span class="pre">ColorFormatter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/core.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/results.html">Results Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/results.html#optimizationresults-class">OptimizationResults Class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#sdom.results.OptimizationResults"><code class="docutils literal notranslate"><span class="pre">OptimizationResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/results.html#result-collection-function">Result Collection Function</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#sdom.results.collect_results_from_model"><code class="docutils literal notranslate"><span class="pre">collect_results_from_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/results.html#example-usage">Example Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#basic-result-access">Basic Result Access</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#accessing-capacities">Accessing Capacities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#accessing-dataframes">Accessing DataFrames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#accessing-cost-breakdown">Accessing Cost Breakdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#accessing-problem-information">Accessing Problem Information</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/results.html#optimizationresults-attributes">OptimizationResults Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#solver-information">Solver Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#core-results">Core Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#capacity-results">Capacity Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#generation-results">Generation Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#cost-breakdown">Cost Breakdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#dataframes">DataFrames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/results.html#zonal-fields">Zonal Fields</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">Model Formulations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_system">System Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_system.objective_rule"><code class="docutils literal notranslate"><span class="pre">objective_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_system.net_load_rule"><code class="docutils literal notranslate"><span class="pre">net_load_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_system.add_system_expressions"><code class="docutils literal notranslate"><span class="pre">add_system_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_system.create_supply_balance_rule"><code class="docutils literal notranslate"><span class="pre">create_supply_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_system.genmix_share_rule"><code class="docutils literal notranslate"><span class="pre">genmix_share_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_system.add_system_constraints"><code class="docutils literal notranslate"><span class="pre">add_system_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_vre">VRE Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_vre.add_vre_parameters"><code class="docutils literal notranslate"><span class="pre">add_vre_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_vre.add_vre_variables"><code class="docutils literal notranslate"><span class="pre">add_vre_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_vre.add_vre_expressions"><code class="docutils literal notranslate"><span class="pre">add_vre_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_vre.add_vre_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_vre_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_vre.vre_balance_rule"><code class="docutils literal notranslate"><span class="pre">vre_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_vre.add_vre_balance_constraints"><code class="docutils literal notranslate"><span class="pre">add_vre_balance_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_storage">Storage Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.initialize_storage_sets"><code class="docutils literal notranslate"><span class="pre">initialize_storage_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.add_storage_parameters"><code class="docutils literal notranslate"><span class="pre">add_storage_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.add_storage_variables"><code class="docutils literal notranslate"><span class="pre">add_storage_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.storage_power_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_power_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.storage_energy_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_energy_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.storage_fixed_om_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_fixed_om_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.add_storage_expressions"><code class="docutils literal notranslate"><span class="pre">add_storage_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.add_storage_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_storage_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.add_storage_variable_costs"><code class="docutils literal notranslate"><span class="pre">add_storage_variable_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.soc_balance_rule"><code class="docutils literal notranslate"><span class="pre">soc_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.max_cycle_year_rule"><code class="docutils literal notranslate"><span class="pre">max_cycle_year_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_storage.add_storage_constraints"><code class="docutils literal notranslate"><span class="pre">add_storage_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_thermal">Thermal Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.initialize_thermal_sets"><code class="docutils literal notranslate"><span class="pre">initialize_thermal_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.add_thermal_parameters"><code class="docutils literal notranslate"><span class="pre">add_thermal_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.add_thermal_variables"><code class="docutils literal notranslate"><span class="pre">add_thermal_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.total_thermal_expr_rule"><code class="docutils literal notranslate"><span class="pre">total_thermal_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.add_thermal_expressions"><code class="docutils literal notranslate"><span class="pre">add_thermal_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.add_thermal_constraints"><code class="docutils literal notranslate"><span class="pre">add_thermal_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.add_thermal_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_thermal_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_thermal.add_thermal_variable_costs"><code class="docutils literal notranslate"><span class="pre">add_thermal_variable_costs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_hydro">Hydropower Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_hydro.add_large_hydro_parameters"><code class="docutils literal notranslate"><span class="pre">add_large_hydro_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_hydro.add_large_hydro_bound_parameters"><code class="docutils literal notranslate"><span class="pre">add_large_hydro_bound_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_hydro.add_hydro_variables"><code class="docutils literal notranslate"><span class="pre">add_hydro_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_hydro.add_hydro_run_of_river_constraints"><code class="docutils literal notranslate"><span class="pre">add_hydro_run_of_river_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_hydro.add_hydro_budget_constraints"><code class="docutils literal notranslate"><span class="pre">add_hydro_budget_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_imports_exports">Import/Export Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_import_export_ts_parameters"><code class="docutils literal notranslate"><span class="pre">add_import_export_ts_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_imports_parameters"><code class="docutils literal notranslate"><span class="pre">add_imports_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_exports_parameters"><code class="docutils literal notranslate"><span class="pre">add_exports_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_imports_variables"><code class="docutils literal notranslate"><span class="pre">add_imports_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_exports_variables"><code class="docutils literal notranslate"><span class="pre">add_exports_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_imports_exports_cost_expressions"><code class="docutils literal notranslate"><span class="pre">add_imports_exports_cost_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_import_export_binary_variable"><code class="docutils literal notranslate"><span class="pre">add_import_export_binary_variable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_imports_constraints"><code class="docutils literal notranslate"><span class="pre">add_imports_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_exports_constraints"><code class="docutils literal notranslate"><span class="pre">add_exports_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_imports_constraints_without_net_load"><code class="docutils literal notranslate"><span class="pre">add_imports_constraints_without_net_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_exports_constraints_without_net_load"><code class="docutils literal notranslate"><span class="pre">add_exports_constraints_without_net_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_imports_exports.add_imports_exports_cost"><code class="docutils literal notranslate"><span class="pre">add_imports_exports_cost()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#module-sdom.models.formulations_network">Network (Zonal) Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_network.add_network_sets"><code class="docutils literal notranslate"><span class="pre">add_network_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_network.add_network_parameters"><code class="docutils literal notranslate"><span class="pre">add_network_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_network.add_network_variables"><code class="docutils literal notranslate"><span class="pre">add_network_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_network.add_network_constraints"><code class="docutils literal notranslate"><span class="pre">add_network_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_network.add_network_expressions"><code class="docutils literal notranslate"><span class="pre">add_network_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.formulations_network.network_transmission_cost_rule"><code class="docutils literal notranslate"><span class="pre">network_transmission_cost_rule()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#host-pattern-in-formulation-builders">Host Pattern in Formulation Builders</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#model-utilities">Model Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.compute_annualization_factor"><code class="docutils literal notranslate"><span class="pre">compute_annualization_factor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.build_annualization_factor_map"><code class="docutils literal notranslate"><span class="pre">build_annualization_factor_map()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.get_filtered_ts_parameter_dict"><code class="docutils literal notranslate"><span class="pre">get_filtered_ts_parameter_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_alpha_parameter"><code class="docutils literal notranslate"><span class="pre">add_alpha_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_alpha_and_ts_parameters"><code class="docutils literal notranslate"><span class="pre">add_alpha_and_ts_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_budget_parameter"><code class="docutils literal notranslate"><span class="pre">add_budget_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_upper_bound_paramenters"><code class="docutils literal notranslate"><span class="pre">add_upper_bound_paramenters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_lower_bound_paramenters"><code class="docutils literal notranslate"><span class="pre">add_lower_bound_paramenters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_generation_variables"><code class="docutils literal notranslate"><span class="pre">add_generation_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.sum_installed_capacity_by_plants_set_expr_rule"><code class="docutils literal notranslate"><span class="pre">sum_installed_capacity_by_plants_set_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.generic_fixed_om_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">generic_fixed_om_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.generic_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">generic_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.different_fcr_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">different_fcr_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.generic_budget_rule"><code class="docutils literal notranslate"><span class="pre">generic_budget_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.models.models_utils.add_generic_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_generic_fixed_costs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html#initialization-functions">Initialization Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.initializations.initialize_vre_sets"><code class="docutils literal notranslate"><span class="pre">initialize_vre_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.initializations.check_n_hours"><code class="docutils literal notranslate"><span class="pre">check_n_hours()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.initializations.create_budget_set"><code class="docutils literal notranslate"><span class="pre">create_budget_set()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.initializations.initialize_sets"><code class="docutils literal notranslate"><span class="pre">initialize_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#sdom.initializations.initialize_params"><code class="docutils literal notranslate"><span class="pre">initialize_params()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/io_manager.html">Data I/O Manager</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/io_manager.html#data-loading">Data Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/io_manager.html#sdom.io_manager.load_data"><code class="docutils literal notranslate"><span class="pre">load_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/io_manager.html#formulation-management">Formulation Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/io_manager.html#sdom.io_manager.get_formulation"><code class="docutils literal notranslate"><span class="pre">get_formulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/io_manager.html#sdom.io_manager.get_network_formulation"><code class="docutils literal notranslate"><span class="pre">get_network_formulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/io_manager.html#sdom.io_manager.check_formulation"><code class="docutils literal notranslate"><span class="pre">check_formulation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/io_manager.html#results-export">Results Export</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/io_manager.html#sdom.io_manager.export_results"><code class="docutils literal notranslate"><span class="pre">export_results()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/io_manager.html#example-loading-data">Example: Loading Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/io_manager.html#example-exporting-results">Example: Exporting Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/io_manager.html#data-dictionary-structure">Data Dictionary Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/utilities.html">Utility Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/utilities.html#pyomo-utilities">Pyomo Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.safe_pyomo_value"><code class="docutils literal notranslate"><span class="pre">safe_pyomo_value()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utilities.html#file-utilities">File Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.check_file_exists"><code class="docutils literal notranslate"><span class="pre">check_file_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.get_complete_path"><code class="docutils literal notranslate"><span class="pre">get_complete_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.normalize_string"><code class="docutils literal notranslate"><span class="pre">normalize_string()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utilities.html#data-utilities">Data Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.compare_lists"><code class="docutils literal notranslate"><span class="pre">compare_lists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.concatenate_dataframes"><code class="docutils literal notranslate"><span class="pre">concatenate_dataframes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#sdom.common.utilities.get_dict_string_void_list_from_keys_in_list"><code class="docutils literal notranslate"><span class="pre">get_dict_string_void_list_from_keys_in_list()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utilities.html#constants">Constants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#unit-conversion">Unit Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#input-file-names">Input File Names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#hydro-formulations">Hydro Formulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utilities.html#import-export-formulations">Import/Export Formulations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utilities.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resiliency.html">Resiliency Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#top-level-convenience">Top-Level Convenience</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.evaluate_resiliency"><code class="docutils literal notranslate"><span class="pre">evaluate_resiliency()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#data-loading">Data Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.load_designed_system"><code class="docutils literal notranslate"><span class="pre">load_designed_system()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.DesignedSystem"><code class="docutils literal notranslate"><span class="pre">DesignedSystem</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.BaselineState"><code class="docutils literal notranslate"><span class="pre">BaselineState</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#outage-specification">Outage Specification</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.OutageSpec"><code class="docutils literal notranslate"><span class="pre">OutageSpec</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.VALID_COMPONENTS"><code class="docutils literal notranslate"><span class="pre">VALID_COMPONENTS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.MUST_RUN_COMPONENTS"><code class="docutils literal notranslate"><span class="pre">MUST_RUN_COMPONENTS</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#baseline-dispatch-problem-b">Baseline Dispatch (Problem B)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.build_baseline_dispatch"><code class="docutils literal notranslate"><span class="pre">build_baseline_dispatch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.run_baseline_dispatch"><code class="docutils literal notranslate"><span class="pre">run_baseline_dispatch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.BaselineDispatchResults"><code class="docutils literal notranslate"><span class="pre">BaselineDispatchResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#outage-dispatch-problem-o">Outage Dispatch (Problem O)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.build_outage_dispatch"><code class="docutils literal notranslate"><span class="pre">build_outage_dispatch()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#imports-formulation-with-demand-charges">Imports Formulation with Demand Charges</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.add_imports_with_demand_charges"><code class="docutils literal notranslate"><span class="pre">add_imports_with_demand_charges()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#parallel-runner">Parallel Runner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.run_resiliency_evaluation"><code class="docutils literal notranslate"><span class="pre">run_resiliency_evaluation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#results-container">Results Container</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.ResiliencyResults"><code class="docutils literal notranslate"><span class="pre">ResiliencyResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/resiliency.html#plotting">Plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/resiliency.html#sdom.resiliency.plot_metric_distribution"><code class="docutils literal notranslate"><span class="pre">plot_metric_distribution()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_Developers_guide.html">GUIDELINES FOR DEVELOPING SDOM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../sdom_Developers_guide.html#general-guidelines">General Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sdom_Developers_guide.html#table-of-contents">Table of Contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_Developers_guide.html#clone-fork-sdom-repo">clone/fork SDOM repo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_Developers_guide.html#setting-up-your-enviroment">Setting up your enviroment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../sdom_Developers_guide.html#install-uv">Install uv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sdom_Developers_guide.html#install-your-local-sdom-python-module-and-pytest">Install your local SDOM python module and pytest</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_Developers_guide.html#running-tests-locally">Running tests locally</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_Developers_guide.html#build-the-documentation-locally">Build the documentation locally</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_Developers_guide.html#general-source-code-structure">General Source code structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parametric_implementation.html">Developer Guide: <code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> Implementation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#sub-package-layout">Sub-package layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#data-flow">Data flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#key-design-decisions">Key design decisions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#lazy-deep-copy-memory-efficiency">1. Lazy deep-copy (memory efficiency)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#collision-safe-case-naming">2. Collision-safe case naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#result-ordering-via-case-index-not-name-lookup">3. Result ordering via <code class="docutils literal notranslate"><span class="pre">case_index</span></code> (not name lookup)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#module-level-worker-function-pickling">4. Module-level worker function (pickling)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#graceful-failure">5. Graceful failure</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#mutations-py-ts-key-to-column-mapping"><code class="docutils literal notranslate"><span class="pre">mutations.py</span></code> — TS_KEY_TO_COLUMN mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#case-naming-format">Case naming format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#summary-csv-columns">Summary CSV columns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#how-to-extend">How to extend</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#adding-a-new-sweep-type">Adding a new sweep type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../parametric_implementation.html#adding-a-new-time-series-key">Adding a new time-series key</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#testing-strategy">Testing strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parametric_implementation.html#known-limitations-deferred-items">Known limitations &amp; deferred items</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sdom_publications.html">PUBLICATIONS AND USE CASES OF SDOM</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/Omar0902/SDOM">GitHub Repository</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SDOM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SDOM Formulation</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/sdom_math_formulation.md" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="sdom-formulation">
+<h1>SDOM Formulation<a class="headerlink" href="#sdom-formulation" title="Link to this heading"></a></h1>
+<blockquote>
+<div><p><strong>Storage Deployment Optimization Model (SDOM)</strong>: a mixed-integer linear program that co-optimizes
+investment in renewable generation, balancing units, and storage technologies while dispatching
+all resources to meet electrical demand at minimum annualized system cost subject to a clean-energy
+target.</p>
+</div></blockquote>
+<p>For the zonal multi-area formulation (<code class="docutils literal notranslate"><span class="pre">Network</span> <span class="pre">=</span> <span class="pre">AreaTransportationModelNetwork</span></code>), see <a class="reference internal" href="zonal_math_formulation.html"><span class="std std-doc">Zonal Math Formulation</span></a>.</p>
+<hr class="docutils" />
+<section id="sets">
+<h2>Sets<a class="headerlink" href="#sets" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Index</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{P}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(p\)</span></p></td>
+<td><p>PV plants</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{W}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(w\)</span></p></td>
+<td><p>Wind plants</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{K}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(k\)</span></p></td>
+<td><p>Balancing units (dispatchable)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{B}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(b\)</span></p></td>
+<td><p>Hydro budget periods</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}_b \subseteq \mathcal{H}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Hours belonging to budget period <span class="math notranslate nohighlight">\(b\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{J}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(j\)</span></p></td>
+<td><p>Storage technologies</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{J}^{c} \subseteq \mathcal{J}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(j\)</span></p></td>
+<td><p>Coupled storage technologies</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
+<section id="derived-quantities">
+<h3>Derived quantities<a class="headerlink" href="#derived-quantities" title="Link to this heading"></a></h3>
+<p>The <strong>capital recovery factor</strong> annualizes a lump-sum investment over lifetime <span class="math notranslate nohighlight">\(l\)</span> at discount rate <span class="math notranslate nohighlight">\(r\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[
+\text{CRF}(l) = \frac{r\,(1+r)^{l}}{(1+r)^{l} - 1}
+\]</div>
+</section>
+<section id="system">
+<h3>System<a class="headerlink" href="#system" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(d_h\)</span></p></td>
+<td><p>Electrical demand at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(r\)</span></p></td>
+<td><p>Discount rate</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\tau\)</span></p></td>
+<td><p>Minimum clean-energy generation share</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\([0, 1]\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="fixed-generation-profiles">
+<h3>Fixed generation profiles<a class="headerlink" href="#fixed-generation-profiles" title="Link to this heading"></a></h3>
+<p>Exogenous time series scaled by activation parameters <span class="math notranslate nohighlight">\(\alpha\)</span>.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\rho_h\)</span></p></td>
+<td><p>Run-of-river hydro generation</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\nu_h\)</span></p></td>
+<td><p>Nuclear generation profile</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_h\)</span></p></td>
+<td><p>Other renewable generation profile</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha^{nuc}\)</span></p></td>
+<td><p>Nuclear activation scalar</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\{0, 1\}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\alpha^{hyd}\)</span></p></td>
+<td><p>Hydro activation scalar</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\{0, 1\}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha^{oth}\)</span></p></td>
+<td><p>Other renewables activation scalar</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\{0, 1\}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="renewable-investment">
+<h3>Renewable investment<a class="headerlink" href="#renewable-investment" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\sigma_{ph}\)</span></p></td>
+<td><p>Solar capacity factor for plant <span class="math notranslate nohighlight">\(p\)</span> at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\([0, 1]\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\zeta_{wh}\)</span></p></td>
+<td><p>Wind capacity factor for plant <span class="math notranslate nohighlight">\(w\)</span> at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\([0, 1]\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{pv}_p\)</span></p></td>
+<td><p>Max allowed PV capacity for plant <span class="math notranslate nohighlight">\(p\)</span></p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{wind}_w\)</span></p></td>
+<td><p>Max allowed wind capacity for plant <span class="math notranslate nohighlight">\(w\)</span></p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{pv}_p\)</span></p></td>
+<td><p>PV CAPEX</p></td>
+<td><p>$/MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{wind}_w\)</span></p></td>
+<td><p>Wind CAPEX</p></td>
+<td><p>$/MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{tc,pv}_p\)</span></p></td>
+<td><p>PV transmission capital cost</p></td>
+<td><p>$/MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{tc,wind}_w\)</span></p></td>
+<td><p>Wind transmission capital cost</p></td>
+<td><p>$/MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\phi^{pv}_p\)</span></p></td>
+<td><p>PV fixed O&amp;M</p></td>
+<td><p>$/MW-yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\phi^{wind}_w\)</span></p></td>
+<td><p>Wind fixed O&amp;M</p></td>
+<td><p>$/MW-yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{vre}\)</span></p></td>
+<td><p>VRE lifetime (shared across all PV and wind)</p></td>
+<td><p>yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{Z}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="balancing-units">
+<h3>Balancing units<a class="headerlink" href="#balancing-units" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\underline{p}^{bal}_k\)</span></p></td>
+<td><p>Min balancing capacity</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{bal}_k\)</span></p></td>
+<td><p>Max allowed balancing capacity</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{bal}_k\)</span></p></td>
+<td><p>Balancing unit CAPEX</p></td>
+<td><p>$/MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\gamma_k\)</span></p></td>
+<td><p>Marginal fuel cost (fuel price <span class="math notranslate nohighlight">\(\times\)</span> heat rate)</p></td>
+<td><p>$/MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\phi^{bal}_k\)</span></p></td>
+<td><p>Balancing fixed O&amp;M</p></td>
+<td><p>$/MW-yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\psi^{bal}_k\)</span></p></td>
+<td><p>Balancing variable O&amp;M</p></td>
+<td><p>$/MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{bal}_k\)</span></p></td>
+<td><p>Balancing unit lifetime</p></td>
+<td><p>yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{Z}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="hydro">
+<h3>Hydro<a class="headerlink" href="#hydro" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\underline{g}^{hyd}_h\)</span></p></td>
+<td><p>Hourly hydro lower bound</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\overline{g}^{hyd}_h\)</span></p></td>
+<td><p>Hourly hydro upper bound</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\epsilon_b\)</span></p></td>
+<td><p>Energy budget for period <span class="math notranslate nohighlight">\(b\)</span> (from time series)</p></td>
+<td><p>MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="trade">
+<h3>Trade<a class="headerlink" href="#trade" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\bar{\iota}_h\)</span></p></td>
+<td><p>Max import capacity at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{\xi}_h\)</span></p></td>
+<td><p>Max export capacity at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(c^{imp}_h\)</span></p></td>
+<td><p>Import price at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>$/MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(c^{exp}_h\)</span></p></td>
+<td><p>Export price at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>$/MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="storage">
+<h3>Storage<a class="headerlink" href="#storage" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Notation</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{P}_j\)</span></p></td>
+<td><p>CAPEX power</p></td>
+<td><p>$/MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{E}_j\)</span></p></td>
+<td><p>CAPEX energy</p></td>
+<td><p>$/MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\eta_j\)</span></p></td>
+<td><p>Roundtrip efficiency (charge <span class="math notranslate nohighlight">\(\times\)</span> discharge)</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\((0, 1]\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\underline{\delta}_j\)</span></p></td>
+<td><p>Min duration</p></td>
+<td><p>hr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\overline{\delta}_j\)</span></p></td>
+<td><p>Max duration</p></td>
+<td><p>hr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{stor}_j\)</span></p></td>
+<td><p>Max installable power capacity</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\alpha_j\)</span></p></td>
+<td><p>Cost ratio: fraction of power cost on charge side</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\([0, 1]\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\phi^{stor}_j\)</span></p></td>
+<td><p>Fixed O&amp;M</p></td>
+<td><p>$/MW-yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\psi^{stor}_j\)</span></p></td>
+<td><p>Variable O&amp;M (applied to discharge only)</p></td>
+<td><p>$/MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(l^{stor}_j\)</span></p></td>
+<td><p>Lifetime</p></td>
+<td><p>yr</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{Z}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{cyc}_j\)</span></p></td>
+<td><p>Max lifetime cycles</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<div><p><strong>Coupled vs decoupled storage.</strong>
+A <strong>coupled</strong> technology (e.g. Li-Ion battery, pumped hydro) uses shared equipment for
+charge and discharge, so the power ratings are forced equal: <span class="math notranslate nohighlight">\(P^{ch}_j = P^{dis}_j\)</span>.
+A <strong>decoupled</strong> technology (e.g. CAES, hydrogen) has separate input and output equipment,
+so <span class="math notranslate nohighlight">\(P^{ch}_j\)</span> and <span class="math notranslate nohighlight">\(P^{dis}_j\)</span> can be independently sized.</p>
+<p>The cost ratio <span class="math notranslate nohighlight">\(\alpha_j\)</span> distributes power-related costs (CAPEX, FOM) between the charge
+side (fraction <span class="math notranslate nohighlight">\(\alpha_j\)</span>) and the discharge side (fraction <span class="math notranslate nohighlight">\(1 - \alpha_j\)</span>). For coupled
+storage where <span class="math notranslate nohighlight">\(P^{ch}_j = P^{dis}_j\)</span>, the split is immaterial.</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variables">
+<h2>Variables<a class="headerlink" href="#variables" title="Link to this heading"></a></h2>
+<section id="renewable-investment-and-dispatch">
+<h3>Renewable (investment and dispatch)<a class="headerlink" href="#renewable-investment-and-dispatch" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(F^{pv}_p\)</span></p></td>
+<td><p>Fraction of max PV capacity to build</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\([0, 1]\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(F^{wind}_w\)</span></p></td>
+<td><p>Fraction of max wind capacity to build</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\([0, 1]\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{pv}_h\)</span></p></td>
+<td><p>Aggregate PV generation</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{wind}_h\)</span></p></td>
+<td><p>Aggregate wind generation</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(C^{pv}_h\)</span></p></td>
+<td><p>PV curtailment</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(C^{wind}_h\)</span></p></td>
+<td><p>Wind curtailment</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="balancing-units-investment-and-dispatch">
+<h3>Balancing units (investment and dispatch)<a class="headerlink" href="#balancing-units-investment-and-dispatch" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(P^{bal}_k\)</span></p></td>
+<td><p>Installed balancing capacity</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{bal}_{kh}\)</span></p></td>
+<td><p>Balancing unit generation</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="storage-investment-and-operations">
+<h3>Storage (investment and operations)<a class="headerlink" href="#storage-investment-and-operations" title="Link to this heading"></a></h3>
+<p>Both charge and discharge power capacity variables exist for <strong>all</strong> storage technologies.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(P^{dis}_j\)</span></p></td>
+<td><p>Installed discharge power capacity</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(P^{ch}_j\)</span></p></td>
+<td><p>Installed charge power capacity</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(E_j\)</span></p></td>
+<td><p>Installed energy capacity</p></td>
+<td><p>MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(D^{ch}_{jh}\)</span></p></td>
+<td><p>Charge power</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(D^{dis}_{jh}\)</span></p></td>
+<td><p>Discharge power</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(S_{jh}\)</span></p></td>
+<td><p>State of charge</p></td>
+<td><p>MWh</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(U_{jh}\)</span></p></td>
+<td><p>Charge indicator (<span class="math notranslate nohighlight">\(1\)</span> = charging)</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\{0, 1\}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id1">
+<h3>Hydro<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{hyd}_h\)</span></p></td>
+<td><p>Dispatchable hydro generation</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id2">
+<h3>Trade<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Units</p></th>
+<th class="head"><p>Domain</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(M_h\)</span></p></td>
+<td><p>Imports</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(X_h\)</span></p></td>
+<td><p>Exports</p></td>
+<td><p>MW</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathbb{R}_+\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(V_h\)</span></p></td>
+<td><p>Net-load sign indicator (<span class="math notranslate nohighlight">\(1\)</span> if net load <span class="math notranslate nohighlight">\(&gt; 0\)</span>)</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(\{0, 1\}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="objective-function">
+<h2>Objective Function<a class="headerlink" href="#objective-function" title="Link to this heading"></a></h2>
+<div class="math notranslate nohighlight">
+\[
+\min \; Z \;=\; Z^{pv} + Z^{wind} + Z^{bal} + Z^{stor} + Z^{trade}
+\]</div>
+<section id="pv-cost">
+<h3>PV cost<a class="headerlink" href="#pv-cost" title="Link to this heading"></a></h3>
+<p>Annualized CAPEX (including transmission) and FOM. VRE shares a single lifetime <span class="math notranslate nohighlight">\(l^{vre}\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[
+Z^{pv} = \sum_{p \in \mathcal{P}} \Bigl[
+  \bigl(\text{CRF}(l^{vre}) \cdot (\kappa^{pv}_p + \kappa^{tc,pv}_p) + \phi^{pv}_p\bigr)
+  \;\bar{p}^{pv}_p \; F^{pv}_p
+\Bigr]
+\]</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{P}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>PV plants</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(p\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>PV plant</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{vre}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>VRE lifetime (yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{pv}_p\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>PV CAPEX ($/MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{tc,pv}_p\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>PV transmission capital cost ($/MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\phi^{pv}_p\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>PV fixed O&amp;M ($/MW-yr)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{pv}_p\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max allowed PV capacity (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(F^{pv}_p\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Fraction of max PV capacity to build</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="wind-cost">
+<h3>Wind cost<a class="headerlink" href="#wind-cost" title="Link to this heading"></a></h3>
+<div class="math notranslate nohighlight">
+\[
+Z^{wind} = \sum_{w \in \mathcal{W}} \Bigl[
+  \bigl(\text{CRF}(l^{vre}) \cdot (\kappa^{wind}_w + \kappa^{tc,wind}_w) + \phi^{wind}_w\bigr)
+  \;\bar{p}^{wind}_w \; F^{wind}_w
+\Bigr]
+\]</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{W}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Wind plants</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(w\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Wind plant</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{vre}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>VRE lifetime (yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{wind}_w\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Wind CAPEX ($/MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{tc,wind}_w\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Wind transmission capital cost ($/MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\phi^{wind}_w\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Wind fixed O&amp;M ($/MW-yr)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{wind}_w\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max allowed wind capacity (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(F^{wind}_w\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Fraction of max wind capacity to build</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="balancing-unit-cost">
+<h3>Balancing unit cost<a class="headerlink" href="#balancing-unit-cost" title="Link to this heading"></a></h3>
+<p>Per-unit CRF based on individual lifetimes. Marginal cost includes fuel and VOM:</p>
+<div class="math notranslate nohighlight">
+\[
+Z^{bal} = \sum_{k \in \mathcal{K}} \Bigl[
+  \bigl(\text{CRF}(l^{bal}_k) \cdot \kappa^{bal}_k + \phi^{bal}_k\bigr)
+  \; P^{bal}_k
+  \;+\; \sum_{h \in \mathcal{H}} \bigl(\gamma_k + \psi^{bal}_k\bigr) \; G^{bal}_{kh}
+\Bigr]
+\]</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{K}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Balancing units (dispatchable)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(k\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Balancing unit</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{bal}_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Balancing unit lifetime (yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{bal}_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Balancing unit CAPEX ($/MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\phi^{bal}_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Balancing fixed O&amp;M ($/MW-yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\gamma_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Marginal fuel cost ($/MWh)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\psi^{bal}_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Balancing variable O&amp;M ($/MWh)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(P^{bal}_k\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed balancing capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{bal}_{kh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Balancing unit generation (MW)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="storage-cost">
+<h3>Storage cost<a class="headerlink" href="#storage-cost" title="Link to this heading"></a></h3>
+<p>The cost ratio <span class="math notranslate nohighlight">\(\alpha_j\)</span> distributes power CAPEX and FOM between the charge side (fraction
+<span class="math notranslate nohighlight">\(\alpha_j\)</span>) and the discharge side (fraction <span class="math notranslate nohighlight">\(1 - \alpha_j\)</span>). This applies uniformly to all
+storage technologies:</p>
+<div class="math notranslate nohighlight">
+\[
+Z^{stor} = \sum_{j \in \mathcal{J}} \Bigl[
+  \text{CRF}(l^{stor}_j) \Bigl(
+    \kappa^{P}_j \bigl(\alpha_j \; P^{ch}_j + (1 - \alpha_j) \; P^{dis}_j\bigr)
+    \;+\; \kappa^{E}_j \; E_j
+  \Bigr)
+  \;+\; \phi^{stor}_j \bigl(\alpha_j \; P^{ch}_j + (1 - \alpha_j) \; P^{dis}_j\bigr)
+  \;+\; \sum_{h \in \mathcal{H}} \psi^{stor}_j \; D^{dis}_{jh}
+\Bigr]
+\]</div>
+<blockquote>
+<div><p>VOM is charged on <strong>discharge only</strong>.</p>
+</div></blockquote>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{J}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Storage technologies</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(j\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Storage technology</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{stor}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Storage lifetime (yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{P}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>CAPEX power ($/MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\kappa^{E}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>CAPEX energy ($/MWh)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Cost ratio: fraction of power cost on charge side</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\phi^{stor}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Storage fixed O&amp;M ($/MW-yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\psi^{stor}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Storage variable O&amp;M ($/MWh)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(P^{ch}_j\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed charge power capacity (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(P^{dis}_j\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed discharge power capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(E_j\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed energy capacity (MWh)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(D^{dis}_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Discharge power (MW)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="trade-cost">
+<h3>Trade cost<a class="headerlink" href="#trade-cost" title="Link to this heading"></a></h3>
+<p>Import cost minus export revenue:</p>
+<div class="math notranslate nohighlight">
+\[
+Z^{trade} = \sum_{h \in \mathcal{H}} \bigl(
+  c^{imp}_h \; M_h \;-\; c^{exp}_h \; X_h
+\bigr)
+\]</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(c^{imp}_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Import price at hour <span class="math notranslate nohighlight">\(h\)</span> ($/MWh)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(c^{exp}_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Export price at hour <span class="math notranslate nohighlight">\(h\)</span> ($/MWh)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(M_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Imports (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(X_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Exports (MW)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="constraints">
+<h2>Constraints<a class="headerlink" href="#constraints" title="Link to this heading"></a></h2>
+<section id="system-constraints">
+<h3>System constraints<a class="headerlink" href="#system-constraints" title="Link to this heading"></a></h3>
+<section id="energy-supply-balance">
+<h4>Energy supply balance<a class="headerlink" href="#energy-supply-balance" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \quad
+\underbrace{
+  G^{pv}_h
+  + G^{wind}_h
+  + \sum_{k \in \mathcal{K}} G^{bal}_{kh}
+  + G^{hyd}_h
+  + \alpha^{nuc} \nu_h + \alpha^{oth} \omega_h
+  + \sum_{j \in \mathcal{J}} D^{dis}_{jh}
+  + M_h
+}_{\text{supply}}
+\;=\;
+\underbrace{
+  d_h
+  + \sum_{j \in \mathcal{J}} D^{ch}_{jh}
+  + X_h
+}_{\text{demand + charging + exports}}
+\]</div>
+<blockquote>
+<div><p>Curtailment does not appear in the energy balance. It is handled per-technology by the
+VRE balance constraints below.</p>
+</div></blockquote>
+</section>
+<section id="carbon-free-generation-target">
+<h4>Carbon-free generation target<a class="headerlink" href="#carbon-free-generation-target" title="Link to this heading"></a></h4>
+<p>Total balancing-unit generation plus imports must not exceed <span class="math notranslate nohighlight">\((1 - \tau)\)</span> of adjusted demand (demand plus
+net storage loading). This ensures that both thermal generation and imported electricity count against the clean-energy target:</p>
+<div class="math notranslate nohighlight">
+\[
+\sum_{k \in \mathcal{K}} \sum_{h \in \mathcal{H}} G^{bal}_{kh} + \sum_{h \in \mathcal{H}} M_h
+\;\leq\;
+(1 - \tau) \sum_{h \in \mathcal{H}} \Bigl(
+  d_h + \sum_{j \in \mathcal{J}} D^{ch}_{jh} - \sum_{j \in \mathcal{J}} D^{dis}_{jh}
+\Bigr)
+\]</div>
+<blockquote>
+<div><p><strong>Note:</strong> Imports are treated as non-clean energy in this constraint. If imports are not
+modeled (i.e., the Imports formulation is set to “NotModel”), only thermal generation
+is constrained.</p>
+</div></blockquote>
+<p><strong>Symbols used in system constraints:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{K}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Balancing units (dispatchable)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{J}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Storage technologies</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(k\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Balancing unit</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(j\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Storage technology</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(d_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Electrical demand at hour <span class="math notranslate nohighlight">\(h\)</span> (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha^{nuc}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Nuclear activation scalar</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\alpha^{oth}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Other renewables activation scalar</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\nu_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Nuclear generation profile (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Other renewable generation profile (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\tau\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Minimum clean-energy generation share</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{pv}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Aggregate PV generation (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{wind}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Aggregate wind generation (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{bal}_{kh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Balancing unit generation (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{hyd}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Dispatchable hydro generation (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(D^{ch}_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Charge power (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(D^{dis}_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Discharge power (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(M_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Imports (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(X_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Exports (MW)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="vre-balance-constraints">
+<h3>VRE balance constraints<a class="headerlink" href="#vre-balance-constraints" title="Link to this heading"></a></h3>
+<p>Generation plus curtailment equals total available resource. Per-technology equality:</p>
+<section id="pv-balance">
+<h4>PV balance<a class="headerlink" href="#pv-balance" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+G^{pv}_h + C^{pv}_h \;=\; \sum_{p \in \mathcal{P}} \sigma_{ph} \;\bar{p}^{pv}_p \; F^{pv}_p
+\]</div>
+</section>
+<section id="wind-balance">
+<h4>Wind balance<a class="headerlink" href="#wind-balance" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+G^{wind}_h + C^{wind}_h \;=\; \sum_{w \in \mathcal{W}} \zeta_{wh} \;\bar{p}^{wind}_w \; F^{wind}_w
+\]</div>
+<p><strong>Symbols used in VRE balance constraints:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{P}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>PV plants</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{W}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Wind plants</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(p\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>PV plant</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(w\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Wind plant</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\sigma_{ph}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Solar capacity factor for plant <span class="math notranslate nohighlight">\(p\)</span> at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{pv}_p\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max allowed PV capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\zeta_{wh}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Wind capacity factor for plant <span class="math notranslate nohighlight">\(w\)</span> at hour <span class="math notranslate nohighlight">\(h\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{wind}_w\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max allowed wind capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{pv}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Aggregate PV generation (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(C^{pv}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>PV curtailment (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(F^{pv}_p\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Fraction of max PV capacity to build</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{wind}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Aggregate wind generation (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(C^{wind}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Wind curtailment (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(F^{wind}_w\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Fraction of max wind capacity to build</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="balancing-unit-constraints">
+<h3>Balancing unit constraints<a class="headerlink" href="#balancing-unit-constraints" title="Link to this heading"></a></h3>
+<section id="dispatch-limit">
+<h4>Dispatch limit<a class="headerlink" href="#dispatch-limit" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, k \in \mathcal{K} \;\; \forall\, h \in \mathcal{H}: \qquad
+G^{bal}_{kh} \;\leq\; P^{bal}_k
+\]</div>
+</section>
+<section id="capacity-bounds">
+<h4>Capacity bounds<a class="headerlink" href="#capacity-bounds" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, k \in \mathcal{K}: \qquad
+\underline{p}^{bal}_k \;\leq\; P^{bal}_k \;\leq\; \bar{p}^{bal}_k
+\]</div>
+<p><strong>Symbols used in balancing unit constraints:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{K}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Balancing units (dispatchable)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(k\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Balancing unit</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\underline{p}^{bal}_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Min balancing capacity (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{bal}_k\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max allowed balancing capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(P^{bal}_k\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed balancing capacity (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{bal}_{kh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Balancing unit generation (MW)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="storage-constraints">
+<h3>Storage constraints<a class="headerlink" href="#storage-constraints" title="Link to this heading"></a></h3>
+<section id="coupled-power-equality">
+<h4>Coupled power equality<a class="headerlink" href="#coupled-power-equality" title="Link to this heading"></a></h4>
+<p>For coupled technologies, charge and discharge power capacity must be equal:</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J}^{c}: \qquad
+P^{ch}_j \;=\; P^{dis}_j
+\]</div>
+</section>
+<section id="power-capacity-bounds">
+<h4>Power capacity bounds<a class="headerlink" href="#power-capacity-bounds" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J}: \qquad
+P^{ch}_j \;\leq\; \bar{p}^{stor}_j \;, \quad
+P^{dis}_j \;\leq\; \bar{p}^{stor}_j
+\]</div>
+</section>
+<section id="charge-and-discharge-hourly-limits">
+<h4>Charge and discharge hourly limits<a class="headerlink" href="#charge-and-discharge-hourly-limits" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
+D^{ch}_{jh} \;\leq\; P^{ch}_j \;, \quad
+D^{dis}_{jh} \;\leq\; P^{dis}_j
+\]</div>
+</section>
+<section id="charge-or-discharge-only">
+<h4>Charge or discharge only<a class="headerlink" href="#charge-or-discharge-only" title="Link to this heading"></a></h4>
+<p>A storage unit cannot simultaneously charge and discharge. Enforced with binary indicator
+<span class="math notranslate nohighlight">\(U_{jh}\)</span> using <span class="math notranslate nohighlight">\(\bar{p}^{stor}_j\)</span> as a tight big-<span class="math notranslate nohighlight">\(\mathcal{M}\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
+D^{ch}_{jh} \;\leq\; \bar{p}^{stor}_j \;\cdot\; U_{jh}
+\]</div>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
+D^{dis}_{jh} \;\leq\; \bar{p}^{stor}_j \;\cdot\; (1 - U_{jh})
+\]</div>
+</section>
+<section id="state-of-charge-balance">
+<h4>State-of-charge balance<a class="headerlink" href="#state-of-charge-balance" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H} \setminus \{1\}: \qquad
+S_{jh} \;=\; S_{j(h-1)}
+  \;+\; \sqrt{\eta_j}\; D^{ch}_{jh}
+  \;-\; \frac{1}{\sqrt{\eta_j}}\; D^{dis}_{jh}
+\]</div>
+<p>Cyclic boundary condition (SOC wraps around):</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J}: \qquad
+S_{j1} \;=\; S_{j|\mathcal{H}|}
+  \;+\; \sqrt{\eta_j}\; D^{ch}_{j1}
+  \;-\; \frac{1}{\sqrt{\eta_j}}\; D^{dis}_{j1}
+\]</div>
+</section>
+<section id="state-of-charge-limits">
+<h4>State-of-charge limits<a class="headerlink" href="#state-of-charge-limits" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J} \;\; \forall\, h \in \mathcal{H}: \qquad
+0 \;\leq\; S_{jh} \;\leq\; E_j
+\]</div>
+</section>
+<section id="duration-limits">
+<h4>Duration limits<a class="headerlink" href="#duration-limits" title="Link to this heading"></a></h4>
+<p>The energy-to-power ratio must lie within the allowable duration window. Duration is
+defined relative to discharge power corrected for discharge efficiency:</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J}: \qquad
+\frac{\underline{\delta}_j \; P^{dis}_j}{\sqrt{\eta_j}}
+\;\leq\; E_j \;\leq\;
+\frac{\overline{\delta}_j \; P^{dis}_j}{\sqrt{\eta_j}}
+\]</div>
+</section>
+<section id="cycle-limits">
+<h4>Cycle limits<a class="headerlink" href="#cycle-limits" title="Link to this heading"></a></h4>
+<p>Total discharge throughput is bounded by the annualized maximum number of full cycles
+(lifetime cycles divided by lifetime):</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, j \in \mathcal{J}: \qquad
+\sum_{h \in \mathcal{H}} D^{dis}_{jh} \;\leq\; \frac{\kappa^{cyc}_j}{l^{stor}_j} \;\cdot\; E_j
+\]</div>
+<p><strong>Symbols used in storage constraints:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{J}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Storage technologies</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{J}^{c}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Coupled storage technologies</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(j\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Storage technology</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{p}^{stor}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max installable power capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\eta_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Roundtrip efficiency</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\underline{\delta}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Min duration (hr)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\overline{\delta}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max duration (hr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\kappa^{cyc}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max lifetime cycles</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(l^{stor}_j\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Storage lifetime (yr)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(P^{ch}_j\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed charge power capacity (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(P^{dis}_j\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed discharge power capacity (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(E_j\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Installed energy capacity (MWh)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(D^{ch}_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Charge power (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(D^{dis}_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Discharge power (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(S_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>State of charge (MWh)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(U_{jh}\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Charge indicator (<span class="math notranslate nohighlight">\(1\)</span> = charging)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="hydro-budget-constraints">
+<h3>Hydro budget constraints<a class="headerlink" href="#hydro-budget-constraints" title="Link to this heading"></a></h3>
+<section id="hourly-bounds">
+<h4>Hourly bounds<a class="headerlink" href="#hourly-bounds" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+\alpha^{hyd} \; \underline{g}^{hyd}_h \;\leq\; G^{hyd}_h \;\leq\; \alpha^{hyd} \; \overline{g}^{hyd}_h
+\]</div>
+</section>
+<section id="energy-budget-equality">
+<h4>Energy budget (equality)<a class="headerlink" href="#energy-budget-equality" title="Link to this heading"></a></h4>
+<p>Total dispatchable hydro generation within each budget period must <strong>equal</strong> the available
+energy budget:</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, b \in \mathcal{B}: \qquad
+\sum_{h \in \mathcal{H}_b} G^{hyd}_h \;=\; \epsilon_b
+\]</div>
+<p><strong>Symbols used in hydro budget constraints:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{B}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hydro budget periods</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}_b\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours belonging to budget period <span class="math notranslate nohighlight">\(b\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(b\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Budget period</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha^{hyd}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Hydro activation scalar</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\underline{g}^{hyd}_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Hourly hydro lower bound (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\overline{g}^{hyd}_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Hourly hydro upper bound (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\epsilon_b\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Energy budget for period <span class="math notranslate nohighlight">\(b\)</span> (MWh)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(G^{hyd}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Dispatchable hydro generation (MW)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="import-and-export-constraints">
+<h3>Import and export constraints<a class="headerlink" href="#import-and-export-constraints" title="Link to this heading"></a></h3>
+<section id="capacity-limits">
+<h4>Capacity limits<a class="headerlink" href="#capacity-limits" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+M_h \;\leq\; \bar{\iota}_h \;, \quad
+X_h \;\leq\; \bar{\xi}_h
+\]</div>
+</section>
+<section id="net-load-indicator">
+<h4>Net-load indicator<a class="headerlink" href="#net-load-indicator" title="Link to this heading"></a></h4>
+<p>Define the <strong>net load</strong> as demand minus all VRE availability, fixed clean generation, and
+dispatchable hydro:</p>
+<div class="math notranslate nohighlight">
+\[
+\Lambda_h \;=\; d_h
+  - (G^{pv}_h + C^{pv}_h)
+  - (G^{wind}_h + C^{wind}_h)
+  - \alpha^{nuc} \nu_h
+  - \alpha^{oth} \omega_h
+  - G^{hyd}_h
+\]</div>
+<p>A binary indicator <span class="math notranslate nohighlight">\(V_h\)</span> encodes whether the system is a net importer (<span class="math notranslate nohighlight">\(\Lambda_h &gt; 0\)</span>) or net
+exporter (<span class="math notranslate nohighlight">\(\Lambda_h \leq 0\)</span>). An <span class="math notranslate nohighlight">\(\varepsilon\)</span> offset prevents numerical degeneracy at
+<span class="math notranslate nohighlight">\(\Lambda_h = 0\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+\Lambda_h \;\leq\; \mathcal{M} \;\cdot\; V_h
+\]</div>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+-\Lambda_h + \varepsilon \;\leq\; \mathcal{M} \;\cdot\; (1 - V_h)
+\]</div>
+</section>
+<section id="import-allowed-only-when-net-load-is-positive">
+<h4>Import allowed only when net load is positive<a class="headerlink" href="#import-allowed-only-when-net-load-is-positive" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+M_h \;\leq\; d_h \;\cdot\; V_h
+\]</div>
+</section>
+<section id="export-allowed-only-when-net-load-is-negative">
+<h4>Export allowed only when net load is negative<a class="headerlink" href="#export-allowed-only-when-net-load-is-negative" title="Link to this heading"></a></h4>
+<div class="math notranslate nohighlight">
+\[
+\forall\, h \in \mathcal{H}: \qquad
+X_h \;\leq\; \Bigl(\max_{h' \in \mathcal{H}} \bar{\xi}_{h'}\Bigr) \;\cdot\; (1 - V_h)
+\]</div>
+<p><strong>Symbols used in import and export constraints:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Symbol</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathcal{H}\)</span></p></td>
+<td><p>Set</p></td>
+<td><p>Hours (time steps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p>Index</p></td>
+<td><p>Hour</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(d_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Electrical demand at hour <span class="math notranslate nohighlight">\(h\)</span> (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\bar{\iota}_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max import capacity at hour <span class="math notranslate nohighlight">\(h\)</span> (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\bar{\xi}_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Max export capacity at hour <span class="math notranslate nohighlight">\(h\)</span> (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\alpha^{nuc}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Nuclear activation scalar</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\alpha^{oth}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Other renewables activation scalar</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\nu_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Nuclear generation profile (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\omega_h\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Other renewable generation profile (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathcal{M}\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Big-M constant</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\varepsilon\)</span></p></td>
+<td><p>Parameter</p></td>
+<td><p>Small offset to prevent numerical degeneracy</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\Lambda_h\)</span></p></td>
+<td><p>Derived</p></td>
+<td><p>Net load at hour <span class="math notranslate nohighlight">\(h\)</span> (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{pv}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Aggregate PV generation (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(C^{pv}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>PV curtailment (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{wind}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Aggregate wind generation (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(C^{wind}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Wind curtailment (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(G^{hyd}_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Dispatchable hydro generation (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(M_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Imports (MW)</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(X_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Exports (MW)</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(V_h\)</span></p></td>
+<td><p>Variable</p></td>
+<td><p>Net-load sign indicator (<span class="math notranslate nohighlight">\(1\)</span> if net load <span class="math notranslate nohighlight">\(&gt; 0\)</span>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="exploring_model.html" class="btn btn-neutral float-left" title="Exploring the Pyomo Model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="zonal_math_formulation.html" class="btn btn-neutral float-right" title="Zonal Math Formulation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, NLR SDOM Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

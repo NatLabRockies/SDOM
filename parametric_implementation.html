@@ -1,0 +1,1046 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Developer Guide: sdom.parametric Implementation &mdash; SDOM v0.2.4</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=6ffd866b"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PUBLICATIONS AND USE CASES OF SDOM" href="sdom_publications.html" />
+    <link rel="prev" title="GUIDELINES FOR DEVELOPING SDOM" href="sdom_Developers_guide.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SDOM
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/introduction.html">Introduction to SDOM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#how-sdom-works">How SDOM Works</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/introduction.html#input-data">Input Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/introduction.html#outputs">Outputs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#simplified-mathematical-formulation">Simplified Mathematical Formulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#model-components">Model Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#key-features">Key Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/introduction.html#temporal-resolution">Temporal Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/introduction.html#storage-representation">Storage Representation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/introduction.html#spatial-resolution">Spatial Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/introduction.html#flexibility">Flexibility</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#computational-considerations">Computational Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/introduction.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/inputs.html">SDOM Input Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#input-data-structure">Input Data Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#zonal-mode-inputs">Zonal Mode Inputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#required-files">Required Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#formulations-configuration">1. Formulations Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#load-data">2. Load Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#vre-variable-renewable-energy-data">3. VRE (Variable Renewable Energy) Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#fixed-generation-sources">4. Fixed Generation Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#storage-technology-data">5. Storage Technology Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#thermal-generation-data">6. Thermal Generation Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#system-scalars">7. System Scalars</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/inputs.html#import-export-data-optional">8. Import/Export Data (Optional)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#data-validation">Data Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#example-data-loading">Example Data Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#tips-for-data-preparation">Tips for Data Preparation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/inputs.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/zonal_inputs.html">Zonal Inputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_inputs.html#zonal-conventions">Zonal Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_inputs.html#network-selector">Network Selector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#formulations-csv">formulations.csv</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_inputs.html#new-zonal-files">New Zonal Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#areas-csv">areas.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#interconnections-csv">interconnections.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#linecap-ft-csv">LineCap_FT.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#linecap-tf-csv">LineCap_TF.csv</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_inputs.html#modified-existing-files-in-zonal-mode">Modified Existing Files in Zonal Mode</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#row-oriented-files-with-area-column">Row-oriented files with area column</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#wide-files-with-tagged-headers">Wide files with tagged headers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/zonal_inputs.html#capacity-factor-files">Capacity-factor files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_inputs.html#copperplate-aggregation-fallback">CopperPlate Aggregation Fallback</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_inputs.html#validation-summary">Validation Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/running_and_outputs.html">Running SDOM and Understanding Outputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#running-an-optimization">Running an Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#basic-workflow">Basic Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#shorter-time-horizons">Shorter Time Horizons</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#solver-configuration">Solver Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#cbc-solver-open-source">CBC Solver (Open-Source)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#highs-solver-open-source">HiGHS Solver (Open-Source)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#xpress-solver-commercial">Xpress Solver (Commercial)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#solver-option-reference">Solver Option Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#outputs-results">Outputs/Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#zonal-results-access">Zonal Results Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#solver-performance">Solver Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#infeasible-solutions">Infeasible Solutions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#visualising-results">Visualising Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#generated-figures">Generated figures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#controlling-the-output-directory">Controlling the output directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/running_and_outputs.html#full-workflow-example">Full workflow example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#running-parametric-sensitivity-studies">Running Parametric &amp; Sensitivity Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/running_and_outputs.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/zonal_model.html">Zonal Model Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_model.html#when-to-use-zonal-mode">When to Use Zonal Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_model.html#minimal-setup">Minimal Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_model.html#run-example">Run Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_model.html#pyomo-object-access">Pyomo Object Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_model.html#results-and-outputs">Results and Outputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_model.html#known-limits-current-scope">Known Limits (Current Scope)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/parametric_analysis.html">Parametric &amp; Sensitivity Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#when-to-use-parametric-analysis">When to use parametric analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#quick-start-example">Quick-start example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#sample-results-of-this-example">Sample results of this example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#cross-case-sensitivity-plots">Cross-case sensitivity plots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#per-case-plots">Per-case plots</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#sweep-types">Sweep types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#scalar-sweep-add-scalar-sweep-data-key-param-name-values">Scalar sweep — <code class="docutils literal notranslate"><span class="pre">add_scalar_sweep(data_key,</span> <span class="pre">param_name,</span> <span class="pre">values)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#storage-factor-sweep-add-storage-factor-sweep-param-name-factors">Storage factor sweep — <code class="docutils literal notranslate"><span class="pre">add_storage_factor_sweep(param_name,</span> <span class="pre">factors)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#time-series-sweep-add-ts-sweep-ts-key-factors">Time-series sweep — <code class="docutils literal notranslate"><span class="pre">add_ts_sweep(ts_key,</span> <span class="pre">factors)</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#cartesian-product-and-case-naming">Cartesian product and case naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#output-structure">Output structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#performance-guidance">Performance guidance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/parametric_analysis.html#visualising-parametric-results">Visualising parametric results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#grouping-strategy">Grouping strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/parametric_analysis.html#additional-options">Additional options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/resiliency.html">Resiliency Evaluation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#two-optimization-problems">Two Optimization Problems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#problem-b-baseline-annual-dispatch">Problem (B) - Baseline annual dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#problem-o-per-hour-outage-dispatch">Problem (O) - Per-hour outage dispatch</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#inputs">Inputs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#snapshot-directory-snapshot-dir">1. Snapshot directory (<code class="docutils literal notranslate"><span class="pre">snapshot_dir</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#previous-stage-inputs-directory-inputs-dir">2. Previous-stage inputs directory (<code class="docutils literal notranslate"><span class="pre">inputs_dir</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#outage-specification">Outage Specification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#quickstart">Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#end-to-end-with-evaluate-resiliency">1. End-to-end with <code class="docutils literal notranslate"><span class="pre">evaluate_resiliency</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#step-by-step-more-control-advanced">2. Step-by-step (more control, advanced)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#constant-critical-load-during-the-outage-window">3. Constant critical load during the outage window</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#optional-profiling">4. Optional profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#results">Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#per-hour-dataframe">Per-hour DataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#aggregate-metrics">Aggregate metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency.html#persistence">Persistence</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#plotting">Plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency.html#logging">Logging</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/resiliency_math.html">Resiliency Mathematical Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#sets">1. Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#parameters">2. Parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#designed-capacities-fixed">2.1 Designed capacities (fixed)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#time-series">2.2 Time series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#costs">2.3 Costs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#outage-operational">2.4 Outage / operational</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#variables">3. Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#objective-functions">4. Objective Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#problem-b-baseline-annual-dispatch">4.1 Problem (B): Baseline annual dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#problem-o-per-hour-outage-dispatch-starting-at-h">4.2 Problem (O): Per-hour outage dispatch starting at <span class="math notranslate nohighlight">\(h\)</span></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#constraints">5. Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#power-balance">5.1 Power balance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#capacity-bounds-with-de-rating">5.2 Capacity bounds with de-rating</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#storage-dynamics-charge-discharge-bounds">5.3 Storage dynamics, charge / discharge bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#demand-charge-linking-problem-b">5.4 Demand-charge linking (Problem (B))</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#outage-problem-coupling-problem-o-starting-at-h">5.5 Outage problem coupling (Problem (O), starting at <span class="math notranslate nohighlight">\(h\)</span>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#outage-modeling-formalism">6. Outage Modeling Formalism</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#capacity-bounded-assets">6.1 Capacity-bounded assets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#must-run-time-series-sources">6.2 Must-run time-series sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#recovery-window-semantics">6.3 Recovery window semantics</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/resiliency_math.html#resiliency-metrics">7. Resiliency Metrics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#per-scenario-anchored-at-h">7.1 Per-scenario (anchored at <span class="math notranslate nohighlight">\(h\)</span>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#aggregate">7.2 Aggregate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/resiliency_math.html#probability-weighted-expected-metrics">7.3 Probability-weighted expected metrics</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/exploring_model.html">Exploring the Pyomo Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#model-architecture">Model Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#zonal-model-structure-areatransportationmodelnetwork">Zonal Model Structure (<code class="docutils literal notranslate"><span class="pre">AreaTransportationModelNetwork</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#model-components">Model Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#sets">Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#parameters">Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#variables">Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#expressions">Expressions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#constraints">Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#inspecting-the-model">Inspecting the Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#print-model-summary">Print Model Summary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#examine-specific-constraints">Examine Specific Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#display-variable-bounds">Display Variable Bounds</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#model-modifications">Model Modifications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#changing-parameters-between-runs">Changing Parameters Between Runs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#adding-custom-constraints">Adding Custom Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#debugging-model-issues">Debugging Model Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#check-for-infeasibility">Check for Infeasibility</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/exploring_model.html#validate-model-construction">Validate Model Construction</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#advanced-direct-pyomo-operations">Advanced: Direct Pyomo Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#model-formulation-files">Model Formulation Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/exploring_model.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/sdom_math_formulation.html">SDOM Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/sdom_math_formulation.html#sets">Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/sdom_math_formulation.html#parameters">Parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#derived-quantities">Derived quantities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#system">System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#fixed-generation-profiles">Fixed generation profiles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#renewable-investment">Renewable investment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#balancing-units">Balancing units</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#hydro">Hydro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#trade">Trade</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#storage">Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/sdom_math_formulation.html#variables">Variables</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#renewable-investment-and-dispatch">Renewable (investment and dispatch)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#balancing-units-investment-and-dispatch">Balancing units (investment and dispatch)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#storage-investment-and-operations">Storage (investment and operations)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#id1">Hydro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#id2">Trade</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/sdom_math_formulation.html#objective-function">Objective Function</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#pv-cost">PV cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#wind-cost">Wind cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#balancing-unit-cost">Balancing unit cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#storage-cost">Storage cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#trade-cost">Trade cost</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/sdom_math_formulation.html#constraints">Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#system-constraints">System constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#vre-balance-constraints">VRE balance constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#balancing-unit-constraints">Balancing unit constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#storage-constraints">Storage constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#hydro-budget-constraints">Hydro budget constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user_guide/sdom_math_formulation.html#import-and-export-constraints">Import and export constraints</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/zonal_math_formulation.html">Zonal Math Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#sets">Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#parameters">Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#variables">Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#network-constraints">Network Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#per-area-supply-balance">Per-Area Supply Balance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#system-wide-clean-share-constraint">System-Wide Clean Share Constraint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/zonal_math_formulation.html#objective">Objective</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html">Core Optimization Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html">Results Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html">Model Formulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/io_manager.html">Data I/O Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html">Utility Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/parametric.html"><code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> — Parametric Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html">Resiliency Module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#quick-links">Quick Links</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#main-functions">Main Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/_autosummary/sdom.load_data.html">sdom.load_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/_autosummary/sdom.initialize_model.html">sdom.initialize_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/_autosummary/sdom.run_solver.html">sdom.run_solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/_autosummary/sdom.export_results.html">sdom.export_results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/_autosummary/sdom.get_default_solver_config_dict.html">sdom.get_default_solver_config_dict</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/_autosummary/sdom.configure_logging.html">sdom.configure_logging</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#package-structure">Package Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/core.html">Core Optimization Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html#model-initialization">Model Initialization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html#sdom.optimization_main.initialize_model"><code class="docutils literal notranslate"><span class="pre">initialize_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html#solver-configuration">Solver Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html#sdom.optimization_main.get_default_solver_config_dict"><code class="docutils literal notranslate"><span class="pre">get_default_solver_config_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html#sdom.optimization_main.configure_solver"><code class="docutils literal notranslate"><span class="pre">configure_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html#running-optimization">Running Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html#sdom.optimization_main.run_solver"><code class="docutils literal notranslate"><span class="pre">run_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html#configuration">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html#sdom.config_sdom.configure_logging"><code class="docutils literal notranslate"><span class="pre">configure_logging()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/core.html#sdom.config_sdom.ColorFormatter"><code class="docutils literal notranslate"><span class="pre">ColorFormatter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/results.html">Results Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/results.html#optimizationresults-class">OptimizationResults Class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#sdom.results.OptimizationResults"><code class="docutils literal notranslate"><span class="pre">OptimizationResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/results.html#result-collection-function">Result Collection Function</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#sdom.results.collect_results_from_model"><code class="docutils literal notranslate"><span class="pre">collect_results_from_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/results.html#example-usage">Example Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#basic-result-access">Basic Result Access</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#accessing-capacities">Accessing Capacities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#accessing-dataframes">Accessing DataFrames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#accessing-cost-breakdown">Accessing Cost Breakdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#accessing-problem-information">Accessing Problem Information</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/results.html#optimizationresults-attributes">OptimizationResults Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#solver-information">Solver Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#core-results">Core Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#capacity-results">Capacity Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#generation-results">Generation Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#cost-breakdown">Cost Breakdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#dataframes">DataFrames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/results.html#zonal-fields">Zonal Fields</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/models.html">Model Formulations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_system">System Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_system.objective_rule"><code class="docutils literal notranslate"><span class="pre">objective_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_system.net_load_rule"><code class="docutils literal notranslate"><span class="pre">net_load_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_system.add_system_expressions"><code class="docutils literal notranslate"><span class="pre">add_system_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_system.create_supply_balance_rule"><code class="docutils literal notranslate"><span class="pre">create_supply_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_system.genmix_share_rule"><code class="docutils literal notranslate"><span class="pre">genmix_share_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_system.add_system_constraints"><code class="docutils literal notranslate"><span class="pre">add_system_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_vre">VRE Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_vre.add_vre_parameters"><code class="docutils literal notranslate"><span class="pre">add_vre_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_vre.add_vre_variables"><code class="docutils literal notranslate"><span class="pre">add_vre_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_vre.add_vre_expressions"><code class="docutils literal notranslate"><span class="pre">add_vre_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_vre.add_vre_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_vre_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_vre.vre_balance_rule"><code class="docutils literal notranslate"><span class="pre">vre_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_vre.add_vre_balance_constraints"><code class="docutils literal notranslate"><span class="pre">add_vre_balance_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_storage">Storage Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.initialize_storage_sets"><code class="docutils literal notranslate"><span class="pre">initialize_storage_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.add_storage_parameters"><code class="docutils literal notranslate"><span class="pre">add_storage_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.add_storage_variables"><code class="docutils literal notranslate"><span class="pre">add_storage_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.storage_power_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_power_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.storage_energy_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_energy_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.storage_fixed_om_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_fixed_om_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.add_storage_expressions"><code class="docutils literal notranslate"><span class="pre">add_storage_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.add_storage_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_storage_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.add_storage_variable_costs"><code class="docutils literal notranslate"><span class="pre">add_storage_variable_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.soc_balance_rule"><code class="docutils literal notranslate"><span class="pre">soc_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.max_cycle_year_rule"><code class="docutils literal notranslate"><span class="pre">max_cycle_year_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_storage.add_storage_constraints"><code class="docutils literal notranslate"><span class="pre">add_storage_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_thermal">Thermal Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.initialize_thermal_sets"><code class="docutils literal notranslate"><span class="pre">initialize_thermal_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.add_thermal_parameters"><code class="docutils literal notranslate"><span class="pre">add_thermal_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.add_thermal_variables"><code class="docutils literal notranslate"><span class="pre">add_thermal_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.total_thermal_expr_rule"><code class="docutils literal notranslate"><span class="pre">total_thermal_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.add_thermal_expressions"><code class="docutils literal notranslate"><span class="pre">add_thermal_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.add_thermal_constraints"><code class="docutils literal notranslate"><span class="pre">add_thermal_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.add_thermal_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_thermal_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_thermal.add_thermal_variable_costs"><code class="docutils literal notranslate"><span class="pre">add_thermal_variable_costs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_hydro">Hydropower Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_hydro.add_large_hydro_parameters"><code class="docutils literal notranslate"><span class="pre">add_large_hydro_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_hydro.add_large_hydro_bound_parameters"><code class="docutils literal notranslate"><span class="pre">add_large_hydro_bound_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_hydro.add_hydro_variables"><code class="docutils literal notranslate"><span class="pre">add_hydro_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_hydro.add_hydro_run_of_river_constraints"><code class="docutils literal notranslate"><span class="pre">add_hydro_run_of_river_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_hydro.add_hydro_budget_constraints"><code class="docutils literal notranslate"><span class="pre">add_hydro_budget_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_imports_exports">Import/Export Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_import_export_ts_parameters"><code class="docutils literal notranslate"><span class="pre">add_import_export_ts_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_imports_parameters"><code class="docutils literal notranslate"><span class="pre">add_imports_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_exports_parameters"><code class="docutils literal notranslate"><span class="pre">add_exports_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_imports_variables"><code class="docutils literal notranslate"><span class="pre">add_imports_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_exports_variables"><code class="docutils literal notranslate"><span class="pre">add_exports_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_imports_exports_cost_expressions"><code class="docutils literal notranslate"><span class="pre">add_imports_exports_cost_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_import_export_binary_variable"><code class="docutils literal notranslate"><span class="pre">add_import_export_binary_variable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_imports_constraints"><code class="docutils literal notranslate"><span class="pre">add_imports_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_exports_constraints"><code class="docutils literal notranslate"><span class="pre">add_exports_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_imports_constraints_without_net_load"><code class="docutils literal notranslate"><span class="pre">add_imports_constraints_without_net_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_exports_constraints_without_net_load"><code class="docutils literal notranslate"><span class="pre">add_exports_constraints_without_net_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_imports_exports.add_imports_exports_cost"><code class="docutils literal notranslate"><span class="pre">add_imports_exports_cost()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#module-sdom.models.formulations_network">Network (Zonal) Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_network.add_network_sets"><code class="docutils literal notranslate"><span class="pre">add_network_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_network.add_network_parameters"><code class="docutils literal notranslate"><span class="pre">add_network_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_network.add_network_variables"><code class="docutils literal notranslate"><span class="pre">add_network_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_network.add_network_constraints"><code class="docutils literal notranslate"><span class="pre">add_network_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_network.add_network_expressions"><code class="docutils literal notranslate"><span class="pre">add_network_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.formulations_network.network_transmission_cost_rule"><code class="docutils literal notranslate"><span class="pre">network_transmission_cost_rule()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#host-pattern-in-formulation-builders">Host Pattern in Formulation Builders</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#model-utilities">Model Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.compute_annualization_factor"><code class="docutils literal notranslate"><span class="pre">compute_annualization_factor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.build_annualization_factor_map"><code class="docutils literal notranslate"><span class="pre">build_annualization_factor_map()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.get_filtered_ts_parameter_dict"><code class="docutils literal notranslate"><span class="pre">get_filtered_ts_parameter_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_alpha_parameter"><code class="docutils literal notranslate"><span class="pre">add_alpha_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_alpha_and_ts_parameters"><code class="docutils literal notranslate"><span class="pre">add_alpha_and_ts_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_budget_parameter"><code class="docutils literal notranslate"><span class="pre">add_budget_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_upper_bound_paramenters"><code class="docutils literal notranslate"><span class="pre">add_upper_bound_paramenters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_lower_bound_paramenters"><code class="docutils literal notranslate"><span class="pre">add_lower_bound_paramenters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_generation_variables"><code class="docutils literal notranslate"><span class="pre">add_generation_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.sum_installed_capacity_by_plants_set_expr_rule"><code class="docutils literal notranslate"><span class="pre">sum_installed_capacity_by_plants_set_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.generic_fixed_om_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">generic_fixed_om_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.generic_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">generic_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.different_fcr_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">different_fcr_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.generic_budget_rule"><code class="docutils literal notranslate"><span class="pre">generic_budget_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.models.models_utils.add_generic_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_generic_fixed_costs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/models.html#initialization-functions">Initialization Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.initializations.initialize_vre_sets"><code class="docutils literal notranslate"><span class="pre">initialize_vre_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.initializations.check_n_hours"><code class="docutils literal notranslate"><span class="pre">check_n_hours()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.initializations.create_budget_set"><code class="docutils literal notranslate"><span class="pre">create_budget_set()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.initializations.initialize_sets"><code class="docutils literal notranslate"><span class="pre">initialize_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/models.html#sdom.initializations.initialize_params"><code class="docutils literal notranslate"><span class="pre">initialize_params()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/io_manager.html">Data I/O Manager</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/io_manager.html#data-loading">Data Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/io_manager.html#sdom.io_manager.load_data"><code class="docutils literal notranslate"><span class="pre">load_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/io_manager.html#formulation-management">Formulation Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/io_manager.html#sdom.io_manager.get_formulation"><code class="docutils literal notranslate"><span class="pre">get_formulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/io_manager.html#sdom.io_manager.get_network_formulation"><code class="docutils literal notranslate"><span class="pre">get_network_formulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/io_manager.html#sdom.io_manager.check_formulation"><code class="docutils literal notranslate"><span class="pre">check_formulation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/io_manager.html#results-export">Results Export</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/io_manager.html#sdom.io_manager.export_results"><code class="docutils literal notranslate"><span class="pre">export_results()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/io_manager.html#example-loading-data">Example: Loading Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/io_manager.html#example-exporting-results">Example: Exporting Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/io_manager.html#data-dictionary-structure">Data Dictionary Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Utility Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#pyomo-utilities">Pyomo Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.safe_pyomo_value"><code class="docutils literal notranslate"><span class="pre">safe_pyomo_value()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#file-utilities">File Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.check_file_exists"><code class="docutils literal notranslate"><span class="pre">check_file_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.get_complete_path"><code class="docutils literal notranslate"><span class="pre">get_complete_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.normalize_string"><code class="docutils literal notranslate"><span class="pre">normalize_string()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#data-utilities">Data Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.compare_lists"><code class="docutils literal notranslate"><span class="pre">compare_lists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.concatenate_dataframes"><code class="docutils literal notranslate"><span class="pre">concatenate_dataframes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#sdom.common.utilities.get_dict_string_void_list_from_keys_in_list"><code class="docutils literal notranslate"><span class="pre">get_dict_string_void_list_from_keys_in_list()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#constants">Constants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#unit-conversion">Unit Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#input-file-names">Input File Names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#hydro-formulations">Hydro Formulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/utilities.html#import-export-formulations">Import/Export Formulations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/resiliency.html">Resiliency Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#top-level-convenience">Top-Level Convenience</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.evaluate_resiliency"><code class="docutils literal notranslate"><span class="pre">evaluate_resiliency()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#data-loading">Data Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.load_designed_system"><code class="docutils literal notranslate"><span class="pre">load_designed_system()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.DesignedSystem"><code class="docutils literal notranslate"><span class="pre">DesignedSystem</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.BaselineState"><code class="docutils literal notranslate"><span class="pre">BaselineState</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#outage-specification">Outage Specification</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.OutageSpec"><code class="docutils literal notranslate"><span class="pre">OutageSpec</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.VALID_COMPONENTS"><code class="docutils literal notranslate"><span class="pre">VALID_COMPONENTS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.MUST_RUN_COMPONENTS"><code class="docutils literal notranslate"><span class="pre">MUST_RUN_COMPONENTS</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#baseline-dispatch-problem-b">Baseline Dispatch (Problem B)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.build_baseline_dispatch"><code class="docutils literal notranslate"><span class="pre">build_baseline_dispatch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.run_baseline_dispatch"><code class="docutils literal notranslate"><span class="pre">run_baseline_dispatch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.BaselineDispatchResults"><code class="docutils literal notranslate"><span class="pre">BaselineDispatchResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#outage-dispatch-problem-o">Outage Dispatch (Problem O)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.build_outage_dispatch"><code class="docutils literal notranslate"><span class="pre">build_outage_dispatch()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#imports-formulation-with-demand-charges">Imports Formulation with Demand Charges</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.add_imports_with_demand_charges"><code class="docutils literal notranslate"><span class="pre">add_imports_with_demand_charges()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#parallel-runner">Parallel Runner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.run_resiliency_evaluation"><code class="docutils literal notranslate"><span class="pre">run_resiliency_evaluation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#results-container">Results Container</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.ResiliencyResults"><code class="docutils literal notranslate"><span class="pre">ResiliencyResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/resiliency.html#plotting">Plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/resiliency.html#sdom.resiliency.plot_metric_distribution"><code class="docutils literal notranslate"><span class="pre">plot_metric_distribution()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="sdom_Developers_guide.html">GUIDELINES FOR DEVELOPING SDOM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sdom_Developers_guide.html#general-guidelines">General Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sdom_Developers_guide.html#table-of-contents">Table of Contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sdom_Developers_guide.html#clone-fork-sdom-repo">clone/fork SDOM repo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdom_Developers_guide.html#setting-up-your-enviroment">Setting up your enviroment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sdom_Developers_guide.html#install-uv">Install uv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sdom_Developers_guide.html#install-your-local-sdom-python-module-and-pytest">Install your local SDOM python module and pytest</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sdom_Developers_guide.html#running-tests-locally">Running tests locally</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdom_Developers_guide.html#build-the-documentation-locally">Build the documentation locally</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdom_Developers_guide.html#general-source-code-structure">General Source code structure</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Developer Guide: <code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> Implementation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#sub-package-layout">Sub-package layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-flow">Data flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#key-design-decisions">Key design decisions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lazy-deep-copy-memory-efficiency">1. Lazy deep-copy (memory efficiency)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#collision-safe-case-naming">2. Collision-safe case naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#result-ordering-via-case-index-not-name-lookup">3. Result ordering via <code class="docutils literal notranslate"><span class="pre">case_index</span></code> (not name lookup)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-level-worker-function-pickling">4. Module-level worker function (pickling)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#graceful-failure">5. Graceful failure</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mutations-py-ts-key-to-column-mapping"><code class="docutils literal notranslate"><span class="pre">mutations.py</span></code> — TS_KEY_TO_COLUMN mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#case-naming-format">Case naming format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary-csv-columns">Summary CSV columns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-extend">How to extend</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#adding-a-new-sweep-type">Adding a new sweep type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adding-a-new-time-series-key">Adding a new time-series key</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#testing-strategy">Testing strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#known-limitations-deferred-items">Known limitations &amp; deferred items</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sdom_publications.html">PUBLICATIONS AND USE CASES OF SDOM</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/Omar0902/SDOM">GitHub Repository</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SDOM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Developer Guide: <code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> Implementation</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/NatLabRockies/SDOM/blob/main/docs/source/parametric_implementation.md" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="developer-guide-sdom-parametric-implementation">
+<h1>Developer Guide: <code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> Implementation<a class="headerlink" href="#developer-guide-sdom-parametric-implementation" title="Link to this heading"></a></h1>
+<p>This page describes the internal design of the <code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> sub-package
+for contributors who need to maintain, extend, or debug it.</p>
+<p>For end-user usage see <a class="reference internal" href="user_guide/parametric_analysis.html"><span class="std std-doc">Parametric &amp; Sensitivity Analysis</span></a>.</p>
+<hr class="docutils" />
+<section id="sub-package-layout">
+<h2>Sub-package layout<a class="headerlink" href="#sub-package-layout" title="Link to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>src/sdom/parametric/
+├── __init__.py      # Public surface — re-exports ParametricStudy + sweep types
+├── sweeps.py        # Sweep descriptor dataclasses (no logic, just validated containers)
+├── mutations.py     # Stateless data mutation helpers + TS_KEY_TO_COLUMN mapping
+├── worker.py        # Module-level picklable worker function (_run_single_case)
+└── study.py         # ParametricStudy orchestrator + _make_safe_name utility
+</pre></div>
+</div>
+<p><strong>One-way dependency rule:</strong> <code class="docutils literal notranslate"><span class="pre">parametric</span></code> imports from the rest of <code class="docutils literal notranslate"><span class="pre">sdom</span></code>
+(<code class="docutils literal notranslate"><span class="pre">optimization_main</span></code>, <code class="docutils literal notranslate"><span class="pre">io_manager</span></code>, <code class="docutils literal notranslate"><span class="pre">results</span></code>), but no existing <code class="docutils literal notranslate"><span class="pre">sdom</span></code> module
+imports from <code class="docutils literal notranslate"><span class="pre">parametric</span></code>. Keep this direction to avoid circular imports.</p>
+</section>
+<hr class="docutils" />
+<section id="data-flow">
+<h2>Data flow<a class="headerlink" href="#data-flow" title="Link to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ParametricStudy.run()
+  │
+  ├── _build_case_dicts()
+  │     ├── itertools.product(*dimensions)   ← Cartesian product
+  │     ├── _make_safe_name(label)           ← filesystem-safe case name
+  │     └── collision detection             ← append _{index} if name collides
+  │
+  ├── ProcessPoolExecutor.submit(_run_single_case, case_dict)
+  │     │                  (one future per case)
+  │     └─ [worker process] ─────────────────────────────────────────────────
+  │           ├── copy.deepcopy(case_dict[&quot;data&quot;])    ← lazy copy, in-worker
+  │           ├── _apply_scalar_mutation(...)
+  │           ├── _apply_storage_factor_mutation(...)
+  │           ├── _apply_ts_mutation(...)
+  │           ├── initialize_model(data, n_hours, ...)
+  │           └── run_solver(model, solver_config, case_name)
+  │                    └── returns OptimizationResults
+  │
+  ├── as_completed(futures)
+  │     ├── log progress [completed/total]
+  │     ├── export_results(result, case_name, output_dir/&lt;case_name&gt;/)
+  │     └── ordered_results[case_index] = result      ← index-based ordering
+  │
+  └── _write_summary_csv(case_dicts, ordered_results)
+        └── parametric_summary.csv
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="key-design-decisions">
+<h2>Key design decisions<a class="headerlink" href="#key-design-decisions" title="Link to this heading"></a></h2>
+<section id="lazy-deep-copy-memory-efficiency">
+<h3>1. Lazy deep-copy (memory efficiency)<a class="headerlink" href="#lazy-deep-copy-memory-efficiency" title="Link to this heading"></a></h3>
+<p><strong>Problem:</strong> Pre-allocating one <code class="docutils literal notranslate"><span class="pre">copy.deepcopy(base_data)</span></code> per case in the
+parent process (before dispatching to workers) causes the parent to hold
+<code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">×</span> <span class="pre">sizeof(base_data)</span></code> in memory simultaneously — a significant spike for
+large sweeps (50+ cases) or large datasets.</p>
+<p><strong>Solution:</strong> Each <code class="docutils literal notranslate"><span class="pre">case_dict</span></code> carries a reference to <code class="docutils literal notranslate"><span class="pre">self._base_data</span></code>
+(the shared original). The deep copy is deferred to inside <code class="docutils literal notranslate"><span class="pre">_run_single_case</span></code>,
+which runs in a worker subprocess. Because <code class="docutils literal notranslate"><span class="pre">ProcessPoolExecutor</span></code> pickles
+arguments on dispatch, the <code class="docutils literal notranslate"><span class="pre">base_data</span></code> is serialised once per case on
+submission. The deep copy then runs inside the worker’s own memory space,
+so the <strong>parent process</strong> always holds only one copy of the base data,
+regardless of sweep size.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># study.py — case_dict carries a reference, not a copy</span>
+<span class="n">case_dicts</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_data</span><span class="p">,</span>   <span class="c1"># shared reference</span>
+    <span class="o">...</span>
+<span class="p">})</span>
+
+<span class="c1"># worker.py — copy is made inside the worker process</span>
+<span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">case_dict</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="collision-safe-case-naming">
+<h3>2. Collision-safe case naming<a class="headerlink" href="#collision-safe-case-naming" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">_make_safe_name</span></code> replaces filesystem-forbidden characters with <code class="docutils literal notranslate"><span class="pre">_</span></code>. This
+can cause two distinct parameter combinations to produce the same string
+(e.g. <code class="docutils literal notranslate"><span class="pre">1.0/2</span></code> and <code class="docutils literal notranslate"><span class="pre">1.0_2</span></code> both → <code class="docutils literal notranslate"><span class="pre">1.0_2</span></code>).</p>
+<p><strong>Solution:</strong> After building all case dicts, <code class="docutils literal notranslate"><span class="pre">_build_case_dicts</span></code> counts
+how many times each safe name appears. Any name that appears more than once
+gets an index suffix appended: <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;_&lt;case_index&gt;</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">name_counts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">cd</span> <span class="ow">in</span> <span class="n">case_dicts</span><span class="p">:</span>
+    <span class="n">name_counts</span><span class="p">[</span><span class="n">cd</span><span class="p">[</span><span class="s2">&quot;case_name&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">name_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cd</span><span class="p">[</span><span class="s2">&quot;case_name&quot;</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="k">for</span> <span class="n">cd</span> <span class="ow">in</span> <span class="n">case_dicts</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">name_counts</span><span class="p">[</span><span class="n">cd</span><span class="p">[</span><span class="s2">&quot;case_name&quot;</span><span class="p">]]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">cd</span><span class="p">[</span><span class="s2">&quot;case_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cd</span><span class="p">[</span><span class="s1">&#39;case_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cd</span><span class="p">[</span><span class="s1">&#39;case_index&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>This is deterministic: the same sweep configuration always produces the same
+set of case names.</p>
+</section>
+<section id="result-ordering-via-case-index-not-name-lookup">
+<h3>3. Result ordering via <code class="docutils literal notranslate"><span class="pre">case_index</span></code> (not name lookup)<a class="headerlink" href="#result-ordering-via-case-index-not-name-lookup" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">as_completed</span></code> returns futures in completion order (non-deterministic). To
+reconstruct results in Cartesian-product order, each case dict carries an
+integer <code class="docutils literal notranslate"><span class="pre">case_index</span></code> (its position in the product). Results are stored in a
+pre-allocated list: <code class="docutils literal notranslate"><span class="pre">ordered_results[cd[&quot;case_index&quot;]]</span> <span class="pre">=</span> <span class="pre">result</span></code>.</p>
+<p>This is collision-safe: even if case names are disambiguated, the index is
+always unique.</p>
+</section>
+<section id="module-level-worker-function-pickling">
+<h3>4. Module-level worker function (pickling)<a class="headerlink" href="#module-level-worker-function-pickling" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">_run_single_case</span></code> must be defined at module level in <code class="docutils literal notranslate"><span class="pre">worker.py</span></code>, not as a
+nested function or lambda. <code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> uses <code class="docutils literal notranslate"><span class="pre">pickle</span></code> to send work to
+subprocesses, and only module-level callables can be pickled.</p>
+</section>
+<section id="graceful-failure">
+<h3>5. Graceful failure<a class="headerlink" href="#graceful-failure" title="Link to this heading"></a></h3>
+<p>Both the worker and the orchestrator catch all exceptions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_run_single_case</span></code> catches exceptions from mutations, <code class="docutils literal notranslate"><span class="pre">initialize_model</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">run_solver</span></code>. On failure it returns <code class="docutils literal notranslate"><span class="pre">OptimizationResults</span></code> with
+<code class="docutils literal notranslate"><span class="pre">termination_condition=&quot;exception&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">total_cost=float(&quot;nan&quot;)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">study.run()</span></code> catches exceptions from <code class="docutils literal notranslate"><span class="pre">future.result()</span></code> (e.g. pickling
+failures or worker crashes). It constructs the same failure result object.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">total_cost=NaN</span></code> (not <code class="docutils literal notranslate"><span class="pre">0.0</span></code>) ensures failed cases are distinguishable from
+valid zero-cost results in the summary CSV.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="mutations-py-ts-key-to-column-mapping">
+<h2><code class="docutils literal notranslate"><span class="pre">mutations.py</span></code> — TS_KEY_TO_COLUMN mapping<a class="headerlink" href="#mutations-py-ts-key-to-column-mapping" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">TS_KEY_TO_COLUMN</span></code> dict maps every supported <code class="docutils literal notranslate"><span class="pre">data</span></code> dict key to the
+DataFrame column that holds the numeric time-series values. <strong>These keys must
+match the actual keys set by <code class="docutils literal notranslate"><span class="pre">io_manager.load_data</span></code></strong>, not the CSV file names
+or model parameter names.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">ts_key</span></code></p></th>
+<th class="head"><p>DataFrame column</p></th>
+<th class="head"><p>Set by <code class="docutils literal notranslate"><span class="pre">load_data</span></code> when</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;load_data&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Load&quot;</span></code></p></td>
+<td><p>Always</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;large_hydro_data&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;LargeHydro&quot;</span></code></p></td>
+<td><p>Large hydro formulation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;large_hydro_max&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;LargeHydro_max&quot;</span></code></p></td>
+<td><p>Budget hydro formulation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;large_hydro_min&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;LargeHydro_min&quot;</span></code></p></td>
+<td><p>Budget hydro formulation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;cap_imports&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Imports&quot;</span></code></p></td>
+<td><p>CapacityPriceNetLoadFormulation (imports)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;price_imports&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Imports_price&quot;</span></code></p></td>
+<td><p>CapacityPriceNetLoadFormulation (imports)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;cap_exports&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Exports&quot;</span></code></p></td>
+<td><p>CapacityPriceNetLoadFormulation (exports)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;price_exports&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Exports_price&quot;</span></code></p></td>
+<td><p>CapacityPriceNetLoadFormulation (exports)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;nuclear_data&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;Nuclear&quot;</span></code></p></td>
+<td><p>If nuclear data is present</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;other_renewables_data&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;OtherRenewables&quot;</span></code></p></td>
+<td><p>If other renewables data is present</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>If you add a new time-series to <code class="docutils literal notranslate"><span class="pre">io_manager.load_data</span></code></strong>, add a
+corresponding entry to <code class="docutils literal notranslate"><span class="pre">TS_KEY_TO_COLUMN</span></code> in <code class="docutils literal notranslate"><span class="pre">mutations.py</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="case-naming-format">
+<h2>Case naming format<a class="headerlink" href="#case-naming-format" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Sweep type</p></th>
+<th class="head"><p>Label fragment</p></th>
+<th class="head"><p>Example</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ScalarSweep</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{param_name}={value}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GenMix_Target=0.9</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StorageFactorSweep</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{param_name}x{factor}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">P_Capexx0.8</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TsSweep</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{ts_key}x{factor}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">load_datax1.05</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Fragments are joined with <code class="docutils literal notranslate"><span class="pre">_</span></code> and then passed through <code class="docutils literal notranslate"><span class="pre">_make_safe_name</span></code>.
+Forbidden filesystem characters (<code class="docutils literal notranslate"><span class="pre">/</span> <span class="pre">\</span> <span class="pre">:</span> <span class="pre">*</span> <span class="pre">?</span> <span class="pre">&quot;</span> <span class="pre">&lt;</span> <span class="pre">&gt;</span> <span class="pre">|</span> <span class="pre">space</span></code>) are replaced
+with <code class="docutils literal notranslate"><span class="pre">_</span></code>. Leading/trailing underscores are stripped.</p>
+</section>
+<hr class="docutils" />
+<section id="summary-csv-columns">
+<h2>Summary CSV columns<a class="headerlink" href="#summary-csv-columns" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Source</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">case_name</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cd[&quot;case_name&quot;]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&lt;data_key&gt;.&lt;param_name&gt;</span></code></p></td>
+<td><p>from <code class="docutils literal notranslate"><span class="pre">scalar_mutations</span></code> list</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">storage_data.&lt;param&gt;_factor</span></code></p></td>
+<td><p>from <code class="docutils literal notranslate"><span class="pre">storage_factor_mutations</span></code> list</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&lt;ts_key&gt;_factor</span></code></p></td>
+<td><p>from <code class="docutils literal notranslate"><span class="pre">ts_mutations</span></code> list</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">is_optimal</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">result.is_optimal</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">total_cost</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">result.total_cost</span></code> (<code class="docutils literal notranslate"><span class="pre">NaN</span></code> for failures)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">solver_status</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">result.solver_status</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">termination_condition</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">result.termination_condition</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="how-to-extend">
+<h2>How to extend<a class="headerlink" href="#how-to-extend" title="Link to this heading"></a></h2>
+<section id="adding-a-new-sweep-type">
+<h3>Adding a new sweep type<a class="headerlink" href="#adding-a-new-sweep-type" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Add a dataclass in <code class="docutils literal notranslate"><span class="pre">sweeps.py</span></code> (follow the <code class="docutils literal notranslate"><span class="pre">ScalarSweep</span></code> pattern).</p></li>
+<li><p>Add a mutation helper in <code class="docutils literal notranslate"><span class="pre">mutations.py</span></code>.</p></li>
+<li><p>Add a <code class="docutils literal notranslate"><span class="pre">add_&lt;type&gt;_sweep</span></code> method in <code class="docutils literal notranslate"><span class="pre">ParametricStudy</span></code> that appends to a
+new <code class="docutils literal notranslate"><span class="pre">self._&lt;type&gt;_sweeps</span></code> list.</p></li>
+<li><p>Add a new <code class="docutils literal notranslate"><span class="pre">elif</span> <span class="pre">mut[0]</span> <span class="pre">==</span> <span class="pre">&quot;&lt;type&gt;&quot;</span></code> branch in <code class="docutils literal notranslate"><span class="pre">_build_case_dicts</span></code>.</p></li>
+<li><p>Apply the mutation in <code class="docutils literal notranslate"><span class="pre">_run_single_case</span></code> before <code class="docutils literal notranslate"><span class="pre">initialize_model</span></code>.</p></li>
+<li><p>Add unit tests in <code class="docutils literal notranslate"><span class="pre">tests/test_parametric.py</span></code>.</p></li>
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">docs/source/user_guide/parametric_analysis.md</span></code> — add new sweep
+type to the sweep-types section and the ts_key table if applicable.</p></li>
+</ol>
+</section>
+<section id="adding-a-new-time-series-key">
+<h3>Adding a new time-series key<a class="headerlink" href="#adding-a-new-time-series-key" title="Link to this heading"></a></h3>
+<p>Only <code class="docutils literal notranslate"><span class="pre">TS_KEY_TO_COLUMN</span></code> in <code class="docutils literal notranslate"><span class="pre">mutations.py</span></code> needs updating — no other files
+require changes to support a new key.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="testing-strategy">
+<h2>Testing strategy<a class="headerlink" href="#testing-strategy" title="Link to this heading"></a></h2>
+<p>Tests live in <code class="docutils literal notranslate"><span class="pre">tests/test_parametric.py</span></code> and are split into:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Group</p></th>
+<th class="head"><p>What is tested</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Sweep dataclass validation</p></td>
+<td><p>Empty <code class="docutils literal notranslate"><span class="pre">values</span></code>/<code class="docutils literal notranslate"><span class="pre">factors</span></code> raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Mutation helpers</p></td>
+<td><p>Each helper: correct value, no side-effects on other rows/columns, clear errors</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_make_safe_name</span></code></p></td>
+<td><p>Forbidden chars replaced, leading/trailing underscores stripped</p></td>
+</tr>
+<tr class="row-odd"><td><p>Core-count capping</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">n_cores=9999</span></code> capped to <code class="docutils literal notranslate"><span class="pre">cpu_count</span> <span class="pre">-</span> <span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Cartesian product</p></td>
+<td><p>Correct count for 1/2/3-dimension sweeps</p></td>
+</tr>
+<tr class="row-odd"><td><p>Case name uniqueness</p></td>
+<td><p>All generated names are unique</p></td>
+</tr>
+<tr class="row-even"><td><p>Deep-copy isolation</p></td>
+<td><p>Worker mutation does not affect <code class="docutils literal notranslate"><span class="pre">base_data</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Summary CSV</p></td>
+<td><p>Shape, required columns, written to correct path</p></td>
+</tr>
+<tr class="row-even"><td><p>Integration (<code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.integration</span></code>)</p></td>
+<td><p>Full 4-case run on smallest dataset (<code class="docutils literal notranslate"><span class="pre">no_exchange_run_of_river</span></code>), <code class="docutils literal notranslate"><span class="pre">n_cores=1</span></code>, 72 hours; asserts per-case dirs + optimal results</p></td>
+</tr>
+</tbody>
+</table>
+<p>Run only unit tests (fast, no solver needed):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;not integration&quot;</span>
+</pre></div>
+</div>
+<p>Run everything including the integration test:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="known-limitations-deferred-items">
+<h2>Known limitations &amp; deferred items<a class="headerlink" href="#known-limitations-deferred-items" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Item</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Per-tech storage override</p></td>
+<td><p>Currently only row-level factor is supported (scales all techs uniformly). Per-tech value override is possible but not yet implemented.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Memory for very large datasets</p></td>
+<td><p>Even with lazy copy, <code class="docutils literal notranslate"><span class="pre">ProcessPoolExecutor</span></code> pickles <code class="docutils literal notranslate"><span class="pre">base_data</span></code> once per submitted future. For very large data (&gt;1 GB), consider using <code class="docutils literal notranslate"><span class="pre">initializer</span></code>/<code class="docutils literal notranslate"><span class="pre">initargs</span></code> to share data via a global in worker processes.</p></td>
+</tr>
+<tr class="row-even"><td><p>Case name collisions (edge case)</p></td>
+<td><p>Collision detection appends <code class="docutils literal notranslate"><span class="pre">_{index}</span></code>. For readability, consider using a hash suffix for very long names; deferred.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="sdom_Developers_guide.html" class="btn btn-neutral float-left" title="GUIDELINES FOR DEVELOPING SDOM" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sdom_publications.html" class="btn btn-neutral float-right" title="PUBLICATIONS AND USE CASES OF SDOM" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, NLR SDOM Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

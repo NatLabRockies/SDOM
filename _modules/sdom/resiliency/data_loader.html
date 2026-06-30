@@ -1,0 +1,1476 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sdom.resiliency.data_loader &mdash; SDOM v0.2.4</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=6ffd866b"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            SDOM
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/introduction.html">Introduction to SDOM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#how-sdom-works">How SDOM Works</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/introduction.html#input-data">Input Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/introduction.html#outputs">Outputs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#simplified-mathematical-formulation">Simplified Mathematical Formulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#model-components">Model Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#key-features">Key Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/introduction.html#temporal-resolution">Temporal Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/introduction.html#storage-representation">Storage Representation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/introduction.html#spatial-resolution">Spatial Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/introduction.html#flexibility">Flexibility</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#computational-considerations">Computational Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/introduction.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/inputs.html">SDOM Input Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#input-data-structure">Input Data Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#zonal-mode-inputs">Zonal Mode Inputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#required-files">Required Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#formulations-configuration">1. Formulations Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#load-data">2. Load Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#vre-variable-renewable-energy-data">3. VRE (Variable Renewable Energy) Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#fixed-generation-sources">4. Fixed Generation Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#storage-technology-data">5. Storage Technology Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#thermal-generation-data">6. Thermal Generation Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#system-scalars">7. System Scalars</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/inputs.html#import-export-data-optional">8. Import/Export Data (Optional)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#data-validation">Data Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#example-data-loading">Example Data Loading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#tips-for-data-preparation">Tips for Data Preparation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/inputs.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/zonal_inputs.html">Zonal Inputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#zonal-conventions">Zonal Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#network-selector">Network Selector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#formulations-csv">formulations.csv</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#new-zonal-files">New Zonal Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#areas-csv">areas.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#interconnections-csv">interconnections.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#linecap-ft-csv">LineCap_FT.csv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#linecap-tf-csv">LineCap_TF.csv</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#modified-existing-files-in-zonal-mode">Modified Existing Files in Zonal Mode</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#row-oriented-files-with-area-column">Row-oriented files with area column</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#wide-files-with-tagged-headers">Wide files with tagged headers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#capacity-factor-files">Capacity-factor files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#copperplate-aggregation-fallback">CopperPlate Aggregation Fallback</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_inputs.html#validation-summary">Validation Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/running_and_outputs.html">Running SDOM and Understanding Outputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#running-an-optimization">Running an Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#basic-workflow">Basic Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#shorter-time-horizons">Shorter Time Horizons</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#solver-configuration">Solver Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#cbc-solver-open-source">CBC Solver (Open-Source)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#highs-solver-open-source">HiGHS Solver (Open-Source)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#xpress-solver-commercial">Xpress Solver (Commercial)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#solver-option-reference">Solver Option Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#outputs-results">Outputs/Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#zonal-results-access">Zonal Results Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#solver-performance">Solver Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#infeasible-solutions">Infeasible Solutions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#visualising-results">Visualising Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#generated-figures">Generated figures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#controlling-the-output-directory">Controlling the output directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#full-workflow-example">Full workflow example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#running-parametric-sensitivity-studies">Running Parametric &amp; Sensitivity Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/running_and_outputs.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/zonal_model.html">Zonal Model Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_model.html#when-to-use-zonal-mode">When to Use Zonal Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_model.html#minimal-setup">Minimal Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_model.html#run-example">Run Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_model.html#pyomo-object-access">Pyomo Object Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_model.html#results-and-outputs">Results and Outputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_model.html#known-limits-current-scope">Known Limits (Current Scope)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/parametric_analysis.html">Parametric &amp; Sensitivity Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#when-to-use-parametric-analysis">When to use parametric analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#quick-start-example">Quick-start example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#sample-results-of-this-example">Sample results of this example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#cross-case-sensitivity-plots">Cross-case sensitivity plots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#per-case-plots">Per-case plots</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#sweep-types">Sweep types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#scalar-sweep-add-scalar-sweep-data-key-param-name-values">Scalar sweep — <code class="docutils literal notranslate"><span class="pre">add_scalar_sweep(data_key,</span> <span class="pre">param_name,</span> <span class="pre">values)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#storage-factor-sweep-add-storage-factor-sweep-param-name-factors">Storage factor sweep — <code class="docutils literal notranslate"><span class="pre">add_storage_factor_sweep(param_name,</span> <span class="pre">factors)</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#time-series-sweep-add-ts-sweep-ts-key-factors">Time-series sweep — <code class="docutils literal notranslate"><span class="pre">add_ts_sweep(ts_key,</span> <span class="pre">factors)</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#cartesian-product-and-case-naming">Cartesian product and case naming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#output-structure">Output structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#performance-guidance">Performance guidance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#visualising-parametric-results">Visualising parametric results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#grouping-strategy">Grouping strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/parametric_analysis.html#additional-options">Additional options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/resiliency.html">Resiliency Evaluation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#two-optimization-problems">Two Optimization Problems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#problem-b-baseline-annual-dispatch">Problem (B) - Baseline annual dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#problem-o-per-hour-outage-dispatch">Problem (O) - Per-hour outage dispatch</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#inputs">Inputs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#snapshot-directory-snapshot-dir">1. Snapshot directory (<code class="docutils literal notranslate"><span class="pre">snapshot_dir</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#previous-stage-inputs-directory-inputs-dir">2. Previous-stage inputs directory (<code class="docutils literal notranslate"><span class="pre">inputs_dir</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#outage-specification">Outage Specification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#quickstart">Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#end-to-end-with-evaluate-resiliency">1. End-to-end with <code class="docutils literal notranslate"><span class="pre">evaluate_resiliency</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#step-by-step-more-control-advanced">2. Step-by-step (more control, advanced)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#constant-critical-load-during-the-outage-window">3. Constant critical load during the outage window</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#optional-profiling">4. Optional profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#results">Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#per-hour-dataframe">Per-hour DataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#aggregate-metrics">Aggregate metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency.html#persistence">Persistence</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#plotting">Plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency.html#logging">Logging</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/resiliency_math.html">Resiliency Mathematical Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#sets">1. Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#parameters">2. Parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#designed-capacities-fixed">2.1 Designed capacities (fixed)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#time-series">2.2 Time series</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#costs">2.3 Costs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#outage-operational">2.4 Outage / operational</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#variables">3. Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#objective-functions">4. Objective Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#problem-b-baseline-annual-dispatch">4.1 Problem (B): Baseline annual dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#problem-o-per-hour-outage-dispatch-starting-at-h">4.2 Problem (O): Per-hour outage dispatch starting at <span class="math notranslate nohighlight">\(h\)</span></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#constraints">5. Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#power-balance">5.1 Power balance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#capacity-bounds-with-de-rating">5.2 Capacity bounds with de-rating</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#storage-dynamics-charge-discharge-bounds">5.3 Storage dynamics, charge / discharge bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#demand-charge-linking-problem-b">5.4 Demand-charge linking (Problem (B))</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#outage-problem-coupling-problem-o-starting-at-h">5.5 Outage problem coupling (Problem (O), starting at <span class="math notranslate nohighlight">\(h\)</span>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#outage-modeling-formalism">6. Outage Modeling Formalism</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#capacity-bounded-assets">6.1 Capacity-bounded assets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#must-run-time-series-sources">6.2 Must-run time-series sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#recovery-window-semantics">6.3 Recovery window semantics</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/resiliency_math.html#resiliency-metrics">7. Resiliency Metrics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#per-scenario-anchored-at-h">7.1 Per-scenario (anchored at <span class="math notranslate nohighlight">\(h\)</span>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#aggregate">7.2 Aggregate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/resiliency_math.html#probability-weighted-expected-metrics">7.3 Probability-weighted expected metrics</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/exploring_model.html">Exploring the Pyomo Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#model-architecture">Model Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#zonal-model-structure-areatransportationmodelnetwork">Zonal Model Structure (<code class="docutils literal notranslate"><span class="pre">AreaTransportationModelNetwork</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#model-components">Model Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#sets">Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#parameters">Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#variables">Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#expressions">Expressions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#constraints">Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#inspecting-the-model">Inspecting the Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#print-model-summary">Print Model Summary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#examine-specific-constraints">Examine Specific Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#display-variable-bounds">Display Variable Bounds</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#model-modifications">Model Modifications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#changing-parameters-between-runs">Changing Parameters Between Runs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#adding-custom-constraints">Adding Custom Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#debugging-model-issues">Debugging Model Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#check-for-infeasibility">Check for Infeasibility</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/exploring_model.html#validate-model-construction">Validate Model Construction</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#advanced-direct-pyomo-operations">Advanced: Direct Pyomo Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#model-formulation-files">Model Formulation Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/exploring_model.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html">SDOM Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#sets">Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#parameters">Parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#derived-quantities">Derived quantities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#system">System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#fixed-generation-profiles">Fixed generation profiles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#renewable-investment">Renewable investment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#balancing-units">Balancing units</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#hydro">Hydro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#trade">Trade</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#storage">Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#variables">Variables</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#renewable-investment-and-dispatch">Renewable (investment and dispatch)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#balancing-units-investment-and-dispatch">Balancing units (investment and dispatch)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#storage-investment-and-operations">Storage (investment and operations)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#id1">Hydro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#id2">Trade</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#objective-function">Objective Function</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#pv-cost">PV cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#wind-cost">Wind cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#balancing-unit-cost">Balancing unit cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#storage-cost">Storage cost</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#trade-cost">Trade cost</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#constraints">Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#system-constraints">System constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#vre-balance-constraints">VRE balance constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#balancing-unit-constraints">Balancing unit constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#storage-constraints">Storage constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#hydro-budget-constraints">Hydro budget constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/sdom_math_formulation.html#import-and-export-constraints">Import and export constraints</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html">Zonal Math Formulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#sets">Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#parameters">Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#variables">Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#network-constraints">Network Constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#per-area-supply-balance">Per-Area Supply Balance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#system-wide-clean-share-constraint">System-Wide Clean Share Constraint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/zonal_math_formulation.html#objective">Objective</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#core-modules">Core Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html">Core Optimization Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html">Results Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html">Model Formulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/io_manager.html">Data I/O Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html">Utility Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/parametric.html"><code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> — Parametric Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html">Resiliency Module</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#quick-links">Quick Links</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#main-functions">Main Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/_autosummary/sdom.load_data.html">sdom.load_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/_autosummary/sdom.initialize_model.html">sdom.initialize_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/_autosummary/sdom.run_solver.html">sdom.run_solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/_autosummary/sdom.export_results.html">sdom.export_results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/_autosummary/sdom.get_default_solver_config_dict.html">sdom.get_default_solver_config_dict</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/_autosummary/sdom.configure_logging.html">sdom.configure_logging</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#package-structure">Package Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/core.html">Core Optimization Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html#model-initialization">Model Initialization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#sdom.optimization_main.initialize_model"><code class="docutils literal notranslate"><span class="pre">initialize_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html#solver-configuration">Solver Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#sdom.optimization_main.get_default_solver_config_dict"><code class="docutils literal notranslate"><span class="pre">get_default_solver_config_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#sdom.optimization_main.configure_solver"><code class="docutils literal notranslate"><span class="pre">configure_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html#running-optimization">Running Optimization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#sdom.optimization_main.run_solver"><code class="docutils literal notranslate"><span class="pre">run_solver()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html#configuration">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#sdom.config_sdom.configure_logging"><code class="docutils literal notranslate"><span class="pre">configure_logging()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/core.html#sdom.config_sdom.ColorFormatter"><code class="docutils literal notranslate"><span class="pre">ColorFormatter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/core.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/results.html">Results Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/results.html#optimizationresults-class">OptimizationResults Class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#sdom.results.OptimizationResults"><code class="docutils literal notranslate"><span class="pre">OptimizationResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/results.html#result-collection-function">Result Collection Function</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#sdom.results.collect_results_from_model"><code class="docutils literal notranslate"><span class="pre">collect_results_from_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/results.html#example-usage">Example Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#basic-result-access">Basic Result Access</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#accessing-capacities">Accessing Capacities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#accessing-dataframes">Accessing DataFrames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#accessing-cost-breakdown">Accessing Cost Breakdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#accessing-problem-information">Accessing Problem Information</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/results.html#optimizationresults-attributes">OptimizationResults Attributes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#solver-information">Solver Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#core-results">Core Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#capacity-results">Capacity Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#generation-results">Generation Results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#cost-breakdown">Cost Breakdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#dataframes">DataFrames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/results.html#zonal-fields">Zonal Fields</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/models.html">Model Formulations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_system">System Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_system.objective_rule"><code class="docutils literal notranslate"><span class="pre">objective_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_system.net_load_rule"><code class="docutils literal notranslate"><span class="pre">net_load_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_system.add_system_expressions"><code class="docutils literal notranslate"><span class="pre">add_system_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_system.create_supply_balance_rule"><code class="docutils literal notranslate"><span class="pre">create_supply_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_system.genmix_share_rule"><code class="docutils literal notranslate"><span class="pre">genmix_share_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_system.add_system_constraints"><code class="docutils literal notranslate"><span class="pre">add_system_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_vre">VRE Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_vre.add_vre_parameters"><code class="docutils literal notranslate"><span class="pre">add_vre_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_vre.add_vre_variables"><code class="docutils literal notranslate"><span class="pre">add_vre_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_vre.add_vre_expressions"><code class="docutils literal notranslate"><span class="pre">add_vre_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_vre.add_vre_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_vre_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_vre.vre_balance_rule"><code class="docutils literal notranslate"><span class="pre">vre_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_vre.add_vre_balance_constraints"><code class="docutils literal notranslate"><span class="pre">add_vre_balance_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_storage">Storage Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.initialize_storage_sets"><code class="docutils literal notranslate"><span class="pre">initialize_storage_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.add_storage_parameters"><code class="docutils literal notranslate"><span class="pre">add_storage_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.add_storage_variables"><code class="docutils literal notranslate"><span class="pre">add_storage_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.storage_power_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_power_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.storage_energy_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_energy_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.storage_fixed_om_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">storage_fixed_om_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.add_storage_expressions"><code class="docutils literal notranslate"><span class="pre">add_storage_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.add_storage_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_storage_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.add_storage_variable_costs"><code class="docutils literal notranslate"><span class="pre">add_storage_variable_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.soc_balance_rule"><code class="docutils literal notranslate"><span class="pre">soc_balance_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.max_cycle_year_rule"><code class="docutils literal notranslate"><span class="pre">max_cycle_year_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_storage.add_storage_constraints"><code class="docutils literal notranslate"><span class="pre">add_storage_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_thermal">Thermal Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.initialize_thermal_sets"><code class="docutils literal notranslate"><span class="pre">initialize_thermal_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.add_thermal_parameters"><code class="docutils literal notranslate"><span class="pre">add_thermal_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.add_thermal_variables"><code class="docutils literal notranslate"><span class="pre">add_thermal_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.total_thermal_expr_rule"><code class="docutils literal notranslate"><span class="pre">total_thermal_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.add_thermal_expressions"><code class="docutils literal notranslate"><span class="pre">add_thermal_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.add_thermal_constraints"><code class="docutils literal notranslate"><span class="pre">add_thermal_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.add_thermal_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_thermal_fixed_costs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_thermal.add_thermal_variable_costs"><code class="docutils literal notranslate"><span class="pre">add_thermal_variable_costs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_hydro">Hydropower Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_hydro.add_large_hydro_parameters"><code class="docutils literal notranslate"><span class="pre">add_large_hydro_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_hydro.add_large_hydro_bound_parameters"><code class="docutils literal notranslate"><span class="pre">add_large_hydro_bound_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_hydro.add_hydro_variables"><code class="docutils literal notranslate"><span class="pre">add_hydro_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_hydro.add_hydro_run_of_river_constraints"><code class="docutils literal notranslate"><span class="pre">add_hydro_run_of_river_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_hydro.add_hydro_budget_constraints"><code class="docutils literal notranslate"><span class="pre">add_hydro_budget_constraints()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_imports_exports">Import/Export Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_import_export_ts_parameters"><code class="docutils literal notranslate"><span class="pre">add_import_export_ts_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_imports_parameters"><code class="docutils literal notranslate"><span class="pre">add_imports_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_exports_parameters"><code class="docutils literal notranslate"><span class="pre">add_exports_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_imports_variables"><code class="docutils literal notranslate"><span class="pre">add_imports_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_exports_variables"><code class="docutils literal notranslate"><span class="pre">add_exports_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_imports_exports_cost_expressions"><code class="docutils literal notranslate"><span class="pre">add_imports_exports_cost_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_import_export_binary_variable"><code class="docutils literal notranslate"><span class="pre">add_import_export_binary_variable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_imports_constraints"><code class="docutils literal notranslate"><span class="pre">add_imports_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_exports_constraints"><code class="docutils literal notranslate"><span class="pre">add_exports_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_imports_constraints_without_net_load"><code class="docutils literal notranslate"><span class="pre">add_imports_constraints_without_net_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_exports_constraints_without_net_load"><code class="docutils literal notranslate"><span class="pre">add_exports_constraints_without_net_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_imports_exports.add_imports_exports_cost"><code class="docutils literal notranslate"><span class="pre">add_imports_exports_cost()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#module-sdom.models.formulations_network">Network (Zonal) Formulations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_network.add_network_sets"><code class="docutils literal notranslate"><span class="pre">add_network_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_network.add_network_parameters"><code class="docutils literal notranslate"><span class="pre">add_network_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_network.add_network_variables"><code class="docutils literal notranslate"><span class="pre">add_network_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_network.add_network_constraints"><code class="docutils literal notranslate"><span class="pre">add_network_constraints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_network.add_network_expressions"><code class="docutils literal notranslate"><span class="pre">add_network_expressions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.formulations_network.network_transmission_cost_rule"><code class="docutils literal notranslate"><span class="pre">network_transmission_cost_rule()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#host-pattern-in-formulation-builders">Host Pattern in Formulation Builders</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#model-utilities">Model Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.compute_annualization_factor"><code class="docutils literal notranslate"><span class="pre">compute_annualization_factor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.build_annualization_factor_map"><code class="docutils literal notranslate"><span class="pre">build_annualization_factor_map()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.get_filtered_ts_parameter_dict"><code class="docutils literal notranslate"><span class="pre">get_filtered_ts_parameter_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_alpha_parameter"><code class="docutils literal notranslate"><span class="pre">add_alpha_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_alpha_and_ts_parameters"><code class="docutils literal notranslate"><span class="pre">add_alpha_and_ts_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_budget_parameter"><code class="docutils literal notranslate"><span class="pre">add_budget_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_upper_bound_paramenters"><code class="docutils literal notranslate"><span class="pre">add_upper_bound_paramenters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_lower_bound_paramenters"><code class="docutils literal notranslate"><span class="pre">add_lower_bound_paramenters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_generation_variables"><code class="docutils literal notranslate"><span class="pre">add_generation_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.sum_installed_capacity_by_plants_set_expr_rule"><code class="docutils literal notranslate"><span class="pre">sum_installed_capacity_by_plants_set_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.generic_fixed_om_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">generic_fixed_om_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.generic_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">generic_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.different_fcr_capex_cost_expr_rule"><code class="docutils literal notranslate"><span class="pre">different_fcr_capex_cost_expr_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.generic_budget_rule"><code class="docutils literal notranslate"><span class="pre">generic_budget_rule()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.models.models_utils.add_generic_fixed_costs"><code class="docutils literal notranslate"><span class="pre">add_generic_fixed_costs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/models.html#initialization-functions">Initialization Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.initializations.initialize_vre_sets"><code class="docutils literal notranslate"><span class="pre">initialize_vre_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.initializations.check_n_hours"><code class="docutils literal notranslate"><span class="pre">check_n_hours()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.initializations.create_budget_set"><code class="docutils literal notranslate"><span class="pre">create_budget_set()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.initializations.initialize_sets"><code class="docutils literal notranslate"><span class="pre">initialize_sets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#sdom.initializations.initialize_params"><code class="docutils literal notranslate"><span class="pre">initialize_params()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/io_manager.html">Data I/O Manager</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/io_manager.html#data-loading">Data Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/io_manager.html#sdom.io_manager.load_data"><code class="docutils literal notranslate"><span class="pre">load_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/io_manager.html#formulation-management">Formulation Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/io_manager.html#sdom.io_manager.get_formulation"><code class="docutils literal notranslate"><span class="pre">get_formulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/io_manager.html#sdom.io_manager.get_network_formulation"><code class="docutils literal notranslate"><span class="pre">get_network_formulation()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/io_manager.html#sdom.io_manager.check_formulation"><code class="docutils literal notranslate"><span class="pre">check_formulation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/io_manager.html#results-export">Results Export</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/io_manager.html#sdom.io_manager.export_results"><code class="docutils literal notranslate"><span class="pre">export_results()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/io_manager.html#example-loading-data">Example: Loading Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/io_manager.html#example-exporting-results">Example: Exporting Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/io_manager.html#data-dictionary-structure">Data Dictionary Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/utilities.html">Utility Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/utilities.html#pyomo-utilities">Pyomo Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.safe_pyomo_value"><code class="docutils literal notranslate"><span class="pre">safe_pyomo_value()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/utilities.html#file-utilities">File Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.check_file_exists"><code class="docutils literal notranslate"><span class="pre">check_file_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.get_complete_path"><code class="docutils literal notranslate"><span class="pre">get_complete_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.normalize_string"><code class="docutils literal notranslate"><span class="pre">normalize_string()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/utilities.html#data-utilities">Data Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.compare_lists"><code class="docutils literal notranslate"><span class="pre">compare_lists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.concatenate_dataframes"><code class="docutils literal notranslate"><span class="pre">concatenate_dataframes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#sdom.common.utilities.get_dict_string_void_list_from_keys_in_list"><code class="docutils literal notranslate"><span class="pre">get_dict_string_void_list_from_keys_in_list()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/utilities.html#constants">Constants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#unit-conversion">Unit Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#input-file-names">Input File Names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#hydro-formulations">Hydro Formulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/utilities.html#import-export-formulations">Import/Export Formulations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/utilities.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/resiliency.html">Resiliency Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#top-level-convenience">Top-Level Convenience</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.evaluate_resiliency"><code class="docutils literal notranslate"><span class="pre">evaluate_resiliency()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#data-loading">Data Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.load_designed_system"><code class="docutils literal notranslate"><span class="pre">load_designed_system()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.DesignedSystem"><code class="docutils literal notranslate"><span class="pre">DesignedSystem</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.BaselineState"><code class="docutils literal notranslate"><span class="pre">BaselineState</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#outage-specification">Outage Specification</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.OutageSpec"><code class="docutils literal notranslate"><span class="pre">OutageSpec</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.VALID_COMPONENTS"><code class="docutils literal notranslate"><span class="pre">VALID_COMPONENTS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.MUST_RUN_COMPONENTS"><code class="docutils literal notranslate"><span class="pre">MUST_RUN_COMPONENTS</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#baseline-dispatch-problem-b">Baseline Dispatch (Problem B)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.build_baseline_dispatch"><code class="docutils literal notranslate"><span class="pre">build_baseline_dispatch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.run_baseline_dispatch"><code class="docutils literal notranslate"><span class="pre">run_baseline_dispatch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.BaselineDispatchResults"><code class="docutils literal notranslate"><span class="pre">BaselineDispatchResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#outage-dispatch-problem-o">Outage Dispatch (Problem O)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.build_outage_dispatch"><code class="docutils literal notranslate"><span class="pre">build_outage_dispatch()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#imports-formulation-with-demand-charges">Imports Formulation with Demand Charges</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.add_imports_with_demand_charges"><code class="docutils literal notranslate"><span class="pre">add_imports_with_demand_charges()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#parallel-runner">Parallel Runner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.run_resiliency_evaluation"><code class="docutils literal notranslate"><span class="pre">run_resiliency_evaluation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#results-container">Results Container</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.ResiliencyResults"><code class="docutils literal notranslate"><span class="pre">ResiliencyResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/resiliency.html#plotting">Plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/resiliency.html#sdom.resiliency.plot_metric_distribution"><code class="docutils literal notranslate"><span class="pre">plot_metric_distribution()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_Developers_guide.html">GUIDELINES FOR DEVELOPING SDOM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../sdom_Developers_guide.html#general-guidelines">General Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sdom_Developers_guide.html#table-of-contents">Table of Contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_Developers_guide.html#clone-fork-sdom-repo">clone/fork SDOM repo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_Developers_guide.html#setting-up-your-enviroment">Setting up your enviroment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../sdom_Developers_guide.html#install-uv">Install uv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sdom_Developers_guide.html#install-your-local-sdom-python-module-and-pytest">Install your local SDOM python module and pytest</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_Developers_guide.html#running-tests-locally">Running tests locally</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_Developers_guide.html#build-the-documentation-locally">Build the documentation locally</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_Developers_guide.html#general-source-code-structure">General Source code structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../parametric_implementation.html">Developer Guide: <code class="docutils literal notranslate"><span class="pre">sdom.parametric</span></code> Implementation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#sub-package-layout">Sub-package layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#data-flow">Data flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#key-design-decisions">Key design decisions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#lazy-deep-copy-memory-efficiency">1. Lazy deep-copy (memory efficiency)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#collision-safe-case-naming">2. Collision-safe case naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#result-ordering-via-case-index-not-name-lookup">3. Result ordering via <code class="docutils literal notranslate"><span class="pre">case_index</span></code> (not name lookup)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#module-level-worker-function-pickling">4. Module-level worker function (pickling)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#graceful-failure">5. Graceful failure</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#mutations-py-ts-key-to-column-mapping"><code class="docutils literal notranslate"><span class="pre">mutations.py</span></code> — TS_KEY_TO_COLUMN mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#case-naming-format">Case naming format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#summary-csv-columns">Summary CSV columns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#how-to-extend">How to extend</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#adding-a-new-sweep-type">Adding a new sweep type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../parametric_implementation.html#adding-a-new-time-series-key">Adding a new time-series key</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#testing-strategy">Testing strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../parametric_implementation.html#known-limitations-deferred-items">Known limitations &amp; deferred items</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdom_publications.html">PUBLICATIONS AND USE CASES OF SDOM</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/Omar0902/SDOM">GitHub Repository</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">SDOM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">sdom.resiliency.data_loader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sdom.resiliency.data_loader</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Load a fixed-capacity designed system from SDOM output CSV snapshots.</span>
+
+<span class="sd">Phase 1 of the resiliency module reads the per-scenario capacities from a</span>
+<span class="sd">prior SDOM design run plus the matching previous-stage input time-series CSVs</span>
+<span class="sd">and returns a :class:`~sdom.resiliency.system_state.DesignedSystem`.</span>
+
+<span class="sd">Notes</span>
+<span class="sd">-----</span>
+<span class="sd">- ``OutputGeneration_*.csv`` and ``OutputStorage_*.csv`` are intentionally</span>
+<span class="sd">  ignored at this stage (per the resiliency-module plan).</span>
+<span class="sd">- Files whose names contain ``Phase1`` are excluded from snapshot discovery.</span>
+<span class="sd">- The previous-stage inputs directory does NOT contain a</span>
+<span class="sd">  ``formulations.csv``; CSVs are therefore read directly with pandas</span>
+<span class="sd">  rather than via :func:`sdom.io_manager.load_data`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">sdom.resiliency.system_state</span><span class="w"> </span><span class="kn">import</span> <span class="n">DesignedSystem</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Defaults</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="n">_DEFAULT_FORMULATION_MAP</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;Imports&quot;</span><span class="p">:</span> <span class="s2">&quot;ImportsWithDemandChargesFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Exports&quot;</span><span class="p">:</span> <span class="s2">&quot;ExportsFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Storage&quot;</span><span class="p">:</span> <span class="s2">&quot;StorageFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Thermal&quot;</span><span class="p">:</span> <span class="s2">&quot;ThermalFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Solar&quot;</span><span class="p">:</span> <span class="s2">&quot;VREFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Wind&quot;</span><span class="p">:</span> <span class="s2">&quot;VREFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Hydro&quot;</span><span class="p">:</span> <span class="s2">&quot;HydroFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Nuclear&quot;</span><span class="p">:</span> <span class="s2">&quot;NuclearFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OtherRenewables&quot;</span><span class="p">:</span> <span class="s2">&quot;OtherRenewablesFormulation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Load&quot;</span><span class="p">:</span> <span class="s2">&quot;LoadFormulation&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">_VRE_AGGREGATE_TECHS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Solar PV&quot;</span><span class="p">,</span> <span class="s2">&quot;Wind&quot;</span><span class="p">,</span> <span class="s2">&quot;All generation&quot;</span><span class="p">,</span> <span class="s2">&quot;All technologies&quot;</span><span class="p">}</span>
+
+<span class="c1"># Metric labels in OutputSummary mapped to canonical storage capacity keys.</span>
+<span class="n">_STORAGE_METRIC_MAP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;charge power capacity&quot;</span><span class="p">:</span> <span class="s2">&quot;Cap_Pch&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;discharge power capacity&quot;</span><span class="p">:</span> <span class="s2">&quot;Cap_Pdis&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;energy capacity&quot;</span><span class="p">:</span> <span class="s2">&quot;Cap_E&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Helpers</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_snapshot_file</span><span class="p">(</span><span class="n">snapshot_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the snapshot CSV matching ``{year}_{prefix}_*.csv``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    snapshot_dir : pathlib.Path</span>
+<span class="sd">        Directory to search.</span>
+<span class="sd">    prefix : str</span>
+<span class="sd">        File prefix, e.g. ``&quot;OutputSummary&quot;``.</span>
+<span class="sd">    year : int</span>
+<span class="sd">        Year used in the file name.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pathlib.Path</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        When no matching file is found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">snapshot_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_*.csv&quot;</span><span class="p">)</span>
+    <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;Phase1&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">matches</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2"> snapshot file matching pattern &#39;</span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(excluding Phase1 files) was found.&quot;</span>
+        <span class="p">)</span>
+    <span class="c1"># Deterministic selection: shortest filename wins (avoids picking ad-hoc copies).</span>
+    <span class="n">matches</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_detect_scenario_column</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the scenario-filter column name (``Scenario`` or ``Run``).&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;Scenario&quot;</span><span class="p">,</span> <span class="s2">&quot;Run&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">col</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="s2">&quot;Snapshot CSV is missing a scenario column; expected one of &quot;</span>
+        <span class="s2">&quot;[&#39;Scenario&#39;, &#39;Run&#39;].&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_filter_scenario</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">file_label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply hybrid scenario-id resolution to a snapshot DataFrame.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pandas.DataFrame</span>
+<span class="sd">        Snapshot DataFrame containing a ``Scenario`` or ``Run`` column.</span>
+<span class="sd">    scenario_id : int</span>
+<span class="sd">        User-requested scenario id.</span>
+<span class="sd">    file_label : str</span>
+<span class="sd">        Short label used in error / warning messages.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of (pandas.DataFrame, int)</span>
+<span class="sd">        Filtered DataFrame plus the resolved scenario id.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        When multiple scenarios are present and none match ``scenario_id``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">col</span> <span class="o">=</span> <span class="n">_detect_scenario_column</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+    <span class="n">unique_ids</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">only</span> <span class="o">=</span> <span class="n">unique_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span> <span class="o">!=</span> <span class="n">only</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: only scenario_id=</span><span class="si">%s</span><span class="s2"> is present; ignoring user-supplied scenario_id=</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">file_label</span><span class="p">,</span>
+                <span class="n">only</span><span class="p">,</span>
+                <span class="n">scenario_id</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="n">only</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">only</span>
+    <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unique_ids</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">file_label</span><span class="si">}</span><span class="s2">: scenario_id=</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2"> not found. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Available scenario ids: </span><span class="si">{</span><span class="n">unique_ids</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_warn_zero_capacity</span><span class="p">(</span><span class="n">tech</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+        <span class="s2">&quot;Technology &#39;</span><span class="si">%s</span><span class="s2">&#39; has capacity=</span><span class="si">%s</span><span class="s2">; excluding from designed system.&quot;</span><span class="p">,</span>
+        <span class="n">tech</span><span class="p">,</span>
+        <span class="n">value</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_summary_capacities</span><span class="p">(</span><span class="n">summary_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse OutputSummary into raw capacity dicts.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        ``{&quot;storage_caps_raw&quot;, &quot;thermal_caps_raw&quot;, &quot;solar_total&quot;,</span>
+<span class="sd">        &quot;wind_total&quot;, &quot;scenario_id&quot;}``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">summary_path</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">,</span> <span class="n">resolved_id</span> <span class="o">=</span> <span class="n">_filter_scenario</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">,</span> <span class="n">file_label</span><span class="o">=</span><span class="n">summary_path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="n">storage_caps_raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">thermal_caps_raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">solar_total</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">wind_total</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">metric</span> <span class="o">=</span> <span class="n">_normalize_metric</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">])</span>
+        <span class="n">tech</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Technology&quot;</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;Optimal Value&quot;</span><span class="p">])</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Storage capacities</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">_STORAGE_METRIC_MAP</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">tech</span><span class="p">)</span> <span class="ow">or</span> <span class="n">tech</span> <span class="o">==</span> <span class="s2">&quot;All storage&quot;</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">_STORAGE_METRIC_MAP</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span>
+            <span class="n">storage_caps_raw</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">tech</span><span class="p">),</span> <span class="p">{})[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Generation / VRE capacity rows</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s2">&quot;capacity&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">tech</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">tech_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">tech</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">tech_str</span> <span class="o">==</span> <span class="s2">&quot;Solar PV&quot;</span><span class="p">:</span>
+                <span class="n">solar_total</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">elif</span> <span class="n">tech_str</span> <span class="o">==</span> <span class="s2">&quot;Wind&quot;</span><span class="p">:</span>
+                <span class="n">wind_total</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">elif</span> <span class="n">tech_str</span> <span class="ow">in</span> <span class="n">_VRE_AGGREGATE_TECHS</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">thermal_caps_raw</span><span class="p">[</span><span class="n">tech_str</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;storage_caps_raw&quot;</span><span class="p">:</span> <span class="n">storage_caps_raw</span><span class="p">,</span>
+        <span class="s2">&quot;thermal_caps_raw&quot;</span><span class="p">:</span> <span class="n">thermal_caps_raw</span><span class="p">,</span>
+        <span class="s2">&quot;solar_total&quot;</span><span class="p">:</span> <span class="n">solar_total</span><span class="p">,</span>
+        <span class="s2">&quot;wind_total&quot;</span><span class="p">:</span> <span class="n">wind_total</span><span class="p">,</span>
+        <span class="s2">&quot;scenario_id&quot;</span><span class="p">:</span> <span class="n">resolved_id</span><span class="p">,</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_vre_fom</span><span class="p">(</span>
+    <span class="n">inputs_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">solar_plants</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">wind_plants</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read CapSolar / CapWind ``FOM_M`` (USD/kW-yr) for the given plants.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of (dict, dict)</span>
+<span class="sd">        ``(solar_fom, wind_fom)`` keyed by ``sc_gid`` cast to ``str``.</span>
+<span class="sd">        Plants not in ``solar_plants`` / ``wind_plants`` are skipped.</span>
+<span class="sd">        Missing values default to ``0.0`` and emit a debug-level log.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">wanted_ids</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">inputs_dir</span> <span class="o">/</span> <span class="n">filename</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> missing under </span><span class="si">%s</span><span class="s2">; FOM defaults to 0 for all plants.&quot;</span><span class="p">,</span>
+                <span class="n">filename</span><span class="p">,</span>
+                <span class="n">inputs_dir</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">pid</span><span class="p">:</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">pid</span> <span class="ow">in</span> <span class="n">wanted_ids</span><span class="p">}</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;FOM_M&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="s2">&quot;sc_gid&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> lacks FOM_M / sc_gid columns; FOM defaults to 0.&quot;</span><span class="p">,</span>
+                <span class="n">filename</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">pid</span><span class="p">:</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">pid</span> <span class="ow">in</span> <span class="n">wanted_ids</span><span class="p">}</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;sc_gid&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">))[</span><span class="s2">&quot;FOM_M&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">pid</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="k">for</span> <span class="n">pid</span> <span class="ow">in</span> <span class="n">wanted_ids</span><span class="p">}</span>
+
+    <span class="n">solar_fom</span> <span class="o">=</span> <span class="n">_read</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CapSolar_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span> <span class="n">solar_plants</span><span class="p">)</span>
+    <span class="n">wind_fom</span> <span class="o">=</span> <span class="n">_read</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CapWind_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span> <span class="n">wind_plants</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">solar_fom</span><span class="p">,</span> <span class="n">wind_fom</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_vre_per_plant</span><span class="p">(</span><span class="n">snapshot_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read OutputSelectedVRE and return per-plant capacity dicts.&quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">_find_snapshot_file</span><span class="p">(</span><span class="n">snapshot_dir</span><span class="p">,</span> <span class="s2">&quot;OutputSelectedVRE&quot;</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="c1"># Strip stray spaces on header names (the file ships with &quot;Selection &quot;).</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_filter_scenario</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">,</span> <span class="n">file_label</span><span class="o">=</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">cap_col</span> <span class="o">=</span> <span class="s2">&quot;Capacity (MW)&quot;</span>
+    <span class="n">id_col</span> <span class="o">=</span> <span class="s2">&quot;VRE unit ID&quot;</span>
+    <span class="n">tech_col</span> <span class="o">=</span> <span class="s2">&quot;Technology&quot;</span>
+    <span class="n">sel_col</span> <span class="o">=</span> <span class="s2">&quot;Selection&quot;</span>
+
+    <span class="n">solar_caps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">wind_caps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">plant_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">id_col</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">selection</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">sel_col</span><span class="p">])</span> <span class="k">if</span> <span class="n">sel_col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="k">if</span> <span class="n">selection</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">cap_col</span><span class="p">])</span> <span class="o">*</span> <span class="n">selection</span>
+        <span class="n">tech</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">tech_col</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">tech</span> <span class="o">==</span> <span class="s2">&quot;Solar PV&quot;</span><span class="p">:</span>
+            <span class="n">solar_caps</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">capacity</span>
+        <span class="k">elif</span> <span class="n">tech</span> <span class="o">==</span> <span class="s2">&quot;Wind&quot;</span><span class="p">:</span>
+            <span class="n">wind_caps</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">capacity</span>
+    <span class="k">return</span> <span class="n">solar_caps</span><span class="p">,</span> <span class="n">wind_caps</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_hourly_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read a `*Hour`-indexed hourly CSV, normalising the index column.&quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s2">&quot;Hour&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Hour&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_hourly_series</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">_read_hourly_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">value_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">value_col</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">value_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">value_col</span>
+    <span class="k">return</span> <span class="n">s</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_input_csvs</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load all hourly / parameter input CSVs for the given year.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">p</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">inputs_dir</span> <span class="o">/</span> <span class="n">name</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;load&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Load_hourly_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;cf_solar&quot;</span><span class="p">:</span> <span class="n">_read_hourly_csv</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CFSolar_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+        <span class="s2">&quot;cf_wind&quot;</span><span class="p">:</span> <span class="n">_read_hourly_csv</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CFWind_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+        <span class="s2">&quot;nuclear&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nucl_hourly_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;lahy_hourly_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;other_renewables&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;otre_hourly_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;import_cap&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Import_Cap_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;import_price&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;import_prices_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;export_cap&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Export_Cap_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;export_price&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;export_prices_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;phi_fix_t&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="s2">&quot;fixed_dem_charges.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;phi_var_t&quot;</span><span class="p">:</span> <span class="n">_hourly_series</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="s2">&quot;var_dem_charges.csv&quot;</span><span class="p">)),</span>
+        <span class="s2">&quot;storage_data&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;StorageData_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="s2">&quot;balancing_units&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data_Balancing_units_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)),</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_month_of_hour</span><span class="p">(</span><span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a Series mapping hour-of-year (1..8760) to month (1..12).&quot;&quot;&quot;</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">8760</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;h&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">month</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8761</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;month&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_storage_caps</span><span class="p">(</span>
+    <span class="n">storage_caps_raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">storage_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine snapshot capacities with StorageData parameters.</span>
+
+<span class="sd">    ``storage_data`` is indexed by parameter name (P_Capex, Eff, FOM, VOM, ...)</span>
+<span class="sd">    with one column per storage technology.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">techs_in_data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">storage_data</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tech</span> <span class="ow">in</span> <span class="n">techs_in_data</span><span class="p">:</span>
+        <span class="n">cap</span> <span class="o">=</span> <span class="n">storage_caps_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tech</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">cap_e</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Cap_E&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">cap_pch</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Cap_Pch&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">cap_pdis</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Cap_Pdis&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cap_e</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">cap_pch</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">cap_pdis</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">_warn_zero_capacity</span><span class="p">(</span><span class="n">tech</span><span class="p">,</span> <span class="n">cap_e</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># ``Eff`` in StorageData is round-trip efficiency (matches planning</span>
+        <span class="c1"># model in formulations_storage.py which uses sqrt(Eff) one-way).</span>
+        <span class="n">eff</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">storage_data</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="s2">&quot;Eff&quot;</span><span class="p">,</span> <span class="n">tech</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;Eff&quot;</span> <span class="ow">in</span> <span class="n">storage_data</span><span class="o">.</span><span class="n">index</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="n">vom</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">storage_data</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="s2">&quot;VOM&quot;</span><span class="p">,</span> <span class="n">tech</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;VOM&quot;</span> <span class="ow">in</span> <span class="n">storage_data</span><span class="o">.</span><span class="n">index</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="c1"># FOM ($/kW-yr) split between charge and discharge sides by CostRatio,</span>
+        <span class="c1"># mirroring sdom.models.formulations_storage.storage_fixed_om_cost_expr_rule.</span>
+        <span class="c1"># CEM default cost_ratio = 0.5 when missing.</span>
+        <span class="n">fom</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">storage_data</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="s2">&quot;FOM&quot;</span><span class="p">,</span> <span class="n">tech</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;FOM&quot;</span> <span class="ow">in</span> <span class="n">storage_data</span><span class="o">.</span><span class="n">index</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">cost_ratio</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">storage_data</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="s2">&quot;CostRatio&quot;</span><span class="p">,</span> <span class="n">tech</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s2">&quot;CostRatio&quot;</span> <span class="ow">in</span> <span class="n">storage_data</span><span class="o">.</span><span class="n">index</span>
+            <span class="k">else</span> <span class="mf">0.5</span>
+        <span class="p">)</span>
+        <span class="n">eta_one_way</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">eff</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="k">if</span> <span class="n">eff</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">tech</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Cap_Pch&quot;</span><span class="p">:</span> <span class="n">cap_pch</span><span class="p">,</span>
+            <span class="s2">&quot;Cap_Pdis&quot;</span><span class="p">:</span> <span class="n">cap_pdis</span><span class="p">,</span>
+            <span class="s2">&quot;Cap_E&quot;</span><span class="p">:</span> <span class="n">cap_e</span><span class="p">,</span>
+            <span class="s2">&quot;eta_ch&quot;</span><span class="p">:</span> <span class="n">eta_one_way</span><span class="p">,</span>
+            <span class="s2">&quot;eta_dis&quot;</span><span class="p">:</span> <span class="n">eta_one_way</span><span class="p">,</span>
+            <span class="s2">&quot;soc_min_frac&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s2">&quot;vom&quot;</span><span class="p">:</span> <span class="n">vom</span><span class="p">,</span>
+            <span class="s2">&quot;fom&quot;</span><span class="p">:</span> <span class="n">fom</span><span class="p">,</span>
+            <span class="s2">&quot;cost_ratio&quot;</span><span class="p">:</span> <span class="n">cost_ratio</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_thermal_caps</span><span class="p">(</span>
+    <span class="n">thermal_caps_raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">balancing_units</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Aggregate thermal-tech capacity / cost parameters.</span>
+
+<span class="sd">    The previous-stage ``Data_Balancing_units_{year}.csv`` lists individual</span>
+<span class="sd">    plants without a Technology column. We therefore aggregate by mean of</span>
+<span class="sd">    HeatRate / FuelCost / VOM across all rows (documented behavior).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">balancing_units</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">agg_heat</span> <span class="o">=</span> <span class="n">agg_fuel</span> <span class="o">=</span> <span class="n">agg_vom</span> <span class="o">=</span> <span class="n">agg_fom</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">agg_heat</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">balancing_units</span><span class="p">[</span><span class="s2">&quot;HeatRate&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="s2">&quot;HeatRate&quot;</span> <span class="ow">in</span> <span class="n">balancing_units</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">agg_fuel</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">balancing_units</span><span class="p">[</span><span class="s2">&quot;FuelCost&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="s2">&quot;FuelCost&quot;</span> <span class="ow">in</span> <span class="n">balancing_units</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">agg_vom</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">balancing_units</span><span class="p">[</span><span class="s2">&quot;VOM&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="s2">&quot;VOM&quot;</span> <span class="ow">in</span> <span class="n">balancing_units</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">agg_fom</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">balancing_units</span><span class="p">[</span><span class="s2">&quot;FOM&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="s2">&quot;FOM&quot;</span> <span class="ow">in</span> <span class="n">balancing_units</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+    <span class="k">for</span> <span class="n">tech</span><span class="p">,</span> <span class="n">capacity</span> <span class="ow">in</span> <span class="n">thermal_caps_raw</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">capacity</span> <span class="ow">or</span> <span class="nb">float</span><span class="p">(</span><span class="n">capacity</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">_warn_zero_capacity</span><span class="p">(</span><span class="n">tech</span><span class="p">,</span> <span class="n">capacity</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">var_cost</span> <span class="o">=</span> <span class="n">agg_heat</span> <span class="o">*</span> <span class="n">agg_fuel</span> <span class="o">+</span> <span class="n">agg_vom</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">tech</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;capacity_MW&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">capacity</span><span class="p">),</span>
+            <span class="s2">&quot;heat_rate&quot;</span><span class="p">:</span> <span class="n">agg_heat</span><span class="p">,</span>
+            <span class="s2">&quot;fuel_cost&quot;</span><span class="p">:</span> <span class="n">agg_fuel</span><span class="p">,</span>
+            <span class="s2">&quot;vom&quot;</span><span class="p">:</span> <span class="n">agg_vom</span><span class="p">,</span>
+            <span class="s2">&quot;var_cost&quot;</span><span class="p">:</span> <span class="n">var_cost</span><span class="p">,</span>
+            <span class="s2">&quot;fom&quot;</span><span class="p">:</span> <span class="n">agg_fom</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Public API</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="c1"># Default formulations.csv content used when an inputs directory shipped from a</span>
+<span class="c1"># legacy CEM run does not include a ``formulations.csv``. These values match</span>
+<span class="c1"># what the CEM uses for the resiliency-evaluation dispatch (linear LP, no</span>
+<span class="c1"># net-load coupling on imports/exports, run-of-river hydro).</span>
+<span class="n">_DEFAULT_CEM_FORMULATIONS_ROWS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">&quot;Thermal&quot;</span><span class="p">,</span> <span class="s2">&quot;NoRampsDispatchFormulation&quot;</span><span class="p">,</span> <span class="s2">&quot;Auto-injected by resiliency loader.&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;Hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;RunOfRiverFormulation&quot;</span><span class="p">,</span> <span class="s2">&quot;Auto-injected by resiliency loader.&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;Imports&quot;</span><span class="p">,</span> <span class="s2">&quot;CapacityPriceNetLoadFormulation&quot;</span><span class="p">,</span> <span class="s2">&quot;Auto-injected by resiliency loader.&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;Exports&quot;</span><span class="p">,</span> <span class="s2">&quot;CapacityPriceNetLoadFormulation&quot;</span><span class="p">,</span> <span class="s2">&quot;Auto-injected by resiliency loader.&quot;</span><span class="p">),</span>
+<span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">load_cem_data</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">formulations_overrides</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load the CEM-shaped data dict for the resiliency baseline dispatch.</span>
+
+<span class="sd">    Wraps :func:`sdom.io_manager.load_data` so it can consume the</span>
+<span class="sd">    previous-stage inputs directory used by the resiliency module. The</span>
+<span class="sd">    directory typically lacks ``formulations.csv``; when missing, a minimal</span>
+<span class="sd">    default is materialized in a temporary copy of ``inputs_dir`` (the</span>
+<span class="sd">    original directory is never modified).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    inputs_dir : str or pathlib.Path</span>
+<span class="sd">        Directory containing the original CEM input CSVs.</span>
+<span class="sd">    formulations_overrides : list of tuple, optional</span>
+<span class="sd">        Sequence of ``(component, formulation, description)`` rows used to</span>
+<span class="sd">        override / extend the default ``formulations.csv`` shim. Has no</span>
+<span class="sd">        effect when ``formulations.csv`` already exists in ``inputs_dir``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Data dictionary as returned by :func:`sdom.io_manager.load_data`.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        If ``inputs_dir`` does not exist or is missing CSVs required by</span>
+<span class="sd">        :func:`sdom.io_manager.load_data`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">sdom.io_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_data</span>  <span class="c1"># local import to avoid a cycle</span>
+
+    <span class="n">inputs_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inputs_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CEM inputs directory does not exist: </span><span class="si">{</span><span class="n">inputs_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">has_formulations</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">inputs_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;[Ff]ormulations*.csv&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">has_formulations</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found existing formulations.csv in </span><span class="si">%s</span><span class="s2">; using as-is.&quot;</span><span class="p">,</span> <span class="n">inputs_dir</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">load_data</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">))</span>
+
+    <span class="c1"># The CEM ``load_data`` requires a ``formulations.csv``. Materialize a</span>
+    <span class="c1"># temporary mirror of ``inputs_dir`` so we never touch the user&#39;s source</span>
+    <span class="c1"># tree, then write a default formulations.csv into the copy. The mirror is</span>
+    <span class="c1"># only needed while ``load_data`` runs; clean it up afterwards so repeated</span>
+    <span class="c1"># calls (e.g. in test suites) don&#39;t leak temp directories.</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_DEFAULT_CEM_FORMULATIONS_ROWS</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">formulations_overrides</span><span class="p">:</span>
+        <span class="n">rows</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">formulations_overrides</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;sdom_cem_inputs_&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tmp_root_str</span><span class="p">:</span>
+        <span class="n">tmp_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_root_str</span><span class="p">)</span>
+        <span class="n">tmp_inputs</span> <span class="o">=</span> <span class="n">tmp_root</span> <span class="o">/</span> <span class="n">inputs_dir</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Mirroring CEM inputs to </span><span class="si">%s</span><span class="s2"> and injecting default formulations.csv &quot;</span>
+            <span class="s2">&quot;(original directory </span><span class="si">%s</span><span class="s2"> left untouched).&quot;</span><span class="p">,</span>
+            <span class="n">tmp_inputs</span><span class="p">,</span>
+            <span class="n">inputs_dir</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">,</span> <span class="n">tmp_inputs</span><span class="p">)</span>
+        <span class="n">formulations_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">rows</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="s2">&quot;Formulation&quot;</span><span class="p">,</span> <span class="s2">&quot;Description&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">formulations_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">tmp_inputs</span> <span class="o">/</span> <span class="s2">&quot;formulations.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">_augment_storage_data</span><span class="p">(</span><span class="n">tmp_inputs</span><span class="p">)</span>
+        <span class="n">_augment_scalars</span><span class="p">(</span><span class="n">tmp_inputs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">load_data</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">tmp_inputs</span><span class="p">))</span>
+    <span class="n">_coerce_plant_id_to_string</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_augment_storage_data</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Inject required ``Coupled`` / ``MaxCycles`` rows into StorageData if absent.</span>
+
+<span class="sd">    Older CEM input folders ship a ``StorageData_*.csv`` that omits the</span>
+<span class="sd">    ``Coupled`` and ``MaxCycles`` rows required by the current</span>
+<span class="sd">    :mod:`sdom.models.formulations_storage`. We patch the temporary mirror</span>
+<span class="sd">    using ``Set_b(j)_CoupledStorageTech.csv`` (when present) for the coupled</span>
+<span class="sd">    flags and a permissive ``MaxCycles=100000`` default (effectively unbounded</span>
+<span class="sd">    for an annual dispatch).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">storage_files</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">inputs_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;StorageData*.csv&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">storage_files</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">storage_path</span> <span class="o">=</span> <span class="n">storage_files</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">storage_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="s2">&quot;Coupled&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="n">coupled_techs</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">coupled_files</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">inputs_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;Set_b*Coupled*.csv&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">coupled_files</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">coupled_techs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                    <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">coupled_files</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">coupled_techs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;Coupled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="ow">in</span> <span class="n">coupled_techs</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Injected &#39;Coupled&#39; row into StorageData (coupled techs: </span><span class="si">%s</span><span class="s2">).&quot;</span><span class="p">,</span>
+            <span class="nb">sorted</span><span class="p">(</span><span class="n">coupled_techs</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;[]&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;MaxCycles&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;MaxCycles&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">100000.0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Injected &#39;MaxCycles&#39; row into StorageData (default=100000).&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">changed</span><span class="p">:</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">storage_path</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_augment_scalars</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize ``Scalars.csv`` to the schema expected by :func:`load_data`.</span>
+
+<span class="sd">    Older inputs use ``ScalarInputs`` as the parameter column; the current</span>
+<span class="sd">    loader expects ``Parameter``. Also injects ``EUE_max=0`` when absent so</span>
+<span class="sd">    system constraints can build without modification.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">inputs_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;[Ss]calars*.csv&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="s2">&quot;Parameter&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">alt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ScalarInputs&quot;</span><span class="p">,</span> <span class="s2">&quot;Scalar&quot;</span><span class="p">,</span> <span class="s2">&quot;scalar&quot;</span><span class="p">,</span> <span class="s2">&quot;scalarinputs&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">alt</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">alt</span><span class="p">:</span> <span class="s2">&quot;Parameter&quot;</span><span class="p">})</span>
+                <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Renamed scalar column &#39;</span><span class="si">%s</span><span class="s2">&#39; -&gt; &#39;Parameter&#39;.&quot;</span><span class="p">,</span> <span class="n">alt</span><span class="p">)</span>
+                <span class="k">break</span>
+    <span class="k">if</span> <span class="s2">&quot;Parameter&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s2">&quot;EUE_max&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Parameter&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([{</span><span class="s2">&quot;Parameter&quot;</span><span class="p">:</span> <span class="s2">&quot;EUE_max&quot;</span><span class="p">,</span> <span class="s2">&quot;Value&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}])],</span>
+            <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Injected scalar &#39;EUE_max=0&#39;.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">changed</span><span class="p">:</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_augment_thermal_data</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Force ``Plant_id`` to string in legacy ``Data_BalancingUnits*.csv`` files.</span>
+
+<span class="sd">    The CEM thermal parameter loader builds a Pyomo set from</span>
+<span class="sd">    ``Plant_id.astype(str)`` but then keys a stacked-dict lookup off the raw</span>
+<span class="sd">    column values. When ``Plant_id`` is integer-typed (as in older paper</span>
+<span class="sd">    datasets), the two key spaces disagree and parameter assembly raises</span>
+<span class="sd">    ``KeyError``. Casting the column to string in the temp mirror keeps the</span>
+<span class="sd">    legacy data compatible without touching the user&#39;s source folder.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">inputs_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;Data_*[Bb]alancing*nits*.csv&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;Plant_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="nb">object</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cast Plant_id to string in </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_coerce_plant_id_to_string</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure ``data[&#39;thermal_data&#39;][&#39;Plant_id&#39;]`` is string-typed.</span>
+
+<span class="sd">    The CEM thermal parameter loader (</span>
+<span class="sd">    :func:`sdom.models.formulations_thermal.add_thermal_parameters`) builds</span>
+<span class="sd">    its Pyomo set from ``Plant_id.astype(str)`` but indexes the stacked</span>
+<span class="sd">    parameter dict with the raw column values, so integer ``Plant_id``</span>
+<span class="sd">    columns (as in older paper datasets) raise ``KeyError`` during model</span>
+<span class="sd">    construction. This in-memory cast keeps the user&#39;s source folder</span>
+<span class="sd">    untouched while making legacy CSVs work.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">td</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;thermal_data&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">td</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s2">&quot;Plant_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">td</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">td</span><span class="p">[</span><span class="s2">&quot;Plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="nb">object</span><span class="p">:</span>
+        <span class="n">td</span><span class="p">[</span><span class="s2">&quot;Plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">td</span><span class="p">[</span><span class="s2">&quot;Plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_designed_system">
+<a class="viewcode-back" href="../../../api/resiliency.html#sdom.resiliency.load_designed_system">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_designed_system</span><span class="p">(</span>
+    <span class="n">snapshot_dir</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">inputs_dir</span><span class="p">,</span>
+    <span class="n">year</span><span class="o">=</span><span class="mi">2030</span><span class="p">,</span>
+    <span class="n">scenario_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">formulation_overrides</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">attach_cem_data</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a fixed-capacity designed system from SDOM output snapshots.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    snapshot_dir : str or pathlib.Path</span>
+<span class="sd">        Directory containing ``OutputSummary_*`` and ``OutputSelectedVRE_*``</span>
+<span class="sd">        CSVs from a prior SDOM design run. ``OutputGeneration_*`` and</span>
+<span class="sd">        ``OutputStorage_*`` files are ignored at this stage; files containing</span>
+<span class="sd">        ``Phase1`` in their names are also excluded.</span>
+<span class="sd">    inputs_dir : str or pathlib.Path</span>
+<span class="sd">        Directory holding the previous-stage time-series and parameter CSVs</span>
+<span class="sd">        (``Load_hourly_*``, ``CFSolar_*``, ``CFWind_*``,</span>
+<span class="sd">        ``Data_Balancing_units_*``, ``StorageData_*``, ``Import_Cap_*``,</span>
+<span class="sd">        ``import_prices_*``, ``Export_Cap_*``, ``export_prices_*``,</span>
+<span class="sd">        ``fixed_dem_charges.csv``, ``var_dem_charges.csv``).</span>
+<span class="sd">    year : int, optional</span>
+<span class="sd">        Calendar year used in CSV filenames. Default ``2030``.</span>
+<span class="sd">    scenario_id : int, optional</span>
+<span class="sd">        Scenario / Run id to extract from snapshot CSVs. Default ``1``.</span>
+<span class="sd">        If a snapshot file contains a single unique scenario, that one is</span>
+<span class="sd">        used and a warning is emitted when ``scenario_id`` differs.</span>
+<span class="sd">        If multiple scenarios are present, ``scenario_id`` must match one</span>
+<span class="sd">        of them; otherwise :class:`ValueError` is raised listing the</span>
+<span class="sd">        available ids.</span>
+<span class="sd">    formulation_overrides : dict, optional</span>
+<span class="sd">        Mapping ``{component: formulation_name}`` overlaid on the default</span>
+<span class="sd">        formulation map.</span>
+<span class="sd">    attach_cem_data : bool, optional</span>
+<span class="sd">        When ``True`` (default), also load the CEM-shaped data dict via</span>
+<span class="sd">        :func:`load_cem_data` and attach it as</span>
+<span class="sd">        ``DesignedSystem.cem_data``. Required by</span>
+<span class="sd">        :func:`sdom.resiliency.build_baseline_dispatch`. Set to ``False`` to</span>
+<span class="sd">        skip this step in environments where the previous-stage inputs</span>
+<span class="sd">        directory is not a valid CEM inputs folder.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    DesignedSystem</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        When the ``OutputSummary_*`` snapshot is missing.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        When ``scenario_id`` cannot be resolved against the snapshot.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ds = load_designed_system(</span>
+<span class="sd">    ...     &quot;Data/resiliency_eval/3MW_critical_load_24hrs_outage_24hrs_recovery&quot;,</span>
+<span class="sd">    ...     inputs_dir=&quot;Data/resiliency_eval/inputs_previous_stage/Paper_PGnE/Paper&quot;,</span>
+<span class="sd">    ...     year=2030,</span>
+<span class="sd">    ...     scenario_id=1,</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; ds.scenario_id</span>
+<span class="sd">    1</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">snapshot_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">snapshot_dir</span><span class="p">)</span>
+    <span class="n">inputs_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;Loading designed system: snapshot_dir=</span><span class="si">%s</span><span class="s2">, inputs_dir=</span><span class="si">%s</span><span class="s2">, year=</span><span class="si">%s</span><span class="s2">, scenario_id=</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+        <span class="n">snapshot_dir</span><span class="p">,</span>
+        <span class="n">inputs_dir</span><span class="p">,</span>
+        <span class="n">year</span><span class="p">,</span>
+        <span class="n">scenario_id</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Locating OutputSummary snapshot for year=</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+    <span class="n">summary_path</span> <span class="o">=</span> <span class="n">_find_snapshot_file</span><span class="p">(</span><span class="n">snapshot_dir</span><span class="p">,</span> <span class="s2">&quot;OutputSummary&quot;</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Reading summary capacities from </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">summary_path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">summary_info</span> <span class="o">=</span> <span class="n">_load_summary_capacities</span><span class="p">(</span><span class="n">summary_path</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">)</span>
+    <span class="n">resolved_id</span> <span class="o">=</span> <span class="n">summary_info</span><span class="p">[</span><span class="s2">&quot;scenario_id&quot;</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Resolved scenario_id=</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">resolved_id</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading per-plant VRE selections from snapshot.&quot;</span><span class="p">)</span>
+    <span class="n">solar_caps</span><span class="p">,</span> <span class="n">wind_caps</span> <span class="o">=</span> <span class="n">_load_vre_per_plant</span><span class="p">(</span><span class="n">snapshot_dir</span><span class="p">,</span> <span class="n">resolved_id</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+        <span class="s2">&quot;Per-plant VRE counts: solar=</span><span class="si">%d</span><span class="s2">, wind=</span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">solar_caps</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">wind_caps</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading VRE FOM_M from CapSolar/CapWind input CSVs.&quot;</span><span class="p">)</span>
+    <span class="n">solar_fom</span><span class="p">,</span> <span class="n">wind_fom</span> <span class="o">=</span> <span class="n">_load_vre_fom</span><span class="p">(</span>
+        <span class="n">inputs_dir</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">solar_caps</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">set</span><span class="p">(</span><span class="n">wind_caps</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading previous-stage input CSVs from </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">inputs_dir</span><span class="p">)</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="n">_load_input_csvs</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Combining snapshot capacities with StorageData parameters.&quot;</span><span class="p">)</span>
+    <span class="n">storage_caps</span> <span class="o">=</span> <span class="n">_build_storage_caps</span><span class="p">(</span>
+        <span class="n">summary_info</span><span class="p">[</span><span class="s2">&quot;storage_caps_raw&quot;</span><span class="p">],</span> <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;storage_data&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Aggregating thermal-tech capacity / cost parameters.&quot;</span><span class="p">)</span>
+    <span class="n">thermal_caps</span> <span class="o">=</span> <span class="n">_build_thermal_caps</span><span class="p">(</span>
+        <span class="n">summary_info</span><span class="p">[</span><span class="s2">&quot;thermal_caps_raw&quot;</span><span class="p">],</span> <span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;balancing_units&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">formulation_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">_DEFAULT_FORMULATION_MAP</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">formulation_overrides</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Applying formulation overrides: </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">formulation_overrides</span><span class="p">)</span>
+        <span class="n">formulation_map</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">formulation_overrides</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;Designed system loaded: storage=</span><span class="si">%d</span><span class="s2">, thermal=</span><span class="si">%d</span><span class="s2">, solar plants=</span><span class="si">%d</span><span class="s2">, wind plants=</span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">storage_caps</span><span class="p">),</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">thermal_caps</span><span class="p">),</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">solar_caps</span><span class="p">),</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">wind_caps</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">cem_data</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">attach_cem_data</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading CEM-shaped data dict from </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">inputs_dir</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cem_data</span> <span class="o">=</span> <span class="n">load_cem_data</span><span class="p">(</span><span class="n">inputs_dir</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Failed to load CEM data dict from </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Re-raising; build_baseline_dispatch requires cem_data and &quot;</span>
+                <span class="s2">&quot;would otherwise fail with an unhelpful error downstream. &quot;</span>
+                <span class="s2">&quot;Pass attach_cem_data=False to skip this step when the &quot;</span>
+                <span class="s2">&quot;inputs directory is not a valid CEM inputs folder.&quot;</span><span class="p">,</span>
+                <span class="n">inputs_dir</span><span class="p">,</span>
+                <span class="n">exc</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">raise</span>
+
+    <span class="k">return</span> <span class="n">DesignedSystem</span><span class="p">(</span>
+        <span class="n">storage_caps</span><span class="o">=</span><span class="n">storage_caps</span><span class="p">,</span>
+        <span class="n">thermal_caps</span><span class="o">=</span><span class="n">thermal_caps</span><span class="p">,</span>
+        <span class="n">solar_caps</span><span class="o">=</span><span class="n">solar_caps</span><span class="p">,</span>
+        <span class="n">wind_caps</span><span class="o">=</span><span class="n">wind_caps</span><span class="p">,</span>
+        <span class="n">solar_fom</span><span class="o">=</span><span class="n">solar_fom</span><span class="p">,</span>
+        <span class="n">wind_fom</span><span class="o">=</span><span class="n">wind_fom</span><span class="p">,</span>
+        <span class="n">load</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;load&quot;</span><span class="p">],</span>
+        <span class="n">cf_solar</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;cf_solar&quot;</span><span class="p">],</span>
+        <span class="n">cf_wind</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;cf_wind&quot;</span><span class="p">],</span>
+        <span class="n">nuclear</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;nuclear&quot;</span><span class="p">],</span>
+        <span class="n">hydro</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;hydro&quot;</span><span class="p">],</span>
+        <span class="n">other_renewables</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;other_renewables&quot;</span><span class="p">],</span>
+        <span class="n">import_cap</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;import_cap&quot;</span><span class="p">],</span>
+        <span class="n">import_price</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;import_price&quot;</span><span class="p">],</span>
+        <span class="n">export_cap</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;export_cap&quot;</span><span class="p">],</span>
+        <span class="n">export_price</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;export_price&quot;</span><span class="p">],</span>
+        <span class="n">phi_fix_t</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;phi_fix_t&quot;</span><span class="p">],</span>
+        <span class="n">phi_var_t</span><span class="o">=</span><span class="n">inputs</span><span class="p">[</span><span class="s2">&quot;phi_var_t&quot;</span><span class="p">],</span>
+        <span class="n">month_of_hour</span><span class="o">=</span><span class="n">_compute_month_of_hour</span><span class="p">(</span><span class="n">year</span><span class="p">),</span>
+        <span class="n">scenario_id</span><span class="o">=</span><span class="n">resolved_id</span><span class="p">,</span>
+        <span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">,</span>
+        <span class="n">formulation_map</span><span class="o">=</span><span class="n">formulation_map</span><span class="p">,</span>
+        <span class="n">cem_data</span><span class="o">=</span><span class="n">cem_data</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, NLR SDOM Team.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
