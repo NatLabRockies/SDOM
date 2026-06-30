@@ -64,5 +64,5 @@ jobs:
 
       - name: ▶️ Run tests
         run: |
-          pytest --ignore=tests/test_docs_build.py
-        continue-on-error: true
+          pytest --ignore=tests/test_docs_build.py --ignore=tests/benchmarks
+        continue-on-error: false
