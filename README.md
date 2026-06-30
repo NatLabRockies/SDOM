@@ -113,6 +113,7 @@ run against the `Data/no_exchange_run_of_river/` dataset included in this reposi
   - After the installation make sure the [python enviroment variable is set](https://realpython.com/add-python-to-path/).
 - b. Also, You'll need an IDE (Integrated Development Environment), we recommend to install [MS VS code](https://code.visualstudio.com/)
 - d. We alse recommend to install extensions such as:
+  - [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) (required): Provides Python language support, debugging, environment selection, and IntelliSense in VS Code.
   - [edit CSV](https://marketplace.visualstudio.com/items?itemName=janisdd.vscode-edit-csv): To edit and interact with input csv files for SDOM directly in vs code.
   - [vscode-pdf](https://marketplace.visualstudio.com/items?itemName=tomoki1207.pdf): to read and see pdf files directly in vscode.
 
@@ -124,6 +125,42 @@ It is recommended to load the packages in a virtual enviroment.
 We recommend to use `uv`, a Python manager for virtual environments and packages.  
 
 - a. Install `uv` following the instructions at [uv on PyPI](https://pypi.org/project/uv/).
+
+  **Windows only — verify that `python` and `uv` are on your PATH** before creating the virtual environment. In PowerShell (or cmd) run:
+
+  ```powershell
+  where.exe python
+  where.exe uv
+  ```
+
+  Each command should print a full path. If you see `INFO: Could not find files for the given pattern(s).`, the executable is not on your PATH — re-check the Python installer option *Add python.exe to PATH*, or reinstall `uv` and open a new terminal so PATH changes take effect.
+
+  **Fix it manually (no admin required) — add the missing folders to your User PATH:**
+
+  1. Locate the install folder(s). Common defaults are:
+      - Python: `%LOCALAPPDATA%\Programs\Python\Python3xx\` and `%LOCALAPPDATA%\Programs\Python\Python3xx\Scripts\`
+      - `uv`: `%USERPROFILE%\.local\bin\` (official installer) or the `Scripts` folder of the Python you used with `pip install uv`
+
+      You can list installed Python versions with:
+
+      ```powershell
+      Get-ChildItem "$env:LOCALAPPDATA\Programs\Python" -Directory
+      ```
+
+  2. Append the folder(s) to your **User** PATH (persists across sessions, no admin needed). Edit the `$newPaths` list to match what you found in step 1, then run:
+
+      ```powershell
+      $newPaths = @(
+          "$env:LOCALAPPDATA\Programs\Python\Python312",
+          "$env:LOCALAPPDATA\Programs\Python\Python312\Scripts",
+          "$env:USERPROFILE\.local\bin"
+      )
+      $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+      $updated  = (@($userPath.TrimEnd(';')) + $newPaths) -join ';'
+      [Environment]::SetEnvironmentVariable("Path", $updated, "User")
+      ```
+
+  3. **Close and reopen your terminal** (and VS Code) so the new PATH is picked up, then re-run `where.exe python` and `where.exe uv` to confirm both now resolve.
 
 - b. Create a new virtual environment named `.venv`:
 
