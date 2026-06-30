@@ -46,11 +46,15 @@ def test_index_file_exists():
     assert index_file.is_file(), "index.md is not a file"
 
 
-def test_requirements_file_exists():
-    """Test that docs requirements file exists."""
+def test_docs_dependency_group_declared():
+    """Test that the ``docs`` dependency group is declared in pyproject.toml."""
     repo_root = Path(__file__).parent.parent
-    req_file = repo_root / "docs" / "requirements.txt"
-    assert req_file.exists(), "docs/requirements.txt not found"
+    pyproject_path = repo_root / "pyproject.toml"
+    with pyproject_path.open("rb") as f:
+        pyproject_data = tomllib.load(f)
+    groups = pyproject_data.get("dependency-groups", {})
+    assert "docs" in groups, "pyproject.toml is missing a [dependency-groups].docs entry"
+    assert groups["docs"], "[dependency-groups].docs is empty"
 
 
 def test_docs_version_matches_pyproject():
@@ -92,7 +96,7 @@ def test_sphinx_build_imports():
         import sphinx
         assert sphinx.__version__ is not None
     except ImportError:
-        pytest.skip("Sphinx not installed - install with: uv pip install -r docs/requirements.txt")
+        pytest.skip("Sphinx not installed - install with: uv sync --group docs")
 
 
 def test_myst_parser_imports():
@@ -101,7 +105,7 @@ def test_myst_parser_imports():
         import myst_parser
         assert myst_parser.__version__ is not None
     except ImportError:
-        pytest.skip("myst_parser not installed - install with: uv pip install -r docs/requirements.txt")
+        pytest.skip("myst_parser not installed - install with: uv sync --group docs")
 
 
 def test_docs_build_html():

@@ -5,6 +5,7 @@ from sdom import load_data
 from sdom import run_solver, initialize_model, get_default_solver_config_dict
 
 from utils_tests import get_n_eq_ineq_constraints, get_optimization_problem_info, get_optimization_problem_solution_info, check_supply_balance_constraint, check_budget_constraint
+from utils_tests import CBC_EXECUTABLE, CBC_NOT_AVAILABLE_REASON
 from constants_test import REL_PATH_DATA_HYDRO_BUDGET_TEST, REL_PATH_DATA_DAILY_HYDRO_BUDGET_TEST
 
 def test_optimization_model_ini_case_no_resiliency_730h_monthly_budget():
@@ -63,6 +64,7 @@ def test_optimization_model_res_case_no_resiliency_730h_monthly_budget_highs():
     assert budget_check["n_budget_periods"] == 1, f"Expected 1 monthly budget period, got {budget_check['n_budget_periods']}"
 
 
+@pytest.mark.skipif(CBC_EXECUTABLE is None, reason=CBC_NOT_AVAILABLE_REASON)
 def test_optimization_model_res_case_no_resiliency_730h_monthly_budget_cbc():
 
     test_data_path = os.path.join(os.path.dirname(__file__), '..', REL_PATH_DATA_HYDRO_BUDGET_TEST)
@@ -72,7 +74,7 @@ def test_optimization_model_res_case_no_resiliency_730h_monthly_budget_cbc():
 
     model = initialize_model( data, n_hours = 730, with_resilience_constraints = False )
 
-    solver_dict = get_default_solver_config_dict(solver_name="cbc", executable_path=".\\Solver\\bin\\cbc.exe")
+    solver_dict = get_default_solver_config_dict(solver_name="cbc", executable_path=CBC_EXECUTABLE)
     try:
         results = run_solver( model, solver_dict )
         assert results is not None

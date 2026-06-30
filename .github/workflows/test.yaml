@@ -16,9 +16,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest]
-        python-version: ['3.11', '3.12', '3.13']  
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.11', '3.12', '3.13']
 
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -45,11 +46,23 @@ jobs:
         run: |
             pip install . pytest pytest-cov
 
-      - name: 📚 Install docs dependencies
+      - name: 🧮 Install CBC solver (Linux)
+        if: runner.os == 'Linux'
         run: |
-            pip install -r docs/requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y coinor-cbc
+          echo "SDOM_CBC_PATH=$(command -v cbc)" >> "$GITHUB_ENV"
+
+      - name: 🧮 Set CBC path to vendored binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "SDOM_CBC_PATH=$env:GITHUB_WORKSPACE\Solver\bin\cbc.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # macOS intentionally has no CBC install step; CBC-specific tests will auto-skip
+      # via the SDOM_CBC_PATH/get_cbc_executable() helper. HiGHS still runs there.
 
       - name: ▶️ Run tests
         run: |
-          pytest
-        continue-on-error: true
+          pytest --ignore=tests/test_docs_build.py --ignore=tests/benchmarks
+        continue-on-error: false

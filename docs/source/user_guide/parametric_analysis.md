@@ -10,12 +10,17 @@ writes per-case CSV outputs plus a consolidated summary.
 
 ## When to use parametric analysis
 
-| Use case | Recommended approach |
-|---|---|
-| Single scenario | `run_solver()` directly |
-| Sweep one parameter (e.g. `GenMix_Target`) | `ParametricStudy` with one `add_scalar_sweep` |
-| Full sensitivity across multiple parameters | `ParametricStudy` with multiple sweep calls |
-| 2050 projections at different load growth rates | `ParametricStudy` with `add_ts_sweep` on `load_data` |
+The table below maps the most common analysis needs to the sweep type that
+implements them. Each sweep type is documented in detail in the
+**Sweep types** section below.
+
+| Use case | Recommended approach | Typical parameters / inputs |
+|---|---|---|
+| Single scenario | `run_solver()` directly | — |
+| Sensitivity on a scalar input | `ParametricStudy` + **Scalar sweep** (`add_scalar_sweep`) | Any row of `data["scalars"]` — e.g. `GenMix_Target`, `r` (discount rate), `LifeTimeVRE`, `EUE_max`, `AlphaNuclear`, `AlphaLargHy`, `AlphaOtheRe` |
+| Sensitivity on storage costs or performance (uniform across all storage technologies) | `ParametricStudy` + **Storage factor sweep** (`add_storage_factor_sweep`) | Any row of `data["storage_data"]` — e.g. `P_Capex`, `E_Capex`, `Eff`, `FOM`, `VOM`, `Lifetime`, `Min_Duration`, `Max_Duration` |
+| Sensitivity on a time-series profile (load growth, hydro availability, import/export limits or prices) | `ParametricStudy` + **Time-series sweep** (`add_ts_sweep`) | `load_data`, `large_hydro_data`, `large_hydro_max`, `large_hydro_min`, `cap_imports`, `price_imports`, `cap_exports`, `price_exports` |
+| Full sensitivity across multiple parameters | `ParametricStudy` combining several of the sweep types above (every Cartesian combination is evaluated) | Any combination of the rows above |
 
 ---
 

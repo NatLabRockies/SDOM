@@ -77,9 +77,15 @@ _EXPECTED_SENSITIVITY_PLOTS = [
 # ---------------------------------------------------------------------------
 # Reference numeric values (generated from the golden results stored under
 # Data/no_exchange_run_of_river/results).
-# Tolerance: 2 % relative.
+# Tolerance: 2 % relative for cost and most capacities.
 # ---------------------------------------------------------------------------
 _TOLERANCE = 0.02  # 2 %
+# Solar PV capacity is widened to 12 % because solar and storage are near-perfect
+# substitutes in some parametric cases, producing LP alternate optima: the same
+# objective value is reached at different solar/storage splits depending on the
+# solver's vertex choice (observed cross-OS drift up to ~9 %). Cost, thermal,
+# and wind capacity remain stable across solvers/OSes.
+_TOLERANCE_SOLAR = 0.12
 
 # key = case_name, value = {metric: expected_value}
 _REFERENCE = {
@@ -397,7 +403,7 @@ class TestNumericResults:
         df = pd.read_csv(csv)
         actual = _get_summary_metric(df, "Capacity", "Solar PV")
         ref = _REFERENCE[case_name]["solar_cap_MW"]
-        assert _rel(actual, ref) <= _TOLERANCE, (
+        assert _rel(actual, ref) <= _TOLERANCE_SOLAR, (
             f"[{case_name}] Solar PV capacity: got {actual:.2f} MW, expected ~{ref:.2f} MW "
             f"(rel diff = {_rel(actual, ref):.2%})"
         )
