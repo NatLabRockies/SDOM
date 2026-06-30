@@ -104,11 +104,8 @@ source .venv/bin/activate
 
 ### 3. Install Package and Documentation Dependencies
 ```bash
-# Install SDOM package in editable mode
-uv pip install -e .
-
-# Install documentation requirements
-uv pip install -r docs/requirements.txt
+# Install SDOM package plus the docs dependency group (PEP 735)
+uv sync --group docs
 ```
 
 ### 4. Build Documentation
@@ -231,9 +228,8 @@ pip install uv
 uv venv .venv
 source .venv/bin/activate  # or .venv\Scripts\Activate.ps1 on Windows
 
-# Install dependencies
-uv pip install -e .
-uv pip install -r docs/requirements.txt
+# Install dependencies (project + docs group)
+uv sync --group docs
 
 # Build docs
 cd docs
@@ -264,7 +260,7 @@ uv pip install -e . --force-reinstall --no-deps
 
 ```bash
 # Reinstall documentation dependencies
-uv pip install -r docs/requirements.txt --upgrade
+uv sync --group docs --upgrade
 
 # Check Sphinx version
 sphinx-build --version
@@ -296,7 +292,7 @@ find docs/source -name "*.md" -exec python -m myst_parser {} \;
 | Task | Windows PowerShell | Unix/Linux/MacOS |
 |------|-------------------|------------------|
 | Activate venv | `.\.venv\Scripts\Activate.ps1` | `source .venv/bin/activate` |
-| Install deps | `uv pip install -r docs\requirements.txt` | `uv pip install -r docs/requirements.txt` |
+| Install deps | `uv sync --group docs` | `uv sync --group docs` |
 | Build HTML | `cd docs; .\make.bat html` | `cd docs && make html` |
 | Clean | `.\make.bat clean` | `make clean` |
 | View | `start build\html\index.html` | `open build/html/index.html` |

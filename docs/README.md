@@ -14,8 +14,8 @@ This directory contains the Sphinx documentation for SDOM (Storage Deployment Op
 # Unix/MacOS:
 source .venv/bin/activate
 
-# Install documentation requirements
-uv pip install -r docs/requirements.txt
+# Install documentation dependencies (PEP 735 group from pyproject.toml)
+uv sync --group docs
 ```
 
 ### 2. Build Documentation Locally
@@ -259,6 +259,8 @@ python:
 sphinx:
   configuration: docs/source/conf.py
 ```
+
+> **Note**: SDOM no longer ships a `docs/requirements.txt`. The docs dependencies live in the `docs` group in `pyproject.toml` (PEP 735). Read the Docs supports dependency groups as of 2025 — use the `python.groups` key (`groups: [docs]`) instead of `requirements` when configuring RTD against this repo.
 
 2. Import project at https://readthedocs.org/
 3. Documentation builds automatically on every commit
