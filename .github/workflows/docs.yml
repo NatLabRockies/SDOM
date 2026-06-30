@@ -25,6 +25,9 @@ jobs:
       - name: Install the project
         run: uv sync --group docs
 
+      - name: Run docs build tests
+        run: uv run pytest tests/test_docs_build.py -v
+
       - name: Build Sphinx documentation
         run: uv run sphinx-build docs/source/ docs/build/html/
 
