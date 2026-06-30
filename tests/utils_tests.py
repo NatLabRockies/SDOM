@@ -1,6 +1,42 @@
+import os
+import shutil
+import sys
+from pathlib import Path
+
 from pyomo.environ import Constraint
 
 from sdom import OptimizationResults
+
+
+def get_cbc_executable():
+    """Return a usable CBC executable path, or ``None`` if none is available.
+
+    Resolution order:
+
+    1. ``SDOM_CBC_PATH`` environment variable (if it points to an existing file).
+    2. Vendored binary at ``<repo>/Solver/bin/cbc[.exe]`` matching the current OS.
+    3. ``cbc`` discovered on ``PATH``.
+    """
+    env_path = os.environ.get("SDOM_CBC_PATH")
+    if env_path and Path(env_path).is_file():
+        return env_path
+
+    repo_root = Path(__file__).resolve().parent.parent
+    binary_name = "cbc.exe" if sys.platform == "win32" else "cbc"
+    vendored = repo_root / "Solver" / "bin" / binary_name
+    if vendored.is_file():
+        return str(vendored)
+
+    found = shutil.which("cbc")
+    if found:
+        return found
+    return None
+
+
+CBC_EXECUTABLE = get_cbc_executable()
+CBC_NOT_AVAILABLE_REASON = (
+    "CBC executable not available; set SDOM_CBC_PATH or install CBC to run this test"
+)
 
 
 def get_n_eq_ineq_constraints(model):
