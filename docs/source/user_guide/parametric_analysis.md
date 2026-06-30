@@ -15,7 +15,7 @@ writes per-case CSV outputs plus a consolidated summary.
 | Single scenario | `run_solver()` directly |
 | Sweep one parameter (e.g. `GenMix_Target`) | `ParametricStudy` with one `add_scalar_sweep` |
 | Full sensitivity across multiple parameters | `ParametricStudy` with multiple sweep calls |
-| 2050 projections at different load growth rates | `ParametricStudy` with `add_ts_sweep` on `load_data` |
+| Sensitivity to load growth (scale the load profile by several factors) | `ParametricStudy` with `add_ts_sweep` on `load_data` |
 
 ---
 
