@@ -360,7 +360,19 @@ def _save_parametric_figure(
     *,
     extra_artists: list[Artist] | None = None,
 ) -> None:
-    """Save a parametric figure while preserving legends outside the axes."""
+    """Save a parametric figure with outside legend artists preserved.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Figure to lay out, save, and close.
+    output_path : str
+        Destination path for the rendered figure. Parent directories are
+        created automatically when missing.
+    extra_artists : list of matplotlib.artist.Artist, optional
+        Additional artists, such as legends anchored outside the axes, to
+        include when computing the tight saved bounding box.
+    """
     ensure_dir(os.path.dirname(os.path.abspath(output_path)))
     fig.tight_layout(rect=[0.0, 0.0, 0.82, 1.0])
     fig.savefig(
