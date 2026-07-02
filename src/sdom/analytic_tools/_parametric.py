@@ -42,12 +42,32 @@ __all__ = ["plot_parametric_results"]
 
 _FIGURE_SIZE = (18, 8)
 _BAR_WIDTH = 0.25
+_MAX_BAR_CLUSTER_WIDTH = 0.8
 _DPI = 300
+_MAX_CASES_PER_FIGURE = 24
+_LAYOUT_RECT = (0.0, 0.0, 0.82, 1.0)
+_OUTSIDE_LEGEND_LOC = "upper left"
+_OUTSIDE_LEGEND_X = 1.02
+_LEGEND_TOP_Y = 1.0
+_GROUPED_HUE_LEGEND_Y = 0.5
+_COST_TYPE_LEGEND_Y = 0.55
+_COST_HUE_LEGEND_Y = 0.25
+_LEGEND_FRAME_ON = False
+_BAR_EDGE_COLOR = "white"
+_HUE_LEGEND_COLOR = "gray"
+_OPEX_HATCH_PATTERN = "///"
+_BAR_EDGE_LINEWIDTH = 0.5
+_GRID_LINESTYLE = "--"
+_GRID_ALPHA = 0.3
+_CURTAILMENT_BAR_ALPHA = 0.85
+_HUE_ALPHA_MIN = 0.4
+_HUE_ALPHA_RANGE = 0.5
 _TICK_LABEL_FONT_SIZE = 12
 _LEGEND_FONT_SIZE = 11
 _BAR_LABEL_FONT_SIZE = 9
 _AXIS_LABEL_FONT_SIZE = 14
 _TITLE_FONT_SIZE = 17
+_TITLE_PAD = 20
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +82,7 @@ def plot_parametric_results(
     hue_by: Optional[str] = None,
     facet_by: Optional[str] = None,
     output_dir: Optional[str] = None,
-    max_cases_per_figure: int = 24,
+    max_cases_per_figure: int = _MAX_CASES_PER_FIGURE,
     plot_per_case: bool = True,
 ) -> None:
     """Generate sensitivity-analysis plots from a completed :class:`~sdom.parametric.study.ParametricStudy` run.
@@ -94,7 +114,8 @@ def plot_parametric_results(
     max_cases_per_figure:
         When the product of ``n_groups × n_hues`` across groups and hues
         exceeds this threshold, the plot is split into multiple figures named
-        ``{plot_name}_part{n}.png``.  Default is 24.
+        ``{plot_name}_part{n}.png``.  Default uses the module-level
+        max-case plotting constant.
     plot_per_case:
         If ``True`` (default), also generate individual single-case plots
         (capacity donut, generation donut, heatmaps) for every optimal case.
@@ -379,7 +400,7 @@ def _save_parametric_figure(
         include when computing the tight saved bounding box.
     """
     ensure_dir(os.path.dirname(os.path.abspath(output_path)))
-    fig.tight_layout(rect=[0.0, 0.0, 0.82, 1.0])
+    fig.tight_layout(rect=_LAYOUT_RECT)
     fig.savefig(
         output_path,
         dpi=_DPI,
@@ -570,7 +591,7 @@ def _plot_grouped_stacked_bars(
     """
     n_groups = len(groups)
     n_hues = len(hues)
-    bar_width = min(_BAR_WIDTH, 0.8 / max(n_hues, 1))
+    bar_width = min(_BAR_WIDTH, _MAX_BAR_CLUSTER_WIDTH / max(n_hues, 1))
     bar_offset = bar_width * (n_hues - 1) / 2
 
     fig, ax = plt.subplots(figsize=_FIGURE_SIZE)
@@ -601,8 +622,8 @@ def _plot_grouped_stacked_bars(
                 bottom=bottoms,
                 label=label,
                 color=color_map.get(tech, "#CCCCCC"),
-                edgecolor="white",
-                linewidth=0.5,
+                edgecolor=_BAR_EDGE_COLOR,
+                linewidth=_BAR_EDGE_LINEWIDTH,
             )
             bottoms += heights_arr
 
@@ -620,9 +641,9 @@ def _plot_grouped_stacked_bars(
     ]
     tech_legend = ax.legend(
         handles=tech_handles,
-        loc="upper left",
-        bbox_to_anchor=(1.02, 1.0),
-        frameon=False,
+        loc=_OUTSIDE_LEGEND_LOC,
+        bbox_to_anchor=(_OUTSIDE_LEGEND_X, _LEGEND_TOP_Y),
+        frameon=_LEGEND_FRAME_ON,
         fontsize=_LEGEND_FONT_SIZE,
         title="Technology",
     )
@@ -632,14 +653,18 @@ def _plot_grouped_stacked_bars(
     # Hue legend (only when multiple hues)
     if n_hues > 1:
         hue_handles = [
-            mpatches.Patch(facecolor="gray", alpha=0.4 + 0.5 * i / max(n_hues - 1, 1), label=h)
+            mpatches.Patch(
+                facecolor=_HUE_LEGEND_COLOR,
+                alpha=_HUE_ALPHA_MIN + _HUE_ALPHA_RANGE * i / max(n_hues - 1, 1),
+                label=h,
+            )
             for i, h in enumerate(hues)
         ]
         hue_legend = ax.legend(
             handles=hue_handles,
-            loc="upper left",
-            bbox_to_anchor=(1.02, 0.5),
-            frameon=False,
+            loc=_OUTSIDE_LEGEND_LOC,
+            bbox_to_anchor=(_OUTSIDE_LEGEND_X, _GROUPED_HUE_LEGEND_Y),
+            frameon=_LEGEND_FRAME_ON,
             fontsize=_LEGEND_FONT_SIZE,
             title="Scenarios",
         )
@@ -647,8 +672,8 @@ def _plot_grouped_stacked_bars(
 
     ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
-    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=20)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.3)
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=_TITLE_PAD)
+    ax.yaxis.grid(True, linestyle=_GRID_LINESTYLE, alpha=_GRID_ALPHA)
     ax.set_axisbelow(True)
 
     _save_parametric_figure(fig, output_path, extra_artists=legend_artists)
@@ -689,7 +714,7 @@ def _plot_curtailment_bars(
     """
     n_groups = len(groups)
     n_hues = len(hues)
-    bar_width = min(_BAR_WIDTH, 0.8 / max(n_hues, 1))
+    bar_width = min(_BAR_WIDTH, _MAX_BAR_CLUSTER_WIDTH / max(n_hues, 1))
     bar_offset = bar_width * (n_hues - 1) / 2
 
     fig, ax = plt.subplots(figsize=_FIGURE_SIZE)
@@ -713,9 +738,9 @@ def _plot_curtailment_bars(
             bar_width,
             label=hue,
             color=color,
-            edgecolor="white",
-            linewidth=0.5,
-            alpha=0.85,
+            edgecolor=_BAR_EDGE_COLOR,
+            linewidth=_BAR_EDGE_LINEWIDTH,
+            alpha=_CURTAILMENT_BAR_ALPHA,
         )
 
         for bar, h in zip(bars, heights_arr):
@@ -735,9 +760,9 @@ def _plot_curtailment_bars(
     legend_artists: list[Artist] = []
     if n_hues > 1:
         hue_legend = ax.legend(
-            loc="upper left",
-            bbox_to_anchor=(1.02, 1.0),
-            frameon=False,
+            loc=_OUTSIDE_LEGEND_LOC,
+            bbox_to_anchor=(_OUTSIDE_LEGEND_X, _LEGEND_TOP_Y),
+            frameon=_LEGEND_FRAME_ON,
             fontsize=_LEGEND_FONT_SIZE,
             title="Scenarios",
         )
@@ -745,8 +770,8 @@ def _plot_curtailment_bars(
 
     ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
-    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=20)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.3)
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=_TITLE_PAD)
+    ax.yaxis.grid(True, linestyle=_GRID_LINESTYLE, alpha=_GRID_ALPHA)
     ax.set_axisbelow(True)
 
     _save_parametric_figure(fig, output_path, extra_artists=legend_artists)
@@ -799,7 +824,7 @@ def _plot_cost_comparison_bars(
     """
     n_groups = len(groups)
     n_hues = len(hues)
-    bar_width = min(_BAR_WIDTH, 0.8 / max(n_hues, 1))
+    bar_width = min(_BAR_WIDTH, _MAX_BAR_CLUSTER_WIDTH / max(n_hues, 1))
     bar_offset = bar_width * (n_hues - 1) / 2
 
     fig, ax = plt.subplots(figsize=_FIGURE_SIZE)
@@ -828,8 +853,8 @@ def _plot_cost_comparison_bars(
                 bottom=capex_bottoms,
                 label=label,
                 color=color_map.get(tech, "#CCCCCC"),
-                edgecolor="white",
-                linewidth=0.5,
+                edgecolor=_BAR_EDGE_COLOR,
+                linewidth=_BAR_EDGE_LINEWIDTH,
             )
             capex_bottoms += heights_arr
 
@@ -851,9 +876,9 @@ def _plot_cost_comparison_bars(
                 bar_width,
                 bottom=opex_bottoms,
                 color=color_map.get(tech, "#CCCCCC"),
-                edgecolor="white",
-                linewidth=0.5,
-                hatch="///",
+                edgecolor=_BAR_EDGE_COLOR,
+                linewidth=_BAR_EDGE_LINEWIDTH,
+                hatch=_OPEX_HATCH_PATTERN,
             )
             opex_bottoms += heights_arr
 
@@ -871,9 +896,9 @@ def _plot_cost_comparison_bars(
     ]
     tech_legend = ax.legend(
         handles=tech_handles,
-        loc="upper left",
-        bbox_to_anchor=(1.02, 1.0),
-        frameon=False,
+        loc=_OUTSIDE_LEGEND_LOC,
+        bbox_to_anchor=(_OUTSIDE_LEGEND_X, _LEGEND_TOP_Y),
+        frameon=_LEGEND_FRAME_ON,
         fontsize=_LEGEND_FONT_SIZE,
         title="Technology",
     )
@@ -882,14 +907,23 @@ def _plot_cost_comparison_bars(
 
     # Cost-type legend (CAPEX solid vs OPEX hatched)
     cost_type_handles = [
-        mpatches.Patch(facecolor="gray", edgecolor="white", label="CAPEX"),
-        mpatches.Patch(facecolor="gray", edgecolor="white", hatch="///", label="OPEX"),
+        mpatches.Patch(
+            facecolor=_HUE_LEGEND_COLOR,
+            edgecolor=_BAR_EDGE_COLOR,
+            label="CAPEX",
+        ),
+        mpatches.Patch(
+            facecolor=_HUE_LEGEND_COLOR,
+            edgecolor=_BAR_EDGE_COLOR,
+            hatch=_OPEX_HATCH_PATTERN,
+            label="OPEX",
+        ),
     ]
     cost_legend = ax.legend(
         handles=cost_type_handles,
-        loc="upper left",
-        bbox_to_anchor=(1.02, 0.55),
-        frameon=False,
+        loc=_OUTSIDE_LEGEND_LOC,
+        bbox_to_anchor=(_OUTSIDE_LEGEND_X, _COST_TYPE_LEGEND_Y),
+        frameon=_LEGEND_FRAME_ON,
         fontsize=_LEGEND_FONT_SIZE,
         title="Cost type",
     )
@@ -899,14 +933,18 @@ def _plot_cost_comparison_bars(
     # Hue legend (only when multiple hues)
     if n_hues > 1:
         hue_handles = [
-            mpatches.Patch(facecolor="gray", alpha=0.4 + 0.5 * i / max(n_hues - 1, 1), label=h)
+            mpatches.Patch(
+                facecolor=_HUE_LEGEND_COLOR,
+                alpha=_HUE_ALPHA_MIN + _HUE_ALPHA_RANGE * i / max(n_hues - 1, 1),
+                label=h,
+            )
             for i, h in enumerate(hues)
         ]
         hue_legend = ax.legend(
             handles=hue_handles,
-            loc="upper left",
-            bbox_to_anchor=(1.02, 0.25),
-            frameon=False,
+            loc=_OUTSIDE_LEGEND_LOC,
+            bbox_to_anchor=(_OUTSIDE_LEGEND_X, _COST_HUE_LEGEND_Y),
+            frameon=_LEGEND_FRAME_ON,
             fontsize=_LEGEND_FONT_SIZE,
             title="Scenarios",
         )
@@ -914,8 +952,8 @@ def _plot_cost_comparison_bars(
 
     ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
-    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=20)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.3)
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=_TITLE_PAD)
+    ax.yaxis.grid(True, linestyle=_GRID_LINESTYLE, alpha=_GRID_ALPHA)
     ax.set_axisbelow(True)
 
     _save_parametric_figure(fig, output_path, extra_artists=legend_artists)
