@@ -190,7 +190,161 @@ class TestSinglePlots:
 # ---------------------------------------------------------------------------
 # _parametric.py tests
 # ---------------------------------------------------------------------------
-from sdom.analytic_tools._parametric import _available_dims, _split_into_chunks
+from sdom.analytic_tools._parametric import (
+    _available_dims,
+    _plot_cost_comparison_bars,
+    _plot_grouped_stacked_bars,
+    _save_parametric_figure,
+    _split_into_chunks,
+)
+
+
+def _make_parametric_tech_df(hues=None) -> pd.DataFrame:
+    """Create small long-form technology data for parametric plot tests."""
+    hues = hues or ["_all_"]
+    rows = []
+    values = {
+        "Thermal": 1200.0,
+        "Solar PV": 2400.0,
+        "Wind": 1800.0,
+        "PHS": 300.0,
+        "H2": 100.0,
+    }
+    for group_idx, group in enumerate(["GenMix_Target=0.0", "GenMix_Target=1.0"]):
+        for hue_idx, hue in enumerate(hues):
+            for tech, value in values.items():
+                rows.append(
+                    {
+                        "group_label": group,
+                        "hue_label": hue,
+                        "technology": tech,
+                        "capacity_mw": value + 100 * group_idx + 10 * hue_idx,
+                        "generation_mwh": (value + 100 * group_idx + 10 * hue_idx) * 1000,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def _make_parametric_cost_df(hues=None) -> pd.DataFrame:
+    """Create small long-form cost data for parametric plot tests."""
+    hues = hues or ["_all_"]
+    rows = []
+    values = {
+        "Thermal": (1_200_000.0, 120_000.0),
+        "Solar PV": (2_400_000.0, 24_000.0),
+        "Wind": (1_800_000.0, 36_000.0),
+        "PHS": (300_000.0, 12_000.0),
+        "H2": (100_000.0, 8_000.0),
+    }
+    for group_idx, group in enumerate(["GenMix_Target=0.0", "GenMix_Target=1.0"]):
+        for hue_idx, hue in enumerate(hues):
+            for tech, (capex, opex) in values.items():
+                rows.append(
+                    {
+                        "group_label": group,
+                        "hue_label": hue,
+                        "technology": tech,
+                        "capex_usd": capex + 1000 * group_idx + 100 * hue_idx,
+                        "opex_usd": opex + 100 * group_idx + 10 * hue_idx,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+class TestParametricLegends:
+    def test_save_parametric_figure_writes_png_with_extra_artists(self, tmp_path):
+        """The parametric save helper should write figures with outside legends."""
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Thermal")
+        legend = ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), title="Technology")
+        ax.add_artist(legend)
+        output_path = tmp_path / "capacity_comparison.png"
+
+        _save_parametric_figure(fig, str(output_path), extra_artists=[legend])
+
+        assert output_path.is_file()
+        assert output_path.stat().st_size > 0
+
+    def test_grouped_stacked_bars_exports_technology_legend(self, tmp_path, monkeypatch):
+        """Capacity/generation plots should save outside technology legends."""
+        captured = {}
+
+        def fake_save(fig, output_path, *, extra_artists=None):
+            captured["output_path"] = output_path
+            captured["legend_titles"] = [artist.get_title().get_text() for artist in extra_artists]
+
+        monkeypatch.setattr("sdom.analytic_tools._parametric._save_parametric_figure", fake_save)
+        tech_order = ["Thermal", "Solar PV", "Wind", "PHS", "H2"]
+        color_map = {tech: f"C{i}" for i, tech in enumerate(tech_order)}
+
+        _plot_grouped_stacked_bars(
+            tech_df=_make_parametric_tech_df(),
+            value_col="capacity_mw",
+            groups=["GenMix_Target=0.0", "GenMix_Target=1.0"],
+            hues=["_all_"],
+            tech_order=tech_order,
+            color_map=color_map,
+            title="Installed Capacity by Technology — Sensitivity Analysis",
+            ylabel="Capacity (GW)",
+            unit_divisor=1000.0,
+            output_path=str(tmp_path / "capacity_comparison.png"),
+        )
+
+        assert captured["output_path"].endswith("capacity_comparison.png")
+        assert captured["legend_titles"] == ["Technology"]
+
+    def test_grouped_stacked_bars_exports_technology_and_hue_legends(self, tmp_path, monkeypatch):
+        """Scenario/hue legends should remain visible with technology legends."""
+        captured = {}
+
+        def fake_save(fig, output_path, *, extra_artists=None):
+            captured["legend_titles"] = [artist.get_title().get_text() for artist in extra_artists]
+
+        monkeypatch.setattr("sdom.analytic_tools._parametric._save_parametric_figure", fake_save)
+        tech_order = ["Thermal", "Solar PV", "Wind", "PHS", "H2"]
+        color_map = {tech: f"C{i}" for i, tech in enumerate(tech_order)}
+
+        _plot_grouped_stacked_bars(
+            tech_df=_make_parametric_tech_df(hues=["scenario_a", "scenario_b"]),
+            value_col="generation_mwh",
+            groups=["GenMix_Target=0.0", "GenMix_Target=1.0"],
+            hues=["scenario_a", "scenario_b"],
+            tech_order=tech_order,
+            color_map=color_map,
+            title="Annual Generation by Technology — Sensitivity Analysis",
+            ylabel="Generation (TWh)",
+            unit_divisor=1e6,
+            output_path=str(tmp_path / "generation_comparison.png"),
+        )
+
+        assert captured["legend_titles"] == ["Technology", "Scenarios"]
+
+    def test_cost_comparison_exports_all_outside_legends(self, tmp_path, monkeypatch):
+        """Cost plots should save technology, cost-type, and scenario legends."""
+        captured = {}
+
+        def fake_save(fig, output_path, *, extra_artists=None):
+            captured["legend_titles"] = [artist.get_title().get_text() for artist in extra_artists]
+
+        monkeypatch.setattr("sdom.analytic_tools._parametric._save_parametric_figure", fake_save)
+        tech_order = ["Thermal", "Solar PV", "Wind", "PHS", "H2"]
+        color_map = {tech: f"C{i}" for i, tech in enumerate(tech_order)}
+
+        _plot_cost_comparison_bars(
+            cost_df=_make_parametric_cost_df(hues=["scenario_a", "scenario_b"]),
+            groups=["GenMix_Target=0.0", "GenMix_Target=1.0"],
+            hues=["scenario_a", "scenario_b"],
+            tech_order=tech_order,
+            color_map=color_map,
+            title="CAPEX and OPEX by Technology — Sensitivity Analysis",
+            ylabel="Cost ($M USD)",
+            unit_divisor=1e6,
+            output_path=str(tmp_path / "cost_comparison.png"),
+        )
+
+        assert captured["legend_titles"] == ["Technology", "Cost type", "Scenarios"]
 
 
 class TestParametricHelpers:

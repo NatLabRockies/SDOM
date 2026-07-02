@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+from matplotlib.artist import Artist
 import numpy as np
 import pandas as pd
 
@@ -25,7 +26,7 @@ from ._colors import (
     infer_storage_technologies,
 )
 from ._single import plot_results
-from ._utils import ensure_dir, save_figure
+from ._utils import ensure_dir
 
 if TYPE_CHECKING:
     from ..parametric.study import ParametricStudy
@@ -349,6 +350,29 @@ def plot_parametric_results(
 
 
 # ---------------------------------------------------------------------------
+# Internal: save helpers
+# ---------------------------------------------------------------------------
+
+
+def _save_parametric_figure(
+    fig: plt.Figure,
+    output_path: str,
+    *,
+    extra_artists: list[Artist] | None = None,
+) -> None:
+    """Save a parametric figure while preserving legends outside the axes."""
+    ensure_dir(os.path.dirname(os.path.abspath(output_path)))
+    fig.tight_layout(rect=[0.0, 0.0, 0.82, 1.0])
+    fig.savefig(
+        output_path,
+        dpi=_DPI,
+        bbox_inches="tight",
+        bbox_extra_artists=extra_artists or None,
+    )
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
 # Internal: metadata helpers
 # ---------------------------------------------------------------------------
 
@@ -569,6 +593,8 @@ def _plot_grouped_stacked_bars(
     ax.set_xticks(group_positions)
     ax.set_xticklabels(groups, fontsize=11)
 
+    legend_artists: list[Artist] = []
+
     # Technology legend
     tech_handles = [
         mpatches.Patch(facecolor=color_map.get(t, "#CCCCCC"), label=t)
@@ -584,6 +610,7 @@ def _plot_grouped_stacked_bars(
         title="Technology",
     )
     ax.add_artist(tech_legend)
+    legend_artists.append(tech_legend)
 
     # Hue legend (only when multiple hues)
     if n_hues > 1:
@@ -591,7 +618,7 @@ def _plot_grouped_stacked_bars(
             mpatches.Patch(facecolor="gray", alpha=0.4 + 0.5 * i / max(n_hues - 1, 1), label=h)
             for i, h in enumerate(hues)
         ]
-        ax.legend(
+        hue_legend = ax.legend(
             handles=hue_handles,
             loc="upper left",
             bbox_to_anchor=(1.02, 0.5),
@@ -599,6 +626,7 @@ def _plot_grouped_stacked_bars(
             fontsize=10,
             title="Scenarios",
         )
+        legend_artists.append(hue_legend)
 
     ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
@@ -606,8 +634,7 @@ def _plot_grouped_stacked_bars(
     ax.yaxis.grid(True, linestyle="--", alpha=0.3)
     ax.set_axisbelow(True)
 
-    plt.tight_layout()
-    save_figure(fig, output_path, dpi=_DPI)
+    _save_parametric_figure(fig, output_path, extra_artists=legend_artists)
 
 
 # ---------------------------------------------------------------------------
@@ -688,14 +715,16 @@ def _plot_curtailment_bars(
     ax.set_xticks(group_positions)
     ax.set_xticklabels(groups, fontsize=11)
 
+    legend_artists: list[Artist] = []
     if n_hues > 1:
-        ax.legend(
+        hue_legend = ax.legend(
             loc="upper left",
             bbox_to_anchor=(1.02, 1.0),
             frameon=False,
             fontsize=10,
             title="Scenarios",
         )
+        legend_artists.append(hue_legend)
 
     ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
@@ -703,8 +732,7 @@ def _plot_curtailment_bars(
     ax.yaxis.grid(True, linestyle="--", alpha=0.3)
     ax.set_axisbelow(True)
 
-    plt.tight_layout()
-    save_figure(fig, output_path, dpi=_DPI)
+    _save_parametric_figure(fig, output_path, extra_artists=legend_artists)
 
 
 # ---------------------------------------------------------------------------
@@ -816,6 +844,8 @@ def _plot_cost_comparison_bars(
     ax.set_xticks(group_positions)
     ax.set_xticklabels(groups, fontsize=11)
 
+    legend_artists: list[Artist] = []
+
     # Technology legend
     tech_handles = [
         mpatches.Patch(facecolor=color_map.get(t, "#CCCCCC"), label=t)
@@ -831,6 +861,7 @@ def _plot_cost_comparison_bars(
         title="Technology",
     )
     ax.add_artist(tech_legend)
+    legend_artists.append(tech_legend)
 
     # Cost-type legend (CAPEX solid vs OPEX hatched)
     cost_type_handles = [
@@ -846,6 +877,7 @@ def _plot_cost_comparison_bars(
         title="Cost type",
     )
     ax.add_artist(cost_legend)
+    legend_artists.append(cost_legend)
 
     # Hue legend (only when multiple hues)
     if n_hues > 1:
@@ -853,7 +885,7 @@ def _plot_cost_comparison_bars(
             mpatches.Patch(facecolor="gray", alpha=0.4 + 0.5 * i / max(n_hues - 1, 1), label=h)
             for i, h in enumerate(hues)
         ]
-        ax.legend(
+        hue_legend = ax.legend(
             handles=hue_handles,
             loc="upper left",
             bbox_to_anchor=(1.02, 0.25),
@@ -861,6 +893,7 @@ def _plot_cost_comparison_bars(
             fontsize=10,
             title="Scenarios",
         )
+        legend_artists.append(hue_legend)
 
     ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
@@ -868,5 +901,4 @@ def _plot_cost_comparison_bars(
     ax.yaxis.grid(True, linestyle="--", alpha=0.3)
     ax.set_axisbelow(True)
 
-    plt.tight_layout()
-    save_figure(fig, output_path, dpi=_DPI)
+    _save_parametric_figure(fig, output_path, extra_artists=legend_artists)
