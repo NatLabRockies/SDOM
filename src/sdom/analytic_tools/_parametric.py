@@ -63,6 +63,7 @@ _CURTAILMENT_BAR_ALPHA = 0.85
 _HUE_ALPHA_MIN = 0.4
 _HUE_ALPHA_RANGE = 0.5
 _TICK_LABEL_FONT_SIZE = 13
+_Y_TICK_LABEL_FONT_SIZE = 12
 _LEGEND_FONT_SIZE = 12
 _BAR_LABEL_FONT_SIZE = 10
 _AXIS_LABEL_FONT_SIZE = 14
@@ -670,6 +671,7 @@ def _plot_grouped_stacked_bars(
         )
         legend_artists.append(hue_legend)
 
+    ax.tick_params(axis="y", labelsize=_Y_TICK_LABEL_FONT_SIZE)
     ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=_TITLE_PAD)
@@ -768,6 +770,7 @@ def _plot_curtailment_bars(
         )
         legend_artists.append(hue_legend)
 
+    ax.tick_params(axis="y", labelsize=_Y_TICK_LABEL_FONT_SIZE)
     ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=_TITLE_PAD)
@@ -950,6 +953,7 @@ def _plot_cost_comparison_bars(
         )
         legend_artists.append(hue_legend)
 
+    ax.tick_params(axis="y", labelsize=_Y_TICK_LABEL_FONT_SIZE)
     ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
     ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=_TITLE_PAD)
