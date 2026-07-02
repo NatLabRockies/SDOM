@@ -43,6 +43,11 @@ __all__ = ["plot_parametric_results"]
 _FIGURE_SIZE = (18, 8)
 _BAR_WIDTH = 0.25
 _DPI = 300
+_TICK_LABEL_FONT_SIZE = 12
+_LEGEND_FONT_SIZE = 11
+_BAR_LABEL_FONT_SIZE = 9
+_AXIS_LABEL_FONT_SIZE = 14
+_TITLE_FONT_SIZE = 17
 
 
 # ---------------------------------------------------------------------------
@@ -603,7 +608,7 @@ def _plot_grouped_stacked_bars(
 
     # X-axis
     ax.set_xticks(group_positions)
-    ax.set_xticklabels(groups, fontsize=11)
+    ax.set_xticklabels(groups, fontsize=_TICK_LABEL_FONT_SIZE)
 
     legend_artists: list[Artist] = []
 
@@ -618,7 +623,7 @@ def _plot_grouped_stacked_bars(
         loc="upper left",
         bbox_to_anchor=(1.02, 1.0),
         frameon=False,
-        fontsize=10,
+        fontsize=_LEGEND_FONT_SIZE,
         title="Technology",
     )
     ax.add_artist(tech_legend)
@@ -635,14 +640,14 @@ def _plot_grouped_stacked_bars(
             loc="upper left",
             bbox_to_anchor=(1.02, 0.5),
             frameon=False,
-            fontsize=10,
+            fontsize=_LEGEND_FONT_SIZE,
             title="Scenarios",
         )
         legend_artists.append(hue_legend)
 
-    ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
-    ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
+    ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=20)
     ax.yaxis.grid(True, linestyle="--", alpha=0.3)
     ax.set_axisbelow(True)
 
@@ -721,11 +726,11 @@ def _plot_curtailment_bars(
                     f"{h:.1f}",
                     ha="center",
                     va="bottom",
-                    fontsize=8,
+                    fontsize=_BAR_LABEL_FONT_SIZE,
                 )
 
     ax.set_xticks(group_positions)
-    ax.set_xticklabels(groups, fontsize=11)
+    ax.set_xticklabels(groups, fontsize=_TICK_LABEL_FONT_SIZE)
 
     legend_artists: list[Artist] = []
     if n_hues > 1:
@@ -733,14 +738,14 @@ def _plot_curtailment_bars(
             loc="upper left",
             bbox_to_anchor=(1.02, 1.0),
             frameon=False,
-            fontsize=10,
+            fontsize=_LEGEND_FONT_SIZE,
             title="Scenarios",
         )
         legend_artists.append(hue_legend)
 
-    ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
-    ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
+    ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=20)
     ax.yaxis.grid(True, linestyle="--", alpha=0.3)
     ax.set_axisbelow(True)
 
@@ -854,7 +859,7 @@ def _plot_cost_comparison_bars(
 
     # X-axis
     ax.set_xticks(group_positions)
-    ax.set_xticklabels(groups, fontsize=11)
+    ax.set_xticklabels(groups, fontsize=_TICK_LABEL_FONT_SIZE)
 
     legend_artists: list[Artist] = []
 
@@ -869,7 +874,7 @@ def _plot_cost_comparison_bars(
         loc="upper left",
         bbox_to_anchor=(1.02, 1.0),
         frameon=False,
-        fontsize=10,
+        fontsize=_LEGEND_FONT_SIZE,
         title="Technology",
     )
     ax.add_artist(tech_legend)
@@ -885,7 +890,7 @@ def _plot_cost_comparison_bars(
         loc="upper left",
         bbox_to_anchor=(1.02, 0.55),
         frameon=False,
-        fontsize=10,
+        fontsize=_LEGEND_FONT_SIZE,
         title="Cost type",
     )
     ax.add_artist(cost_legend)
@@ -902,14 +907,14 @@ def _plot_cost_comparison_bars(
             loc="upper left",
             bbox_to_anchor=(1.02, 0.25),
             frameon=False,
-            fontsize=10,
+            fontsize=_LEGEND_FONT_SIZE,
             title="Scenarios",
         )
         legend_artists.append(hue_legend)
 
-    ax.set_xlabel("Case group", fontsize=13, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=13, fontweight="bold")
-    ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
+    ax.set_xlabel("Case group", fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=_AXIS_LABEL_FONT_SIZE, fontweight="bold")
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, fontweight="bold", pad=20)
     ax.yaxis.grid(True, linestyle="--", alpha=0.3)
     ax.set_axisbelow(True)
 
