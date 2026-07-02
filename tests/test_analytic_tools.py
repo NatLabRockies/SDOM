@@ -272,8 +272,11 @@ class TestParametricLegends:
         captured = {}
 
         def fake_save(fig, output_path, *, extra_artists=None):
+            import matplotlib.pyplot as plt
+
             captured["output_path"] = output_path
             captured["legend_titles"] = [artist.get_title().get_text() for artist in extra_artists]
+            plt.close(fig)
 
         monkeypatch.setattr("sdom.analytic_tools._parametric._save_parametric_figure", fake_save)
         tech_order = ["Thermal", "Solar PV", "Wind", "PHS", "H2"]
@@ -300,7 +303,10 @@ class TestParametricLegends:
         captured = {}
 
         def fake_save(fig, output_path, *, extra_artists=None):
+            import matplotlib.pyplot as plt
+
             captured["legend_titles"] = [artist.get_title().get_text() for artist in extra_artists]
+            plt.close(fig)
 
         monkeypatch.setattr("sdom.analytic_tools._parametric._save_parametric_figure", fake_save)
         tech_order = ["Thermal", "Solar PV", "Wind", "PHS", "H2"]
@@ -326,7 +332,10 @@ class TestParametricLegends:
         captured = {}
 
         def fake_save(fig, output_path, *, extra_artists=None):
+            import matplotlib.pyplot as plt
+
             captured["legend_titles"] = [artist.get_title().get_text() for artist in extra_artists]
+            plt.close(fig)
 
         monkeypatch.setattr("sdom.analytic_tools._parametric._save_parametric_figure", fake_save)
         tech_order = ["Thermal", "Solar PV", "Wind", "PHS", "H2"]
