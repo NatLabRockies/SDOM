@@ -10,6 +10,7 @@ infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
 from sdom import load_data  # noqa: E402
+from sdom.infrasys_integration.attributes import GeographicInfo  # noqa: E402
 from sdom.infrasys_integration.components import (  # noqa: E402
     SDOMArea,
     SDOMBus,
@@ -79,6 +80,37 @@ def test_time_series_are_discoverable_on_components():
     assert list(system.list_time_series_metadata(solar))
 
 
+def test_geographic_supplemental_attributes_are_attached_to_generators_and_buses():
+    """Loaded systems should attach geographic metadata where coordinates exist."""
+    system = load_system("Data/no_exchange_run_of_river")
+    data = system_to_data_dict(system)
+
+    bus = system.get_component(SDOMBus, "default")
+    solar = system.get_component(SDOMSolarGenerator, f"solar:{data['solar_plants'][0]}")
+    thermal = next(system.get_components(SDOMThermalGenerator))
+
+    bus_attrs = list(system.get_supplemental_attributes_with_component(bus, GeographicInfo))
+    solar_attrs = list(system.get_supplemental_attributes_with_component(solar, GeographicInfo))
+    thermal_attrs = list(system.get_supplemental_attributes_with_component(thermal, GeographicInfo))
+
+    assert bus_attrs
+    assert solar_attrs
+    assert thermal_attrs
+    assert bus_attrs[0].geo_json.type == "Point"
+    assert len(bus_attrs[0].geo_json.coordinates) == 2
+    assert solar_attrs[0].source == "per_area_pv_plants"
+    assert thermal_attrs[0].source == "derived_area_centroid"
+
+
+def test_time_series_with_missing_values_raise_clear_error():
+    """Missing values should fail instead of shortening time series alignment."""
+    data = load_data("Data/no_exchange_run_of_river")
+    data["per_area_demand"]["default"].loc[0, "Load"] = float("nan")
+
+    with pytest.raises(ValueError, match=r"Time series 'active_power'.*per_area_demand.*Load"):
+        load_system_from_data(data)
+
+
 def test_system_to_data_dict_preserves_existing_builder_data_without_copying_frames():
     """Compatibility conversion should return existing SDOM data objects."""
     data = load_data("Data/no_exchange_run_of_river")
@@ -93,5 +125,5 @@ def test_system_to_data_dict_preserves_existing_builder_data_without_copying_fra
 
 def test_system_to_data_dict_rejects_unmanaged_system():
     """The compatibility adapter should reject systems it did not create."""
-    with pytest.raises(ValueError, match="source data"):
+    with pytest.raises(ValueError, match=r"load_system\(\) or load_system_from_data\(\)"):
         system_to_data_dict(infrasys.System(name="external"))

@@ -14,6 +14,7 @@ from infrasys import SingleTimeSeries, System
 
 from sdom import load_data as _load_data
 
+from .attributes import GeographicInfo, GeoLocation
 from .components import (
     SDOMArea,
     SDOMBus,
@@ -153,7 +154,7 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     """
     data = getattr(system, _SOURCE_DATA_ATTR, None)
     if data is None:
-        raise ValueError("system does not include SDOM source data; use load_system_from_data().")
+        raise ValueError("system does not include SDOM source data; use load_system() or load_system_from_data().")
     return dict(data)
 
 
@@ -188,6 +189,7 @@ def _add_areas_and_buses(system: System, data: Mapping[str, Any]) -> tuple[dict[
     if not area_records:
         raise ValueError("SDOM data dictionary must include at least one area record.")
 
+    geographic_info_by_area = _geographic_info_by_area(data)
     areas: dict[str, SDOMArea] = {}
     buses: dict[str, SDOMBus] = {}
     for record in area_records:
@@ -202,6 +204,8 @@ def _add_areas_and_buses(system: System, data: Mapping[str, Any]) -> tuple[dict[
         bus = SDOMBus(name=area_id, area=area, category="bus")
         system.add_component(area)
         system.add_component(bus)
+        if area_id in geographic_info_by_area:
+            system.add_supplemental_attribute(bus, geographic_info_by_area[area_id])
         areas[area_id] = area
         buses[area_id] = bus
     return areas, buses
@@ -311,6 +315,8 @@ def _add_vre_generators(system: System, data: Mapping[str, Any], buses: Mapping[
                 ext=_row_ext(row_data, exclude={"area_id", "sc_gid", "capacity", "CAPEX_M", "FOM_M", "trans_cap_cost"}),
             )
             system.add_component(generator)
+            if not _attach_geographic_info(system, generator, row_data, source=plant_key):
+                _attach_bus_geographic_info(system, generator, buses[area_id])
             _attach_column_series(
                 system,
                 generator,
@@ -366,6 +372,7 @@ def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapp
                 ext=_row_ext(row_data, exclude={"area_id", "Plant_id", "MinCapacity", "MaxCapacity", "Capex", "FOM", "VOM", "HeatRate", "FuelCost"}),
             )
             system.add_component(generator)
+            _attach_bus_geographic_info(system, generator, buses[area_id])
 
 
 def _add_profile_generators(system: System, data: Mapping[str, Any], buses: Mapping[str, SDOMBus]) -> None:
@@ -415,6 +422,7 @@ def _add_profile_generators(system: System, data: Mapping[str, Any], buses: Mapp
                 max_active_power=_peak_from_frame(frame),
             )
             system.add_component(generator)
+            _attach_bus_geographic_info(system, generator, buses[area_id])
             _attach_first_numeric_series(system, generator, frame, name="active_power", source_key=data_key)
 
 
@@ -711,7 +719,14 @@ def _attach_column_series(system: System, owner: Any, frame: pd.DataFrame | None
     """
     if not _has_column(frame, column):
         return
-    values = pd.to_numeric(frame[column], errors="coerce").dropna().to_numpy(dtype=float, copy=False)
+    numeric_values = pd.to_numeric(frame[column], errors="coerce")
+    if numeric_values.isna().any():
+        missing_rows = numeric_values.index[numeric_values.isna()].tolist()
+        raise ValueError(
+            f"Time series '{name}' from source '{source_key}' column '{column}' contains "
+            f"missing or non-numeric values at rows {missing_rows}."
+        )
+    values = numeric_values.to_numpy(dtype=float, copy=False)
     if len(values) < 2:
         return
     ts = SingleTimeSeries.from_array(
@@ -1095,6 +1110,128 @@ def _row_ext(row: Mapping[str, Any], *, exclude: set[str]) -> dict[str, Any]:
         if clean is not None:
             metadata[str(key)] = clean
     return metadata
+
+
+def _geographic_info_by_area(data: Mapping[str, Any]) -> dict[str, GeographicInfo]:
+    """Derive bus geographic attributes from generator coordinates.
+
+    Parameters
+    ----------
+    data : mapping of str to Any
+        SDOM data dictionary containing per-area VRE plant tables.
+
+    Returns
+    -------
+    dict[str, GeographicInfo]
+        Geographic attributes keyed by area id, using the mean longitude and
+        latitude of generators with explicit coordinates in each area.
+
+    Examples
+    --------
+    >>> frame = pd.DataFrame({"longitude": [-100.0, -102.0], "latitude": [40.0, 42.0]})
+    >>> attrs = _geographic_info_by_area({"per_area_pv_plants": {"A": frame}})
+    >>> attrs["A"].geo_json.coordinates
+    [-101.0, 41.0]
+    """
+    coordinates_by_area: dict[str, list[tuple[float, float]]] = {}
+    for source_key in ("per_area_pv_plants", "per_area_wind_plants", "per_area_balancing_units"):
+        for area_id, frame in _iter_area_frames(data.get(source_key)):
+            if "longitude" not in frame.columns or "latitude" not in frame.columns:
+                continue
+            for row in frame[["longitude", "latitude"]].itertuples(index=False):
+                longitude = _optional_float(row.longitude)
+                latitude = _optional_float(row.latitude)
+                if longitude is None or latitude is None:
+                    continue
+                coordinates_by_area.setdefault(area_id, []).append((longitude, latitude))
+
+    return {
+        area_id: GeographicInfo(
+            geo_json=GeoLocation(
+                coordinates=[
+                    float(np.mean([point[0] for point in coordinates])),
+                    float(np.mean([point[1] for point in coordinates])),
+                ]
+            ),
+            source="derived_area_centroid",
+        )
+        for area_id, coordinates in coordinates_by_area.items()
+        if coordinates
+    }
+
+
+def _attach_geographic_info(system: System, component: Any, row: Mapping[str, Any], *, source: str) -> bool:
+    """Attach explicit row-level geographic information to a component.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        System to mutate.
+    component : Any
+        Component that receives the supplemental attribute.
+    row : mapping of str to Any
+        Source row containing optional ``longitude`` and ``latitude`` fields.
+    source : str
+        Source label stored on the supplemental attribute.
+
+    Returns
+    -------
+    bool
+        ``True`` when a geographic attribute was attached.
+
+    Examples
+    --------
+    >>> system = System(name="example")
+    >>> area = SDOMArea(name="A")
+    >>> system.add_component(area)
+    >>> _attach_geographic_info(system, area, {"longitude": -105, "latitude": 40}, source="demo")
+    True
+    """
+    longitude = _optional_float(row.get("longitude"))
+    latitude = _optional_float(row.get("latitude"))
+    if longitude is None or latitude is None:
+        return False
+    attribute = GeographicInfo(
+        geo_json=GeoLocation(coordinates=[longitude, latitude]),
+        source=source,
+    )
+    system.add_supplemental_attribute(component, attribute)
+    return True
+
+
+def _attach_bus_geographic_info(system: System, component: Any, bus: SDOMBus) -> bool:
+    """Attach a bus geographic attribute to another component.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        System to mutate.
+    component : Any
+        Component that should share the bus location attribute.
+    bus : SDOMBus
+        Bus whose geographic attribute is reused.
+
+    Returns
+    -------
+    bool
+        ``True`` when the bus has a geographic attribute that was attached.
+
+    Examples
+    --------
+    >>> system = System(name="example")
+    >>> area = SDOMArea(name="A")
+    >>> bus = SDOMBus(name="A", area=area)
+    >>> system.add_component(area); system.add_component(bus)
+    >>> system.add_supplemental_attribute(bus, GeographicInfo.example())
+    >>> _attach_bus_geographic_info(system, area, bus)
+    True
+    """
+    attributes = list(system.get_supplemental_attributes_with_component(bus, GeographicInfo))
+    if not attributes:
+        return False
+    system.add_supplemental_attribute(component, attributes[0])
+    return True
+
 
 
 def _clean_metadata_value(value: Any) -> Any:
