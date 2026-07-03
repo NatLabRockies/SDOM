@@ -60,6 +60,21 @@ def test_exchange_dataset_instantiates_from_system():
     assert len(list(instance.h)) == 24
 
 
+def test_builder_options_propagate_to_instance():
+    """Builder options should be applied when create_instance() is called."""
+    system = load_system("Data/no_exchange_run_of_river")
+
+    instance = initialize_model_from_system(
+        system,
+        n_hours=24,
+        with_resilience_constraints=True,
+        model_name="Custom_SDOM",
+    ).create_instance()
+
+    assert instance.name == "Custom_SDOM"
+    assert hasattr(instance, "resiliency")
+
+
 @pytest.mark.skipif(not _highs_available(), reason="appsi_highs solver is not available")
 def test_system_path_solves_with_highs_and_matches_dict_path_objective():
     """System and dict paths should solve to matching objectives with HiGHS."""
