@@ -14,8 +14,9 @@ from infrasys import SingleTimeSeries, System
 
 from sdom import load_data as _load_data
 
-from .attributes import GeographicInfo, GeoLocation
-from .components import (
+from .models import (
+    GeographicInfo,
+    GeoLocation,
     SDOMArea,
     SDOMBus,
     SDOMExportInterface,

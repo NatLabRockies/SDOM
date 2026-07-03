@@ -28,6 +28,11 @@ from sdom.infrasys_integration.components import (  # noqa: E402
     SDOMTransmissionInterface,
     SDOMWindGenerator,
 )
+from sdom.infrasys_integration.models import SDOMArea as ModelsSDOMArea  # noqa: E402
+from sdom.infrasys_integration.models.static_injection import (  # noqa: E402
+    SDOMStorage as ModelsSDOMStorage,
+)
+from sdom.infrasys_integration.models.topology import SDOMBus as ModelsSDOMBus  # noqa: E402
 
 System = infrasys.System
 
@@ -48,6 +53,13 @@ def test_package_namespace_imports_without_optional_component_imports():
     module = importlib.import_module("sdom.infrasys_integration")
 
     assert module.__name__ == "sdom.infrasys_integration"
+
+
+def test_model_package_exports_match_legacy_component_imports():
+    """Model package exports should preserve legacy component import identities."""
+    assert ModelsSDOMArea is SDOMArea
+    assert ModelsSDOMBus is SDOMBus
+    assert ModelsSDOMStorage is SDOMStorage
 
 
 def test_core_components_share_sdom_component_base():

@@ -1,29 +1,33 @@
-"""Backward-compatible component model imports for SDOM infrasys integration."""
+"""Typed data models for SDOM infrasys integration."""
 
 from __future__ import annotations
 
-from .models import (
-    SDOMArea,
-    SDOMBus,
-    SDOMComponent,
-    SDOMExportInterface,
-    SDOMFormulationConfig,
+from .attributes import GeographicInfo, GeoLocation
+from .base import SDOMComponent, SDOMTechnologyType
+from .static_injection import (
     SDOMGenerator,
     SDOMHydroGenerator,
-    SDOMImportInterface,
     SDOMLoad,
     SDOMNuclearGenerator,
     SDOMOtherRenewableGenerator,
-    SDOMScalarParameter,
     SDOMSolarGenerator,
     SDOMStorage,
-    SDOMTechnologyType,
     SDOMThermalGenerator,
-    SDOMTransmissionInterface,
     SDOMWindGenerator,
+)
+from .topology import (
+    SDOMArea,
+    SDOMBus,
+    SDOMExportInterface,
+    SDOMFormulationConfig,
+    SDOMImportInterface,
+    SDOMScalarParameter,
+    SDOMTransmissionInterface,
 )
 
 __all__ = [
+    "GeoLocation",
+    "GeographicInfo",
     "SDOMArea",
     "SDOMBus",
     "SDOMComponent",
