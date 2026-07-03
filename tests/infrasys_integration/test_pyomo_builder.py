@@ -9,7 +9,11 @@ from pyomo.opt import SolverFactory
 pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
-from utils_tests import check_budget_constraint, check_supply_balance_constraint
+from utils_tests import (
+    check_budget_constraint,
+    check_hydro_budget_matches_csv,
+    check_supply_balance_constraint,
+)
 
 from sdom import get_default_solver_config_dict, initialize_model, load_data, run_solver
 from sdom.infrasys_integration.make_system import load_system, load_system_from_data
@@ -137,6 +141,14 @@ def test_exchange_system_path_solves_with_highs_and_matches_dict_path_assertions
     assert system_budget["is_satisfied"], system_budget["violations"]
     assert direct_budget["is_satisfied"], direct_budget["violations"]
     assert system_budget["n_budget_periods"] == direct_budget["n_budget_periods"] == 7
+
+    csv_budget = check_hydro_budget_matches_csv(
+        system_results,
+        "Data/exchange_hydro_daily_budget_multiple_balancing_p95",
+        budget_hours=24,
+    )
+    assert csv_budget["is_satisfied"], csv_budget["violations"]
+    assert csv_budget["n_budget_periods"] == 7
 
 
 def test_zonal_system_rejected_by_copperplate_builder():
