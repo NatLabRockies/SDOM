@@ -74,6 +74,15 @@ def test_core_components_share_sdom_component_base():
     assert all(issubclass(component_type, SDOMComponent) for component_type in component_types)
 
 
+def test_bus_has_explicit_name_field():
+    """Buses should expose an explicit string name field."""
+    bus = _make_bus()
+
+    assert isinstance(bus.name, str)
+    assert bus.name == "default-bus"
+    assert SDOMBus.model_fields["name"].annotation is str
+
+
 def test_area_and_bus_model_asset_location_hierarchy():
     """Assets should reference buses and buses should reference areas."""
     bus = _make_bus()

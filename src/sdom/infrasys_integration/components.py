@@ -77,11 +77,12 @@ class SDOMBus(SDOMComponent):
     Parameters
     ----------
     name : str
-        Bus name inherited from :class:`SDOMComponent`.
+        Unique bus name.
     area : SDOMArea
         Area that contains this bus.
     """
 
+    name: Annotated[str, Field(min_length=1, description="Unique bus name.")]
     area: Annotated[SDOMArea, Field(description="Area containing this bus.")]
 
 
