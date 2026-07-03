@@ -50,6 +50,12 @@ def test_load_system_from_data_builds_copperplate_components():
     assert _count(system, SDOMWindGenerator) == len(data["wind_plants"])
     assert _count(system, SDOMStorage) == len(data["STORAGE_SET_J_TECHS"])
     assert _count(system, SDOMScalarParameter) == len(data["scalars"])
+    thermal = next(system.get_components(SDOMThermalGenerator))
+    storage = next(system.get_components(SDOMStorage))
+    assert thermal.ext["asset_status"] == "candidate"
+    assert thermal.ext["location_status"] == "allowed_area"
+    assert storage.ext["asset_status"] == "candidate"
+    assert storage.ext["location_status"] == "allowed_area"
 
 
 def test_load_system_from_csv_builds_zonal_transmission_components():

@@ -369,7 +369,25 @@ def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapp
                 vom=_optional_float(row_data.get("VOM")),
                 heat_rate=_optional_float(row_data.get("HeatRate")) or 0.0,
                 fuel_cost=_optional_float(row_data.get("FuelCost")) or 0.0,
-                ext=_row_ext(row_data, exclude={"area_id", "Plant_id", "MinCapacity", "MaxCapacity", "Capex", "FOM", "VOM", "HeatRate", "FuelCost"}),
+                ext={
+                    **_row_ext(
+                        row_data,
+                        exclude={
+                            "area_id",
+                            "Plant_id",
+                            "MinCapacity",
+                            "MaxCapacity",
+                            "Capex",
+                            "FOM",
+                            "VOM",
+                            "HeatRate",
+                            "FuelCost",
+                        },
+                    ),
+                    "asset_status": "candidate",
+                    "location_status": "allowed_area",
+                    "allowed_area": area_id,
+                },
             )
             system.add_component(generator)
             _attach_bus_geographic_info(system, generator, buses[area_id])
@@ -472,6 +490,11 @@ def _add_storage(system: System, data: Mapping[str, Any], buses: Mapping[str, SD
                 coupled=_table_bool(frame, "Coupled", technology),
                 lifetime=_table_int(frame, "Lifetime", technology),
                 cost_ratio=_table_float(frame, "CostRatio", technology),
+                ext={
+                    "asset_status": "candidate",
+                    "location_status": "allowed_area",
+                    "allowed_area": area_id,
+                },
             )
             system.add_component(storage)
 
