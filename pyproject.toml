@@ -37,6 +37,10 @@ Issues = "https://github.com/NatLabRockies/SDOM/issues"
 
 [project.optional-dependencies]
 xpress = ["xpress>=9.0.0,<9.8"]  # Upper bound depends on your license version
+infrasys = [
+    "infrasys>=1.2.0,<2.0.0",
+    "r2x-core>=0.5.1,<1.0.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.10.0"]
