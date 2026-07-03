@@ -101,6 +101,17 @@ def test_area_and_bus_model_asset_location_hierarchy():
     assert generator.bus.area.country == "US"
 
 
+def test_thermal_generator_tightens_base_generator_contract():
+    """Thermal generators should require heat-rate and fuel-cost fields."""
+    bus = _make_bus()
+    generic = SDOMGenerator(name="generic", bus=bus, technology="Generic")
+
+    assert generic.heat_rate is None
+    assert generic.fuel_cost is None
+    with pytest.raises(ValueError, match="heat_rate"):
+        SDOMThermalGenerator(name="missing-thermal-data", bus=bus, technology="Thermal")
+
+
 def test_component_validation_rejects_invalid_values():
     """Pydantic validation should reject negative power values."""
     bus = _make_bus()
@@ -111,6 +122,8 @@ def test_component_validation_rejects_invalid_values():
             bus=bus,
             technology="Thermal",
             max_active_power=-1.0,
+            heat_rate=9.5,
+            fuel_cost=3.0,
         )
 
 

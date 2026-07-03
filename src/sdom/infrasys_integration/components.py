@@ -128,6 +128,10 @@ class SDOMGenerator(HasUnits, SDOMComponent):
         Fixed operations and maintenance cost, in dollars per MW-year.
     vom : float, optional
         Variable operations and maintenance cost, in dollars per MWh.
+    heat_rate : float, optional
+        Heat rate in MMBtu/MWh. Subclasses may make this required.
+    fuel_cost : float, optional
+        Fuel cost in dollars per MMBtu. Subclasses may make this required.
     """
 
     bus: Annotated[SDOMBus, Field(description="Bus where the generator is connected.")]
@@ -157,6 +161,16 @@ class SDOMGenerator(HasUnits, SDOMComponent):
         Unit("$/MWh"),
         Field(ge=0, description="Variable operations and maintenance cost."),
     ] | None = None
+    heat_rate: Annotated[
+        float,
+        Unit("MMBtu/MWh"),
+        Field(ge=0, description="Heat rate."),
+    ] | None = None
+    fuel_cost: Annotated[
+        float,
+        Unit("$/MMBtu"),
+        Field(ge=0, description="Fuel cost."),
+    ] | None = None
 
 
 class SDOMThermalGenerator(SDOMGenerator):
@@ -164,22 +178,22 @@ class SDOMThermalGenerator(SDOMGenerator):
 
     Parameters
     ----------
-    heat_rate : float, optional
-        Heat rate in MMBtu/MWh.
-    fuel_cost : float, optional
-        Fuel cost in dollars per MMBtu.
+    heat_rate : float
+        Required heat rate in MMBtu/MWh.
+    fuel_cost : float
+        Required fuel cost in dollars per MMBtu.
     """
 
     heat_rate: Annotated[
         float,
         Unit("MMBtu/MWh"),
         Field(ge=0, description="Thermal heat rate."),
-    ] | None = None
+    ]
     fuel_cost: Annotated[
         float,
         Unit("$/MMBtu"),
         Field(ge=0, description="Fuel cost."),
-    ] | None = None
+    ]
 
 
 class SDOMSolarGenerator(SDOMGenerator):
