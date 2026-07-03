@@ -123,11 +123,13 @@ class SDOMGenerator(HasUnits, SDOMComponent):
     max_active_power : float, optional
         Maximum active power, in MW.
     capex : float, optional
-        Capital cost, in dollars per MW.
+        Capital cost in USD/kW.
     fom : float, optional
-        Fixed operations and maintenance cost, in dollars per MW-year.
+        Fixed operations and maintenance cost in USD/kW-year.
     vom : float, optional
-        Variable operations and maintenance cost, in dollars per MWh.
+        Variable operations and maintenance cost in USD/MWh.
+    trans_cap_cost : float, optional
+        Transmission interconnection capital cost in USD/kW.
     heat_rate : float, optional
         Heat rate in MMBtu/MWh. Subclasses may make this required.
     fuel_cost : float, optional
@@ -148,18 +150,23 @@ class SDOMGenerator(HasUnits, SDOMComponent):
     ] | None = None
     capex: Annotated[
         float,
-        Unit("$/MW"),
+        Unit("$/kW"),
         Field(ge=0, description="Capital cost."),
     ] | None = None
     fom: Annotated[
         float,
-        Unit("$/MW/year"),
+        Unit("$/kW/year"),
         Field(ge=0, description="Fixed operations and maintenance cost."),
     ] | None = None
     vom: Annotated[
         float,
         Unit("$/MWh"),
         Field(ge=0, description="Variable operations and maintenance cost."),
+    ] | None = None
+    trans_cap_cost: Annotated[
+        float,
+        Unit("$/kW"),
+        Field(ge=0, description="Transmission interconnection capital cost."),
     ] | None = None
     heat_rate: Annotated[
         float,
@@ -239,18 +246,26 @@ class SDOMStorage(HasUnits, SDOMComponent):
     technology : str
         Storage technology label.
     max_power_capacity : float, optional
-        Maximum charge/discharge power capacity, in MW.
+        Maximum charge/discharge power capacity, in kW.
     max_energy_capacity : float, optional
         Maximum energy capacity, in MWh.
     round_trip_efficiency : float, optional
         Round-trip efficiency fraction between 0 and 1.
+    max_cycles : int, optional
+        Maximum number of charge/discharge cycles.
+    coupled : bool, optional
+        Whether input and output power are coupled.
+    lifetime : int, optional
+        Expected storage lifetime in years.
+    cost_ratio : float, optional
+        Input/output power-cost allocation ratio.
     """
 
     bus: Annotated[SDOMBus, Field(description="Bus where the storage resource is connected.")]
     technology: Annotated[str, Field(min_length=1, description="Storage technology label.")]
     max_power_capacity: Annotated[
         float,
-        Unit("MW"),
+        Unit("kW"),
         Field(ge=0, description="Maximum storage power capacity."),
     ] | None = None
     max_energy_capacity: Annotated[
@@ -260,17 +275,17 @@ class SDOMStorage(HasUnits, SDOMComponent):
     ] | None = None
     power_capex: Annotated[
         float,
-        Unit("$/MW"),
+        Unit("$/kW"),
         Field(ge=0, description="Storage power capital cost."),
     ] | None = None
     energy_capex: Annotated[
         float,
-        Unit("$/MWh"),
+        Unit("$/kWh"),
         Field(ge=0, description="Storage energy capital cost."),
     ] | None = None
     fom: Annotated[
         float,
-        Unit("$/MW/year"),
+        Unit("$/kW/year"),
         Field(ge=0, description="Fixed operations and maintenance cost."),
     ] | None = None
     vom: Annotated[
@@ -291,6 +306,23 @@ class SDOMStorage(HasUnits, SDOMComponent):
         float,
         Unit("hours"),
         Field(ge=0, description="Maximum storage duration."),
+    ] | None = None
+    max_cycles: Annotated[
+        int,
+        Field(ge=0, description="Maximum number of charge/discharge cycles."),
+    ] | None = None
+    coupled: Annotated[
+        bool,
+        Field(description="Whether input and output power capacities are coupled."),
+    ] | None = None
+    lifetime: Annotated[
+        int,
+        Unit("years"),
+        Field(ge=0, description="Expected storage lifetime."),
+    ] | None = None
+    cost_ratio: Annotated[
+        float,
+        Field(ge=0, le=1, description="Input/output power-cost allocation ratio."),
     ] | None = None
 
     @model_validator(mode="after")
@@ -326,6 +358,8 @@ class SDOMImportInterface(HasUnits, SDOMComponent):
         Bus where imports enter the system.
     max_active_power : float, optional
         Maximum import capacity, in MW.
+    price : float, optional
+        Import price in USD/MWh.
     """
 
     bus: Annotated[SDOMBus, Field(description="Bus where imports enter the system.")]
@@ -333,6 +367,11 @@ class SDOMImportInterface(HasUnits, SDOMComponent):
         float,
         Unit("MW"),
         Field(ge=0, description="Maximum import capacity."),
+    ] | None = None
+    price: Annotated[
+        float,
+        Unit("$/MWh"),
+        Field(ge=0, description="Import price."),
     ] | None = None
 
 
@@ -345,6 +384,8 @@ class SDOMExportInterface(HasUnits, SDOMComponent):
         Bus where exports leave the system.
     max_active_power : float, optional
         Maximum export capacity, in MW.
+    price : float, optional
+        Export price in USD/MWh.
     """
 
     bus: Annotated[SDOMBus, Field(description="Bus where exports leave the system.")]
@@ -352,6 +393,11 @@ class SDOMExportInterface(HasUnits, SDOMComponent):
         float,
         Unit("MW"),
         Field(ge=0, description="Maximum export capacity."),
+    ] | None = None
+    price: Annotated[
+        float,
+        Unit("$/MWh"),
+        Field(ge=0, description="Export price."),
     ] | None = None
 
 

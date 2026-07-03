@@ -101,6 +101,23 @@ def test_area_and_bus_model_asset_location_hierarchy():
     assert generator.bus.area.country == "US"
 
 
+def test_generator_fields_include_documented_cost_inputs():
+    """Generator fields should cover documented CAPEX/FOM/transmission costs."""
+    bus = _make_bus()
+    generator = SDOMGenerator(
+        name="generic",
+        bus=bus,
+        technology="Generic",
+        capex=1200.0,
+        fom=30.0,
+        trans_cap_cost=100.0,
+    )
+
+    assert generator.capex == 1200.0
+    assert generator.fom == 30.0
+    assert generator.trans_cap_cost == 100.0
+
+
 def test_thermal_generator_tightens_base_generator_contract():
     """Thermal generators should require heat-rate and fuel-cost fields."""
     bus = _make_bus()
@@ -151,7 +168,13 @@ def test_components_can_be_added_to_infrasys_system():
         technology="PHS",
         max_power_capacity=50.0,
         max_energy_capacity=400.0,
+        power_capex=1500.0,
+        energy_capex=10.0,
         round_trip_efficiency=0.8,
+        max_cycles=10_000,
+        coupled=True,
+        lifetime=30,
+        cost_ratio=0.5,
     )
     line = SDOMTransmissionInterface(
         name="line",
