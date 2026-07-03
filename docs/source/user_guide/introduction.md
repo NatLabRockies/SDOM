@@ -101,7 +101,7 @@ model.exports           # Cross-border exports (optional)
 ## Computational Considerations
 
 - **Copper Plate Assumption**: No transmission constraints for computational efficiency
-- **Solver Compatibility**: Tested with CBC (open-source) and HiGHS solvers
+- **Solver Compatibility**: Tested with CBC (open-source), HiGHS (open-source), and Xpress (commercial, license required) solvers
 - **Scalability**: 8760-hour problem with typical scenarios solves in minutes to hours
   - Close to 100% free carbon target scenarios tend to be the more complex problems to solve.
   - Also, scenarios where multiple storage technologies are being modelled and SDOM is optimizing both power and energy capacity tend to be harder to solve.

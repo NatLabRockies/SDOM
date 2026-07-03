@@ -33,7 +33,7 @@ model = initialize_model(
 
 # 4. Configure solver
 solver_config = get_default_solver_config_dict(
-    solver_name="cbc",  # or "highs"
+    solver_name="cbc",  # or "highs" or "xpress"
     executable_path="./Solver/bin/cbc.exe"
 )
 
@@ -116,8 +116,8 @@ FICO Xpress is a high-performance commercial solver. Requires a valid license.
 
 **Installation:**
 ```bash
-# Install xpress package (license required)
-pip install xpress
+# Install SDOM with the optional Xpress dependency (license required)
+uv pip install "sdom[xpress]"
 ```
 
 **Configuration:**

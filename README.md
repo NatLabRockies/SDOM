@@ -71,7 +71,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
   
   - In order offer a full open-source solution also was developed this python package. This version requires python 3.10+.
 
-- **Solver Compatibility:** Currently the SDOM python version has been tested using [open-source CBC solver](https://www.coin-or.org/Cbc/cbcuserguide.html) and [HiGHS open-source solver](https://highs.dev/) through highspy module. In this repo the [windows executable for cbc](./cbc.exe) is provided. You will need to provide the path of cbc solver to run SDOM as illustrated in our [script demonstration](#sdom-example-(demonstration-script))
+- **Solver Compatibility:** Currently the SDOM python version has been tested using the [open-source CBC solver](https://www.coin-or.org/Cbc/cbcuserguide.html), the [HiGHS open-source solver](https://highs.dev/) through the `highspy` module, and [FICO Xpress](https://www.fico.com/en/products/fico-xpress-optimization) through the `xpress` Python interface. In this repo the [Windows executable for CBC](./cbc.exe) is provided. You will need to provide the path of the CBC solver to run SDOM as illustrated in our [simple script example](#sdom-simple-script-example). Xpress is commercial and requires a valid license.
 
 ## Optimization Scope
 📉
@@ -180,6 +180,12 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
 
   ```bash
   uv pip install highspy
+  ```
+
+  For [FICO Xpress](https://www.fico.com/en/products/fico-xpress-optimization), install SDOM with the optional Xpress dependency and make sure your Xpress license is configured:
+
+  ```bash
+  uv pip install "sdom[xpress]"
   ```
 
 - e. Install the Logging package to be able to see sdom info, warning and error messages and log those:

@@ -306,5 +306,5 @@ find docs/source -name "*.md" -exec python -m myst_parser {} \;
 - All commands assume you're starting from the repository root unless otherwise specified
 - The `.venv` directory should already exist (created during initial SDOM setup)
 - Documentation dependencies are separate from SDOM runtime dependencies
-- Building docs does not require solver executables (CBC/HiGHS)
+- Building docs does not require solver executables or licenses (CBC/HiGHS/Xpress)
 - First build may take longer; subsequent builds are incremental
