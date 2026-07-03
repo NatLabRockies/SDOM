@@ -9,7 +9,7 @@ import pytest
 infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
-from sdom.infrasys_integration.components import (  # noqa: E402
+from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMArea,
     SDOMBus,
     SDOMComponent,
@@ -28,6 +28,10 @@ from sdom.infrasys_integration.components import (  # noqa: E402
     SDOMTransmissionInterface,
     SDOMWindGenerator,
 )
+from sdom.infrasys_integration.models.static_injection import (  # noqa: E402
+    SDOMStorage as StaticInjectionSDOMStorage,
+)
+from sdom.infrasys_integration.models.topology import SDOMBus as TopologySDOMBus  # noqa: E402
 
 System = infrasys.System
 
@@ -48,6 +52,12 @@ def test_package_namespace_imports_without_optional_component_imports():
     module = importlib.import_module("sdom.infrasys_integration")
 
     assert module.__name__ == "sdom.infrasys_integration"
+
+
+def test_model_package_exports_match_domain_module_imports():
+    """Model package exports should match domain module class identities."""
+    assert TopologySDOMBus is SDOMBus
+    assert StaticInjectionSDOMStorage is SDOMStorage
 
 
 def test_core_components_share_sdom_component_base():
