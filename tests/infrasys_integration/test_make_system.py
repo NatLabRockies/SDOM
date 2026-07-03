@@ -11,7 +11,7 @@ infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
 from sdom import load_data  # noqa: E402
-from sdom.infrasys_integration.csv_loader import (  # noqa: E402
+from sdom.infrasys_integration.make_system import (  # noqa: E402
     load_system,
     load_system_from_data,
     system_to_data_dict,
