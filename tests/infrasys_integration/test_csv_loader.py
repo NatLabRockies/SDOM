@@ -10,8 +10,13 @@ infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
 from sdom import load_data  # noqa: E402
-from sdom.infrasys_integration.attributes import GeographicInfo  # noqa: E402
-from sdom.infrasys_integration.components import (  # noqa: E402
+from sdom.infrasys_integration.csv_loader import (  # noqa: E402
+    load_system,
+    load_system_from_data,
+    system_to_data_dict,
+)
+from sdom.infrasys_integration.models import (  # noqa: E402
+    GeographicInfo,
     SDOMArea,
     SDOMBus,
     SDOMLoad,
@@ -21,11 +26,6 @@ from sdom.infrasys_integration.components import (  # noqa: E402
     SDOMThermalGenerator,
     SDOMTransmissionInterface,
     SDOMWindGenerator,
-)
-from sdom.infrasys_integration.csv_loader import (  # noqa: E402
-    load_system,
-    load_system_from_data,
-    system_to_data_dict,
 )
 from sdom.infrasys_integration.system import load_system as load_system_from_system_module  # noqa: E402
 
