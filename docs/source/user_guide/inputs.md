@@ -115,7 +115,7 @@ model = initialize_model(
 
 ##### **Plant Data**: `CapSolar.csv`
 This file lists all candidate sites for solar PV and wind energy deployment. For each site, it specifies the maximum allowed installed capacity, geographic coordinates, capital expenditure (CAPEX), fixed operation and maintenance (FOM) costs, and transmission interconnection costs. These parameters are used by SDOM to evaluate investment options and optimize resource allocation across the available sites
-- Columns: `sc_gid` (plant ID), `capacity` (MW), `CAPEX_M` ($/kW), `FOM_M` ($/kW-yr), `trans_cap_cost` ($)
+- Columns: `sc_gid` (plant ID), `capacity` (MW), `CAPEX_M` ($/kW), `FOM_M` ($/kW-yr), `trans_cap_cost` ($/kW)
 
 **CSV file columns:**
 | Field/Column    | Description                                                                                         |Expected type |
