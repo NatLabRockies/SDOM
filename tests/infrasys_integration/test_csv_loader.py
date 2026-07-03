@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -115,6 +116,36 @@ def test_time_series_with_missing_values_raise_clear_error():
 
     with pytest.raises(ValueError, match=r"Time series 'active_power'.*per_area_demand.*Load"):
         load_system_from_data(data)
+
+
+def test_missing_thermal_required_attribute_raises_clear_error():
+    """Missing thermal required attributes should fail instead of defaulting to zero."""
+    data = load_data("Data/no_exchange_run_of_river")
+    frame = data["per_area_balancing_units"]["default"]
+    plant_id = str(frame.loc[0, "Plant_id"])
+    frame.loc[0, "FuelCost"] = float("nan")
+
+    with pytest.raises(
+        ValueError,
+        match=rf"per_area_balancing_units thermal candidate '{plant_id}'.*requires finite FuelCost",
+    ):
+        load_system_from_data(data)
+
+
+def test_negative_thermal_required_attribute_warns_and_raises(caplog):
+    """Negative thermal required attributes should warn and fail validation."""
+    data = load_data("Data/no_exchange_run_of_river")
+    frame = data["per_area_balancing_units"]["default"]
+    plant_id = str(frame.loc[0, "Plant_id"])
+    frame.loc[0, "HeatRate"] = -1.0
+
+    with caplog.at_level(logging.WARNING), pytest.raises(
+        ValueError,
+        match=rf"per_area_balancing_units thermal candidate '{plant_id}'.*requires HeatRate",
+    ):
+        load_system_from_data(data)
+
+    assert "invalid HeatRate=-1.0" in caplog.text
 
 
 def test_system_to_data_dict_preserves_existing_builder_data_without_copying_frames():

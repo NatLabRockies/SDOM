@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping
 from datetime import datetime, timedelta
@@ -105,7 +106,7 @@ def load_system_from_data(data: dict[str, Any], *, name: str = "SDOM") -> System
     True
     """
     system = System(name=name)
-    areas, buses = _add_areas_and_buses(system, data)
+    _, buses = _add_areas_and_buses(system, data)
     _add_loads(system, data, buses)
     _add_vre_generators(system, data, buses, technology="solar")
     _add_vre_generators(system, data, buses, technology="wind")
@@ -117,9 +118,6 @@ def load_system_from_data(data: dict[str, Any], *, name: str = "SDOM") -> System
     _add_scalars(system, data)
     _add_formulations(system, data)
     setattr(system, _SOURCE_DATA_ATTR, data)
-    # Keep local variables referenced until all composed components have been
-    # attached; this makes the ownership graph explicit without copying data.
-    _ = areas
     return system
 
 
@@ -368,8 +366,22 @@ def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapp
                 capex=_optional_float(row_data.get("Capex")),
                 fom=_optional_float(row_data.get("FOM")),
                 vom=_optional_float(row_data.get("VOM")),
-                heat_rate=_optional_float(row_data.get("HeatRate")) or 0.0,
-                fuel_cost=_optional_float(row_data.get("FuelCost")) or 0.0,
+                heat_rate=_required_nonnegative_float(
+                    row_data,
+                    "HeatRate",
+                    source="per_area_balancing_units",
+                    technology="thermal",
+                    component_name=plant_id,
+                    area_id=area_id,
+                ),
+                fuel_cost=_required_nonnegative_float(
+                    row_data,
+                    "FuelCost",
+                    source="per_area_balancing_units",
+                    technology="thermal",
+                    component_name=plant_id,
+                    area_id=area_id,
+                ),
                 ext={
                     **_row_ext(
                         row_data,
@@ -1047,6 +1059,70 @@ def _table_bool(frame: pd.DataFrame, row_label: str, column: str) -> bool | None
     """
     value = _table_float(frame, row_label, column)
     return bool(value) if value is not None else None
+
+
+def _required_nonnegative_float(
+    row: Mapping[str, Any],
+    attribute: str,
+    *,
+    source: str,
+    technology: str,
+    component_name: str,
+    area_id: str,
+) -> float:
+    """Return a required finite non-negative attribute value.
+
+    Parameters
+    ----------
+    row : mapping of str to Any
+        Source row containing the attribute.
+    attribute : str
+        Attribute name to parse.
+    source : str
+        Source data key or table label.
+    technology : str
+        Technology category used in error messages.
+    component_name : str
+        Component or technology identifier used in error messages.
+    area_id : str
+        Area identifier associated with the candidate resource.
+
+    Returns
+    -------
+    float
+        Parsed finite non-negative value.
+
+    Raises
+    ------
+    ValueError
+        If the value is missing, non-numeric, non-finite, or negative.
+
+    Examples
+    --------
+    >>> _required_nonnegative_float(
+    ...     {"HeatRate": 7.0},
+    ...     "HeatRate",
+    ...     source="per_area_balancing_units",
+    ...     technology="thermal",
+    ...     component_name="CC",
+    ...     area_id="A1",
+    ... )
+    7.0
+    """
+    value = _optional_float(row.get(attribute))
+    context = f"{source} {technology} candidate '{component_name}' in area '{area_id}'"
+    if value is None:
+        raise ValueError(f"{context} requires finite {attribute}.")
+    if value < 0:
+        logging.warning(
+            "%s has invalid %s=%s; expected a finite value >= 0.",
+            context,
+            attribute,
+            value,
+        )
+        raise ValueError(f"{context} requires {attribute} to be finite and >= 0.")
+    return value
+
 
 
 def _optional_float(value: Any) -> float | None:
