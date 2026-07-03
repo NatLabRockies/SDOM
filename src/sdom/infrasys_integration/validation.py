@@ -136,21 +136,24 @@ def validate_time_series_coverage(system: System, n_hours: int) -> None:
 
     checked_count = 0
     for component in _iter_sdom_components(system):
-        for key in system.list_time_series_keys(component):
+        keys = list(system.list_time_series_keys(component))
+        if not keys:
+            continue
+        # Query metadata once per component so validation catches broken
+        # time-series metadata associations without loading full arrays.
+        metadata = list(system.list_time_series_metadata(component))
+        if not metadata:
+            raise ValueError(
+                f"Time series metadata is not queryable for {component.__class__.__name__} "
+                f"'{component.name}'."
+            )
+        for key in keys:
             checked_count += 1
             length = getattr(key, "length", None)
             if length != n_hours:
                 raise ValueError(
                     f"Time series '{key.name}' attached to {component.__class__.__name__} "
                     f"'{component.name}' has length {length}; expected {n_hours}."
-                )
-            # Query metadata so validation catches broken time-series metadata
-            # associations without loading full arrays into memory.
-            metadata = list(system.list_time_series_metadata(component))
-            if not metadata:
-                raise ValueError(
-                    f"Time series metadata is not queryable for {component.__class__.__name__} "
-                    f"'{component.name}'."
                 )
 
     if checked_count == 0:
