@@ -1,7 +1,233 @@
-"""Pyomo builder entry points for SDOM infrasys systems.
+"""Pyomo builder entry points for SDOM infrasys systems."""
 
-System-to-Pyomo model construction is implemented in later slices after the
-component graph and CSV adapter are in place.
-"""
+from __future__ import annotations
 
-__all__: list[str] = []
+from types import MethodType
+from typing import Any
+
+from infrasys import System
+from pyomo.environ import AbstractModel, ConcreteModel
+
+from sdom.constants import COPPER_PLATE_NETWORK, DEFAULT_AREA_ID
+from sdom.io_manager import get_network_formulation
+from sdom.optimization_main import initialize_model
+
+from .make_system import system_to_data_dict
+
+
+def initialize_model_from_system(
+    system: System,
+    n_hours: int = 8760,
+    *,
+    with_resilience_constraints: bool = False,
+    model_name: str = "SDOM_Model",
+) -> AbstractModel:
+    """Create an AbstractModel-backed SDOM builder from an infrasys system.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        SDOM infrasys system produced by
+        :func:`sdom.infrasys_integration.make_system.load_system` or
+        :func:`sdom.infrasys_integration.make_system.load_system_from_data`.
+    n_hours : int, default=8760
+        Number of hours captured by the abstract builder and applied when
+        ``create_instance()`` instantiates the model.
+    with_resilience_constraints : bool, default=False
+        Whether to include SDOM resilience constraints in the instantiated
+        copperplate model.
+    model_name : str, default="SDOM_Model"
+        Name assigned to the Pyomo model builder and generated instance.
+
+    Returns
+    -------
+    pyomo.environ.AbstractModel
+        AbstractModel builder. Call ``create_instance()`` to produce the
+        concrete SDOM model used by existing solver and results code.
+
+    Raises
+    ------
+    ValueError
+        If ``n_hours`` is not positive.
+    NotImplementedError
+        If the system data requires a non-copperplate network formulation.
+
+    Examples
+    --------
+    >>> from sdom.infrasys_integration.make_system import load_system
+    >>> from sdom.infrasys_integration.pyomo_builder import initialize_model_from_system
+    >>> system = load_system("Data/no_exchange_run_of_river")
+    >>> abstract_model = initialize_model_from_system(system, n_hours=24)
+    >>> abstract_model.is_constructed()
+    False
+    """
+    return initialize_copperplate_model_from_system(
+        system,
+        n_hours=n_hours,
+        with_resilience_constraints=with_resilience_constraints,
+        model_name=model_name,
+    )
+
+
+def initialize_copperplate_model_from_system(
+    system: System,
+    n_hours: int = 8760,
+    *,
+    with_resilience_constraints: bool = False,
+    model_name: str = "SDOM_Model",
+) -> AbstractModel:
+    """Create a copperplate AbstractModel builder from an SDOM system.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        SDOM infrasys system containing compatibility source data.
+    n_hours : int, default=8760
+        Number of hours captured by the abstract builder and applied when
+        ``create_instance()`` instantiates the model.
+    with_resilience_constraints : bool, default=False
+        Whether to include SDOM resilience constraints in the instantiated
+        model.
+    model_name : str, default="SDOM_Model"
+        Name assigned to the Pyomo model builder and generated instance.
+
+    Returns
+    -------
+    pyomo.environ.AbstractModel
+        AbstractModel builder that instantiates the existing copperplate SDOM
+        Pyomo body through the compatibility data path.
+
+    Raises
+    ------
+    ValueError
+        If ``n_hours`` is not positive.
+    NotImplementedError
+        If the system data is not a single-area copperplate system.
+
+    Examples
+    --------
+    >>> from sdom.infrasys_integration.make_system import load_system
+    >>> from sdom.infrasys_integration.pyomo_builder import initialize_copperplate_model_from_system
+    >>> system = load_system("Data/no_exchange_run_of_river")
+    >>> model = initialize_copperplate_model_from_system(system, n_hours=24)
+    >>> instance = model.create_instance()
+    >>> instance.name
+    'SDOM_Model'
+    """
+    data = system_to_data_dict(system)
+    _validate_copperplate_data(data)
+    _validate_n_hours(n_hours)
+
+    model = AbstractModel(name=model_name)
+    model._sdom_data = data
+    model._sdom_model_options = {
+        "n_hours": n_hours,
+        "with_resilience_constraints": with_resilience_constraints,
+        "model_name": model_name,
+    }
+    model.create_instance = MethodType(_create_copperplate_instance, model)
+    return model
+
+
+def _create_copperplate_instance(model: AbstractModel, *args: Any, **kwargs: Any) -> ConcreteModel:
+    """Instantiate an AbstractModel-backed copperplate SDOM model.
+
+    Parameters
+    ----------
+    model : pyomo.environ.AbstractModel
+        AbstractModel builder returned by
+        :func:`initialize_copperplate_model_from_system`.
+    *args : Any
+        Unsupported positional arguments. Present only to match Pyomo's
+        ``create_instance`` calling convention.
+    **kwargs : Any
+        Unsupported keyword arguments. Present only to match Pyomo's
+        ``create_instance`` calling convention.
+
+    Returns
+    -------
+    pyomo.environ.ConcreteModel
+        Concrete Pyomo model generated by the existing SDOM copperplate builder.
+
+    Raises
+    ------
+    TypeError
+        If external data arguments are supplied. This builder is already bound
+        to source data from the input infrasys system.
+
+    Examples
+    --------
+    >>> from sdom.infrasys_integration.make_system import load_system
+    >>> builder = initialize_copperplate_model_from_system(load_system("Data/no_exchange_run_of_river"), n_hours=24)
+    >>> builder.create_instance().is_constructed()
+    True
+    """
+    if args or kwargs:
+        raise TypeError("SDOM System AbstractModel builders do not accept external create_instance data.")
+    return initialize_model(model._sdom_data, **model._sdom_model_options)
+
+
+def _validate_copperplate_data(data: dict[str, Any]) -> None:
+    """Validate that a data dictionary describes a copperplate system.
+
+    Parameters
+    ----------
+    data : dict[str, Any]
+        SDOM compatibility data dictionary.
+
+    Returns
+    -------
+    None
+        Returns normally for single-area copperplate data.
+
+    Raises
+    ------
+    NotImplementedError
+        If the data requires a zonal or unsupported network build.
+
+    Examples
+    --------
+    >>> from sdom import load_data
+    >>> data = load_data("Data/no_exchange_run_of_river")
+    >>> _validate_copperplate_data(data)
+    """
+    network = get_network_formulation(data)
+    areas = data.get("areas", [{"area_id": DEFAULT_AREA_ID}])
+    if network != COPPER_PLATE_NETWORK or len(areas) != 1:
+        raise NotImplementedError(
+            "initialize_model_from_system currently supports only single-area "
+            f"{COPPER_PLATE_NETWORK} systems; got Network={network!r}, areas={len(areas)}."
+        )
+
+
+def _validate_n_hours(n_hours: int) -> None:
+    """Validate the requested model horizon.
+
+    Parameters
+    ----------
+    n_hours : int
+        Requested number of model hours.
+
+    Returns
+    -------
+    None
+        Returns normally when ``n_hours`` is positive.
+
+    Raises
+    ------
+    ValueError
+        If ``n_hours`` is less than one.
+
+    Examples
+    --------
+    >>> _validate_n_hours(24)
+    >>> _validate_n_hours(0)
+    Traceback (most recent call last):
+    ...
+    ValueError: n_hours must be positive; got 0.
+    """
+    if n_hours <= 0:
+        raise ValueError(f"n_hours must be positive; got {n_hours}.")
+
+
+__all__ = ["initialize_copperplate_model_from_system", "initialize_model_from_system"]

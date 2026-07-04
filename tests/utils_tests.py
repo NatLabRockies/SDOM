@@ -3,9 +3,12 @@ import shutil
 import sys
 from pathlib import Path
 
+import pandas as pd
 from pyomo.environ import Constraint
 
 from sdom import OptimizationResults
+from sdom.common.utilities import get_complete_path
+from sdom.constants import INPUT_CSV_NAMES
 
 
 def get_cbc_executable():
@@ -104,7 +107,7 @@ def check_supply_balance_constraint(results: OptimizationResults, tolerance: flo
     """Check that the supply balance constraint is satisfied for all time steps.
 
     Verifies that for each hour in the solution, the supply balance equation is met:
-    Load + StorageCharge - StorageDischarge - Nuclear - Hydro - OtherRenewables 
+    Load + StorageCharge - StorageDischarge - Nuclear - Hydro - OtherRenewables
     - SolarPV - Wind - Thermal - Imports + Exports == 0
 
     Parameters
@@ -140,13 +143,13 @@ def check_supply_balance_constraint(results: OptimizationResults, tolerance: flo
 
     for _, row in gen_df.iterrows():
         hour = row["Hour"]
-        
+
         # Calculate balance: Load + StorageCharge - StorageDischarge = Generation + Imports - Exports
         # Storage Charge/Discharge is already net (Charge - Discharge), so positive means charging
         # Supply balance: Load + Charge - Discharge - all_generation - imports + exports = 0
         # Rearranged from results perspective:
         # Load + (StorageCharge - StorageDischarge) - Nuclear - Hydro - OtherRenewables - SolarPV - Wind - Thermal - Imports + Exports = 0
-        
+
         balance = (
             row["Load (MW)"]
             + row["Storage Charge/Discharge (MW)"]  # Already net: PC - PD
@@ -176,10 +179,115 @@ def check_supply_balance_constraint(results: OptimizationResults, tolerance: flo
     }
 
 
+def check_hydro_budget_matches_csv(
+    results: OptimizationResults,
+    input_data_dir: str | Path,
+    budget_hours: int,
+    *,
+    tolerance: float = 1e-3,
+) -> dict:
+    """Check solved hydro generation against the source CSV budget by period.
+
+    Parameters
+    ----------
+    results : OptimizationResults
+        Solved SDOM optimization results.
+    input_data_dir : str | Path
+        Directory containing the SDOM input CSV files.
+    budget_hours : int
+        Number of hours in each hydro budget period.
+    tolerance : float, optional
+        Maximum allowed absolute difference between solved hydro generation
+        and the source CSV parameter within a budget period.
+
+    Returns
+    -------
+    dict
+        Dictionary with validation status, period details, and any violations.
+    """
+    if results is None:
+        return {"is_satisfied": False, "error": "Results object is None"}
+    if budget_hours <= 0:
+        return {"is_satisfied": False, "error": f"budget_hours must be positive, got {budget_hours}"}
+
+    generation_df = results.get_generation_dataframe()
+    if generation_df.empty:
+        return {"is_satisfied": False, "error": "Generation DataFrame is empty"}
+    if "Hydro Generation (MW)" not in generation_df.columns:
+        return {"is_satisfied": False, "error": "Generation DataFrame does not include hydro generation"}
+
+    hydro_csv_path = get_complete_path(str(input_data_dir), INPUT_CSV_NAMES["large_hydro_data"])
+    if not hydro_csv_path:
+        return {"is_satisfied": False, "error": f"Large hydro CSV not found in {input_data_dir}"}
+
+    hydro_df = pd.read_csv(hydro_csv_path)
+    required_columns = {"*Hour", "LargeHydro"}
+    missing_columns = required_columns - set(hydro_df.columns)
+    if missing_columns:
+        return {"is_satisfied": False, "error": f"Large hydro CSV missing columns {sorted(missing_columns)}"}
+
+    generation_by_hour = generation_df.set_index("Hour")["Hydro Generation (MW)"]
+    csv_by_hour = hydro_df.set_index("*Hour")["LargeHydro"]
+    max_hour = int(generation_by_hour.index.max())
+    n_budget_periods = max_hour // budget_hours
+    if max_hour % budget_hours != 0:
+        return {
+            "is_satisfied": False,
+            "error": f"Result horizon {max_hour} is not a multiple of budget_hours={budget_hours}",
+        }
+
+    violations = []
+    budget_details = []
+    max_difference = 0.0
+
+    for period in range(1, n_budget_periods + 1):
+        start_hour = ((period - 1) * budget_hours) + 1
+        end_hour = period * budget_hours
+        hours = list(range(start_hour, end_hour + 1))
+        missing_result_hours = [hour for hour in hours if hour not in generation_by_hour.index]
+        missing_csv_hours = [hour for hour in hours if hour not in csv_by_hour.index]
+        if missing_result_hours or missing_csv_hours:
+            return {
+                "is_satisfied": False,
+                "error": "Missing hydro budget hours",
+                "period": period,
+                "missing_result_hours": missing_result_hours,
+                "missing_csv_hours": missing_csv_hours,
+            }
+
+        generation_sum = float(generation_by_hour.loc[hours].sum())
+        csv_parameter_sum = float(csv_by_hour.loc[hours].sum())
+        difference = generation_sum - csv_parameter_sum
+        abs_difference = abs(difference)
+        max_difference = max(max_difference, abs_difference)
+        detail = {
+            "period": period,
+            "start_hour": start_hour,
+            "end_hour": end_hour,
+            "generation_sum": generation_sum,
+            "csv_parameter_sum": csv_parameter_sum,
+            "difference": difference,
+        }
+        budget_details.append(detail)
+        if abs_difference > tolerance:
+            violations.append(detail)
+
+    return {
+        "is_satisfied": len(violations) == 0,
+        "budget_scalar": budget_hours,
+        "n_budget_periods": n_budget_periods,
+        "max_difference": max_difference,
+        "violations": violations,
+        "budget_details": budget_details,
+        "hydro_csv_path": hydro_csv_path,
+    }
+
+
+
 def check_budget_constraint(model, block_name: str = "hydro", tolerance: float = 1e-3) -> dict:
     """Check that the budget constraint is satisfied for all budget periods.
 
-    Verifies that for each budget period, the sum of generation equals the sum of 
+    Verifies that for each budget period, the sum of generation equals the sum of
     the time-series parameter over that period.
 
     Parameters
@@ -215,7 +323,7 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
 
     budget_scalar = int(safe_pyomo_value(block.budget_scalar))
     budget_set = list(block.budget_set)
-    
+
     if not budget_set:
         return {"is_satisfied": False, "error": "Budget set is empty"}
 
@@ -231,7 +339,7 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
 
         # Sum generation over the budget period
         generation_sum = sum(safe_pyomo_value(block.generation[h]) for h in hours_in_period)
-        
+
         # Sum time-series parameter over the budget period
         ts_sum = sum(safe_pyomo_value(block.ts_parameter[h]) for h in hours_in_period)
 
