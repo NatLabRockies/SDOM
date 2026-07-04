@@ -11,13 +11,17 @@ pytest.importorskip("r2x_core")
 from sdom import load_data  # noqa: E402
 from sdom.infrasys_integration.make_system import load_system_from_data  # noqa: E402
 from sdom.infrasys_integration.models import (  # noqa: E402
+    SDOMArea,
     SDOMCapacityResult,
+    SDOMCostResult,
     SDOMCurtailmentResult,
+    SDOMGenerationResult,
     SDOMOptimizationResult,
     SDOMScenarioMetadata,
     SDOMSolarGenerator,
     SDOMStorage,
     SDOMStorageDispatchResult,
+    SDOMThermalGenerator,
 )
 from sdom.infrasys_integration.results import add_results_to_system, query_result_attributes  # noqa: E402
 from sdom.results import OptimizationResults  # noqa: E402
@@ -79,9 +83,14 @@ def test_add_results_to_system_attaches_run_metadata_and_component_results():
     system = load_system_from_data(data)
     plant_id = str(data["solar_plants"][0])
 
+    results = _sample_results(data)
+    thermal = next(system.get_components(SDOMThermalGenerator))
+    thermal_plant_id = thermal.name.removeprefix("thermal:")
+    results.thermal_generation_df = pd.DataFrame({"Hour": [1, 2], thermal_plant_id: [3.0, 4.0]})
+
     add_results_to_system(
         system,
-        _sample_results(data),
+        results,
         run_id="run-a",
         scenario_name="baseline",
         case_name="case-a",
@@ -103,6 +112,15 @@ def test_add_results_to_system_attaches_run_metadata_and_component_results():
     assert len(dispatch) == 1
     assert dispatch[0].charge_mw == [1.0, 0.0]
     assert dispatch[0].discharge_mw == [0.0, 1.0]
+
+    generation = query_result_attributes(system, run_id="run-a", attribute_type=SDOMGenerationResult)
+    assert [attr.total_mwh for attr in generation if attr.technology == "Solar PV"] == [20.0]
+
+    thermal_generation = system.get_supplemental_attributes_with_component(thermal, SDOMGenerationResult)
+    assert [attr.hourly_mw for attr in thermal_generation if attr.run_id == "run-a"] == [[3.0, 4.0]]
+
+    costs = query_result_attributes(system, run_id="run-a", attribute_type=SDOMCostResult)
+    assert [attr.value for attr in costs if attr.cost_type == "capex" and attr.technology == "Solar PV"] == [30.0]
 
     curtailment = query_result_attributes(
         system,
@@ -127,6 +145,33 @@ def test_add_results_to_system_preserves_prior_runs_and_filters_queries():
         attr.scenario_name == "sensitivity"
         for attr in query_result_attributes(system, scenario_name="sensitivity")
     )
+
+
+def test_zonal_area_results_attach_to_area_components():
+    """Zonal aggregate dictionaries should attach to matching area components."""
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    results = OptimizationResults(
+        is_zonal=True,
+        areas=["A1"],
+        area_capacity={"A1": {"Solar PV": 11.0}},
+        area_generation_totals={"A1": {"Solar PV": 22.0}},
+        area_cost_breakdown={"A1": {"capex": {"Solar PV": 33.0}}},
+    )
+
+    add_results_to_system(system, results, run_id="zonal-run", scenario_name="zonal")
+
+    area = system.get_component(SDOMArea, "A1")
+    area_capacity = system.get_supplemental_attributes_with_component(area, SDOMCapacityResult)
+    area_generation = system.get_supplemental_attributes_with_component(area, SDOMGenerationResult)
+    area_costs = system.get_supplemental_attributes_with_component(area, SDOMCostResult)
+
+    assert [attr.value for attr in area_capacity if attr.run_id == "zonal-run" and attr.area == "A1"] == [11.0]
+    assert [attr.total_mwh for attr in area_generation if attr.run_id == "zonal-run" and attr.area == "A1"] == [22.0]
+    assert [
+        attr.value
+        for attr in area_costs
+        if attr.run_id == "zonal-run" and attr.area == "A1" and attr.cost_type == "capex"
+    ] == [33.0]
 
 
 def test_system_serializes_after_results_are_attached(tmp_path):

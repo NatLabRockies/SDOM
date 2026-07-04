@@ -192,7 +192,7 @@ class _ResultContext:
 
     Examples
     --------
-    >>> _ResultContext("run-1").kwargs["run_id"]
+    >>> _ResultContext("run-1", None, None).kwargs["run_id"]
     'run-1'
     """
 
@@ -408,7 +408,7 @@ def _attach_curtailment_results(
 
     Examples
     --------
-    >>> _attach_curtailment_results(System(name="empty"), object(), pd.DataFrame(), context=_ResultContext("run-1", None, None))
+    >>> _attach_curtailment_results(System(name="empty"), SDOMArea(name="A"), pd.DataFrame(), context=_ResultContext("run-1", None, None))
     """
     if frame.empty:
         return
@@ -514,7 +514,7 @@ def _attach_installed_plant_results(
 
     Examples
     --------
-    >>> _attach_installed_plant_results(System(name="empty"), object(), pd.DataFrame(), context=_ResultContext("run-1", None, None))
+    >>> _attach_installed_plant_results(System(name="empty"), SDOMArea(name="A"), pd.DataFrame(), context=_ResultContext("run-1", None, None))
     """
     if frame.empty:
         return
@@ -567,7 +567,7 @@ def _attach_storage_dispatch_results(
 
     Examples
     --------
-    >>> _attach_storage_dispatch_results(System(name="empty"), object(), pd.DataFrame(), context=_ResultContext("run-1", None, None))
+    >>> _attach_storage_dispatch_results(System(name="empty"), SDOMArea(name="A"), pd.DataFrame(), context=_ResultContext("run-1", None, None))
     """
     if frame.empty:
         return
@@ -623,7 +623,7 @@ def _attach_thermal_generation_results(
 
     Examples
     --------
-    >>> _attach_thermal_generation_results(System(name="empty"), object(), pd.DataFrame(), context=_ResultContext("run-1", None, None))
+    >>> _attach_thermal_generation_results(System(name="empty"), SDOMArea(name="A"), pd.DataFrame(), context=_ResultContext("run-1", None, None))
     """
     if frame.empty:
         return
@@ -677,7 +677,7 @@ def _attach_thermal_generation_columns(
 
     Examples
     --------
-    >>> _attach_thermal_generation_columns(System(name="empty"), object(), {}, pd.DataFrame(), context=_ResultContext("run-1", None, None), area=None, ignore=set())
+    >>> _attach_thermal_generation_columns(System(name="empty"), SDOMArea(name="A"), {}, pd.DataFrame(), context=_ResultContext("run-1", None, None), area=None, ignore=set())
     """
     for column in frame.columns:
         if column in ignore:
@@ -724,7 +724,7 @@ def _attach_area_results(
     Examples
     --------
     >>> from sdom.results import OptimizationResults
-    >>> _attach_area_results(System(name="empty"), object(), OptimizationResults(), context=_ResultContext("run-1", None, None))
+    >>> _attach_area_results(System(name="empty"), SDOMArea(name="A"), OptimizationResults(), context=_ResultContext("run-1", None, None))
     """
     if not results.is_zonal:
         return
