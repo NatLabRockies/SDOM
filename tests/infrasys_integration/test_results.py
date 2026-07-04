@@ -21,6 +21,7 @@ from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMCurtailmentResult,
     SDOMGenerationResult,
     SDOMInstalledCapacityResult,
+    SDOMInterregionalExchangeResult,
     SDOMOptimizationResult,
     SDOMScenarioMetadata,
     SDOMSolarGenerator,
@@ -290,6 +291,7 @@ def test_missing_area_dispatch_and_curtailment_warns(caplog):
     assert "No SDOMArea matched curtailment result area 'missing-area'" in caplog.text
 
 
+def test_unmatched_zonal_installed_capacity_preserves_area_owner(caplog):
     """Unmatched zonal installed plants should fall back to SDOMArea owners."""
     system = load_system_from_data(load_data("Data/zonal_test"))
     expected = OptimizationResults(
@@ -322,7 +324,21 @@ def test_missing_area_dispatch_and_curtailment_warns(caplog):
     )
 
 
-def test_storage_dispatch_requires_matching_storage_component():
+def test_interregional_exchange_results_missing_columns_warns(caplog):
+    """Incomplete interregional exchange frames should warn and skip attachment."""
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    results = OptimizationResults(
+        is_zonal=True,
+        interregional_exchanges_df=pd.DataFrame({"line_id": ["A1-A2"], "hour": [1]}),
+    )
+    caplog.set_level(logging.WARNING, logger="sdom.infrasys_integration.results")
+
+    add_results_to_system(system, results, run_id="missing-exchange-columns")
+
+    assert "Interregional exchange results are missing required columns" in caplog.text
+    assert query_result_attributes(system, run_id="missing-exchange-columns", attribute_type=SDOMInterregionalExchangeResult) == []
+
+
     """Storage dispatch should fail fast when no SDOMStorage owner exists."""
     data = load_data("Data/no_exchange_run_of_river")
     system = load_system_from_data(data)

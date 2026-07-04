@@ -1186,7 +1186,14 @@ def _attach_interregional_exchange_results(system: System, frame: pd.DataFrame, 
     --------
     >>> _attach_interregional_exchange_results(System(name="empty"), pd.DataFrame(), context=_ResultContext("run-1", None, None))
     """
-    if frame.empty or "line_id" not in frame.columns:
+    if frame.empty:
+        return
+    missing_columns = [column for column in _EXCHANGE_COLUMNS if column not in frame.columns]
+    if missing_columns:
+        LOGGER.warning(
+            "Interregional exchange results are missing required columns %s; skipping exchange result attachment.",
+            missing_columns,
+        )
         return
     lines = {line.name.removeprefix("line:"): line for line in system.get_components(SDOMTransmissionInterface)}
     for line_id, group in frame.groupby("line_id", sort=False):
