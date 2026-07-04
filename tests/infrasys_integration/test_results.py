@@ -267,7 +267,29 @@ def test_optimization_results_from_system_preserves_zonal_lines_and_scenario_wit
     pd.testing.assert_frame_equal(actual.area_generation_df["A1"], expected.area_generation_df["A1"])
 
 
-def test_unmatched_zonal_installed_capacity_preserves_area_owner(caplog):
+def test_missing_area_dispatch_and_curtailment_warns(caplog):
+    """Missing explicit result areas should warn before skipping attachments."""
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    results = OptimizationResults(
+        is_zonal=True,
+        area_generation_df={
+            "missing-area": pd.DataFrame(
+                {
+                    "Hour": [1],
+                    "Solar PV Curtailment (MW)": [0.5],
+                    "Load (MW)": [2.0],
+                }
+            )
+        },
+    )
+    caplog.set_level(logging.WARNING, logger="sdom.infrasys_integration.results")
+
+    add_results_to_system(system, results, run_id="missing-area")
+
+    assert "No SDOMArea matched dispatch result area 'missing-area'" in caplog.text
+    assert "No SDOMArea matched curtailment result area 'missing-area'" in caplog.text
+
+
     """Unmatched zonal installed plants should fall back to SDOMArea owners."""
     system = load_system_from_data(load_data("Data/zonal_test"))
     expected = OptimizationResults(

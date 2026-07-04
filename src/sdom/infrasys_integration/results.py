@@ -764,6 +764,11 @@ def _attach_area_dispatch_results(system: System, results: OptimizationResults, 
             continue
         target = areas.get(area_name) if area_name is not None else default_area
         if target is None:
+            if area_name is not None:
+                LOGGER.warning(
+                    "No SDOMArea matched dispatch result area %r; skipping area dispatch result attachment.",
+                    area_name,
+                )
             continue
         system.add_supplemental_attribute(target, _area_dispatch_from_frame(frame, context=context))
 
@@ -859,6 +864,11 @@ def _attach_curtailment_results(system: System, results: OptimizationResults, *,
     for area_name, frame in _area_generation_frames(results):
         target = areas.get(area_name) if area_name is not None else default_area
         if target is None:
+            if area_name is not None:
+                LOGGER.warning(
+                    "No SDOMArea matched curtailment result area %r; skipping curtailment result attachment.",
+                    area_name,
+                )
             continue
         for technology, column in curtailment_columns.items():
             if column not in frame.columns:
