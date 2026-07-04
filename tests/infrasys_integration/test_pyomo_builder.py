@@ -228,6 +228,14 @@ def test_exchange_system_path_solves_with_highs_and_matches_dict_path_assertions
     assert csv_budget["n_budget_periods"] == 7
 
 
+def test_copperplate_builder_rejects_zonal_system():
+    """The copperplate-only builder should reject zonal Systems."""
+    system = load_system("Data/zonal_test")
+
+    with pytest.raises(NotImplementedError, match="single-area CopperPlateNetwork"):
+        initialize_copperplate_model_from_system(system, n_hours=24)
+
+
 def test_zonal_abstract_model_instantiates_existing_zonal_path():
     """The System builder should instantiate the existing zonal model body."""
     data = load_data("Data/zonal_test")
