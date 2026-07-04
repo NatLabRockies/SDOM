@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from numbers import Real
+
+import pandas as pd
 import pytest
 from pyomo.environ import AbstractModel, value
 from pyomo.opt import SolverFactory
@@ -35,6 +39,79 @@ def _highs_solver_config() -> dict:
     solver_config["solve_keywords"]["keepfiles"] = False
     solver_config["solve_keywords"]["report_timing"] = False
     return solver_config
+
+
+def _assert_nested_results_close(actual, expected) -> None:
+    """Assert that nested result mappings match within solver tolerance."""
+    if isinstance(expected, Mapping):
+        assert actual.keys() == expected.keys()
+        for key, expected_value in expected.items():
+            _assert_nested_results_close(actual[key], expected_value)
+        return
+
+    if isinstance(expected, Real) and not isinstance(expected, bool):
+        assert actual == pytest.approx(expected)
+        return
+
+    assert actual == expected
+
+
+def _assert_frame_results_equal(actual: pd.DataFrame, expected: pd.DataFrame) -> None:
+    """Assert that two result DataFrames contain the same solved values."""
+    pd.testing.assert_frame_equal(
+        actual.reset_index(drop=True),
+        expected.reset_index(drop=True),
+        check_exact=False,
+        rtol=1e-7,
+        atol=1e-7,
+    )
+
+
+def _assert_zonal_results_match(system_results, direct_results) -> None:
+    """Assert that infrasys and direct zonal API results are equivalent."""
+    assert system_results.is_optimal
+    assert direct_results.is_optimal
+    assert system_results.is_zonal is True
+    assert direct_results.is_zonal is True
+    assert system_results.total_cost == pytest.approx(direct_results.total_cost)
+    assert system_results.gen_mix_target == pytest.approx(direct_results.gen_mix_target)
+    assert system_results.areas == direct_results.areas
+    assert system_results.lines == direct_results.lines
+
+    for attr in (
+        "capacity",
+        "storage_capacity",
+        "generation_totals",
+        "cost_breakdown",
+        "area_capacity",
+        "area_storage_capacity",
+        "area_generation_totals",
+        "area_cost_breakdown",
+    ):
+        _assert_nested_results_close(getattr(system_results, attr), getattr(direct_results, attr))
+
+    for attr in (
+        "generation_df",
+        "storage_df",
+        "thermal_generation_df",
+        "installed_plants_df",
+        "summary_df",
+        "interregional_exchanges_df",
+    ):
+        _assert_frame_results_equal(getattr(system_results, attr), getattr(direct_results, attr))
+
+    for attr in (
+        "area_generation_df",
+        "area_storage_df",
+        "area_thermal_generation_df",
+        "area_installed_plants_df",
+        "area_summary_df",
+    ):
+        system_frames = getattr(system_results, attr)
+        direct_frames = getattr(direct_results, attr)
+        assert system_frames.keys() == direct_frames.keys()
+        for area_id, system_frame in system_frames.items():
+            _assert_frame_results_equal(system_frame, direct_frames[area_id])
 
 
 def test_initialize_model_from_system_returns_abstract_model_builder():
@@ -151,12 +228,38 @@ def test_exchange_system_path_solves_with_highs_and_matches_dict_path_assertions
     assert csv_budget["n_budget_periods"] == 7
 
 
-def test_zonal_system_rejected_by_copperplate_builder():
-    """The issue-58 builder should fail clearly for zonal systems."""
-    system = load_system("Data/zonal_test")
+def test_zonal_abstract_model_instantiates_existing_zonal_path():
+    """The System builder should instantiate the existing zonal model body."""
+    data = load_data("Data/zonal_test")
+    system = load_system_from_data(data)
 
-    with pytest.raises(NotImplementedError, match="single-area CopperPlateNetwork"):
-        initialize_model_from_system(system, n_hours=24)
+    abstract_model = initialize_model_from_system(system, n_hours=24)
+    instance = abstract_model.create_instance()
+    direct = initialize_model(data, n_hours=24)
+
+    assert isinstance(abstract_model, AbstractModel)
+    assert instance.is_constructed()
+    assert list(instance.A) == list(direct.A)
+    assert list(instance.L) == list(direct.L)
+    assert {line: value(instance.line_from[line]) for line in instance.L} == {
+        line: value(direct.line_from[line]) for line in direct.L
+    }
+
+
+@pytest.mark.skipif(not _highs_available(), reason="appsi_highs solver is not available")
+def test_zonal_system_path_solves_with_highs_and_matches_dict_path_results():
+    """Zonal System and dict paths should solve to matching real-data results."""
+    data = load_data("Data/zonal_test")
+    system = load_system_from_data(data)
+    solver_config = _highs_solver_config()
+
+    system_instance = initialize_model_from_system(system, n_hours=24).create_instance()
+    direct_instance = initialize_model(data, n_hours=24)
+    system_results = run_solver(system_instance, solver_config, case_name="zonal_real_data")
+    direct_results = run_solver(direct_instance, solver_config, case_name="zonal_real_data")
+
+    _assert_zonal_results_match(system_results, direct_results)
+    assert not system_results.interregional_exchanges_df.empty
 
 
 def test_invalid_horizon_rejected():
