@@ -14,7 +14,6 @@ from .parametric import (
     apply_scalar_sweep_to_system,
     apply_time_series_sweep_to_system,
 )
-from .plotting import plot_system_results
 from .results import (
     add_results_to_system,
     optimization_results_from_system,
@@ -32,3 +31,33 @@ __all__ = [
     "plot_system_results",
     "query_result_attributes",
 ]
+
+
+def __getattr__(name: str):
+    """Lazily load optional plotting helpers.
+
+    Parameters
+    ----------
+    name : str
+        Attribute requested from :mod:`sdom.infrasys_integration`.
+
+    Returns
+    -------
+    object
+        Lazily imported package attribute.
+
+    Raises
+    ------
+    AttributeError
+        If ``name`` is not a lazily supported attribute.
+
+    Examples
+    --------
+    >>> callable(__getattr__("plot_system_results"))
+    True
+    """
+    if name == "plot_system_results":
+        from .plotting import plot_system_results
+
+        return plot_system_results
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
