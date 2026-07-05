@@ -13,6 +13,7 @@ from .parametric import (
     apply_scalar_sweep_to_system,
     apply_time_series_sweep_to_system,
 )
+from .plotting import plot_system_results
 from .results import (
     add_results_to_system,
     optimization_results_from_system,
@@ -26,5 +27,6 @@ __all__ = [
     "apply_scalar_sweep_to_system",
     "apply_time_series_sweep_to_system",
     "optimization_results_from_system",
+    "plot_system_results",
     "query_result_attributes",
 ]
