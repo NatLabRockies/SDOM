@@ -31,7 +31,7 @@ def test_apply_scalar_sweep_to_system_returns_new_mutated_system():
     system = _system()
     original_value = float(system_to_data_dict(system)["scalars"].loc["GenMix_Target", "Value"])
 
-    mutated = apply_scalar_sweep_to_system(system, "GenMix_Target", 0.91)
+    mutated = apply_scalar_sweep_to_system(system, parameter_name="GenMix_Target", value=0.91)
 
     assert mutated is not system
     assert float(system_to_data_dict(mutated)["scalars"].loc["GenMix_Target", "Value"]) == pytest.approx(0.91)
@@ -43,7 +43,7 @@ def test_apply_time_series_sweep_to_system_returns_new_mutated_system():
     system = _system()
     original_load = system_to_data_dict(system)["load_data"]["Load"].copy()
 
-    mutated = apply_time_series_sweep_to_system(system, "load_data", 1.1)
+    mutated = apply_time_series_sweep_to_system(system, ts_key="load_data", factor=1.1)
 
     pd.testing.assert_series_equal(
         system_to_data_dict(mutated)["load_data"]["Load"],
@@ -80,7 +80,7 @@ def test_add_parametric_results_to_system_attaches_all_case_metadata():
         OptimizationResults(total_cost=2.0, termination_condition="optimal"),
     ]
 
-    add_parametric_results_to_system(system, study, results, run_id="param-run")
+    add_parametric_results_to_system(system, study, results=results, run_id="param-run")
 
     metadata_attrs = sorted(
         query_result_attributes(system, run_id="param-run", attribute_type=SDOMScenarioMetadata),
@@ -103,8 +103,8 @@ def test_add_parametric_results_to_system_preserves_multiple_runs():
     study = SystemParametricStudy(system, solver_config={})
     study._study._case_metadata = [{"case_name": "case-a", "case_index": 0, "GenMix_Target": 0.8}]
 
-    add_parametric_results_to_system(system, study, [OptimizationResults(total_cost=1.0)], run_id="run-a")
-    add_parametric_results_to_system(system, study, [OptimizationResults(total_cost=2.0)], run_id="run-b")
+    add_parametric_results_to_system(system, study, results=[OptimizationResults(total_cost=1.0)], run_id="run-a")
+    add_parametric_results_to_system(system, study, results=[OptimizationResults(total_cost=2.0)], run_id="run-b")
 
     assert len(query_result_attributes(system, run_id="run-a", attribute_type=SDOMScenarioMetadata)) == 1
     assert len(query_result_attributes(system, run_id="run-b", attribute_type=SDOMScenarioMetadata)) == 1
@@ -116,4 +116,4 @@ def test_add_parametric_results_to_system_rejects_metadata_mismatch():
     study = SystemParametricStudy(system, solver_config={})
 
     with pytest.raises(ValueError, match="case metadata length must match results length"):
-        add_parametric_results_to_system(system, study, [OptimizationResults()], run_id="bad-run")
+        add_parametric_results_to_system(system, study, results=[OptimizationResults()], run_id="bad-run")

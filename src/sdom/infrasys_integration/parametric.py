@@ -48,6 +48,7 @@ class SystemParametricStudy:
         self,
         system: System,
         solver_config: dict,
+        *,
         n_hours: int = 8760,
         output_dir: str | None = None,
         n_cores: int | None = None,
@@ -220,9 +221,9 @@ class SystemParametricStudy:
 
 def apply_scalar_sweep_to_system(
     system: System,
+    *,
     parameter_name: str,
     value: int | float,
-    *,
     data_key: str = "scalars",
 ) -> System:
     """Create a new System with one scalar value changed.
@@ -243,12 +244,18 @@ def apply_scalar_sweep_to_system(
     infrasys.System
         New system built from copied and mutated source data.
 
+    Raises
+    ------
+    ValueError
+        If ``data_key`` or ``parameter_name`` is invalid, or the mutated data
+        cannot be loaded as an SDOM infrasys System.
+
     Examples
     --------
     >>> from sdom import load_data
     >>> from sdom.infrasys_integration.make_system import load_system_from_data, system_to_data_dict
     >>> system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
-    >>> mutated = apply_scalar_sweep_to_system(system, "GenMix_Target", 0.9)
+    >>> mutated = apply_scalar_sweep_to_system(system, parameter_name="GenMix_Target", value=0.9)
     >>> float(system_to_data_dict(mutated)["scalars"].loc["GenMix_Target", "Value"])
     0.9
     """
@@ -257,7 +264,7 @@ def apply_scalar_sweep_to_system(
     return load_system_from_data(data, name=system.name)
 
 
-def apply_time_series_sweep_to_system(system: System, ts_key: str, factor: int | float) -> System:
+def apply_time_series_sweep_to_system(system: System, *, ts_key: str, factor: int | float) -> System:
     """Create a new System with one time-series table scaled.
 
     Parameters
@@ -274,12 +281,19 @@ def apply_time_series_sweep_to_system(system: System, ts_key: str, factor: int |
     infrasys.System
         New system built from copied and mutated source data.
 
+    Raises
+    ------
+    ValueError
+        If ``ts_key`` is unsupported or missing, the expected time-series
+        column is missing, or the mutated data cannot be loaded as an SDOM
+        infrasys System.
+
     Examples
     --------
     >>> from sdom import load_data
     >>> from sdom.infrasys_integration.make_system import load_system_from_data, system_to_data_dict
     >>> system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
-    >>> mutated = apply_time_series_sweep_to_system(system, "load_data", 1.0)
+    >>> mutated = apply_time_series_sweep_to_system(system, ts_key="load_data", factor=1.0)
     >>> len(system_to_data_dict(mutated)["load_data"])
     8760
     """
@@ -291,8 +305,8 @@ def apply_time_series_sweep_to_system(system: System, ts_key: str, factor: int |
 def add_parametric_results_to_system(
     system: System,
     study: ParametricStudy | SystemParametricStudy,
-    results: Sequence[OptimizationResults],
     *,
+    results: Sequence[OptimizationResults],
     run_id: str,
 ) -> System:
     """Attach all parametric case results to one System.
@@ -317,7 +331,8 @@ def add_parametric_results_to_system(
     Raises
     ------
     ValueError
-        If ``run_id`` is empty or metadata/result lengths differ.
+        If ``run_id`` is empty, metadata/result lengths differ, or a case
+        result cannot be attached to the target system.
 
     Examples
     --------
@@ -327,7 +342,8 @@ def add_parametric_results_to_system(
     >>> system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
     >>> study = SystemParametricStudy(system, solver_config={})
     >>> study._study._case_metadata = [{"case_name": "case-a", "case_index": 0, "GenMix_Target": 0.8}]
-    >>> add_parametric_results_to_system(system, study, [OptimizationResults(total_cost=1.0)], run_id="run-1") is system
+    >>> result = OptimizationResults(total_cost=1.0)
+    >>> add_parametric_results_to_system(system, study, results=[result], run_id="run-1") is system
     True
     """
     if not run_id:
