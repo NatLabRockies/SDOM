@@ -12,7 +12,7 @@ from sdom.constants import COPPER_PLATE_NETWORK, DEFAULT_AREA_ID
 from sdom.io_manager import get_network_formulation
 from sdom.optimization_main import initialize_model
 
-from .make_system import system_to_data_dict
+from .make_system import drop_system_source_data, system_to_data_dict
 from .models import SDOMArea, SDOMBus, SDOMTransmissionInterface
 from .validation import validate_sdom_system
 
@@ -180,6 +180,7 @@ def _initialize_abstract_model_from_system(
     _validate_system_data_associations(system, resolved_data)
 
     model = AbstractModel(name=model_name)
+    model._sdom_system = system
     model._sdom_data = resolved_data
     model._sdom_model_options = {
         "n_hours": n_hours,
@@ -225,7 +226,13 @@ def _create_sdom_instance(model: AbstractModel, *args: Any, **kwargs: Any) -> Co
     """
     if args or kwargs:
         raise TypeError("SDOM System AbstractModel builders do not accept external create_instance data.")
-    return initialize_model(model._sdom_data, **model._sdom_model_options)
+    data = model._sdom_data
+    if data is None:
+        raise ValueError("SDOM System AbstractModel builder has already released its source data.")
+    instance = initialize_model(data, **model._sdom_model_options)
+    drop_system_source_data(model._sdom_system)
+    model._sdom_data = None
+    return instance
 
 
 def _validate_system_data_associations(system: System, data: dict[str, Any]) -> None:
