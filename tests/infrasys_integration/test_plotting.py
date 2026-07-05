@@ -8,14 +8,14 @@ import pytest
 
 matplotlib.use("Agg")
 
-infrasys = pytest.importorskip("infrasys")
+pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
-from sdom import load_data  # noqa: E402
-from sdom.infrasys_integration.make_system import load_system_from_data  # noqa: E402
-from sdom.infrasys_integration.plotting import plot_system_results  # noqa: E402
-from sdom.infrasys_integration.results import add_results_to_system  # noqa: E402
-from sdom.results import OptimizationResults  # noqa: E402
+from sdom import load_data
+from sdom.infrasys_integration.make_system import load_system_from_data
+from sdom.infrasys_integration.plotting import plot_system_results
+from sdom.infrasys_integration.results import add_results_to_system
+from sdom.results import OptimizationResults
 
 
 def _single_run_summary() -> pd.DataFrame:
@@ -190,6 +190,20 @@ def test_plot_system_results_builds_zonal_single_run_plots(tmp_path):
     assert (plots_dir / "area_generation_stacks.png").is_file()
     assert (plots_dir / "area_capacity_stacks.png").is_file()
     assert (plots_dir / "line_flow_heatmap.png").is_file()
+
+
+def test_plot_system_results_warns_when_summary_inputs_are_missing(tmp_path, caplog):
+    """System plot wrapper should keep empty legacy summary columns."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+    add_results_to_system(
+        system,
+        OptimizationResults(termination_condition="optimal", solver_status="ok"),
+        run_id="empty-run",
+    )
+
+    plot_system_results(system, run_id="empty-run", output_dir=tmp_path)
+
+    assert "no capacity, storage, or generation totals" in caplog.text
 
 
 def test_plot_system_results_requires_existing_run(tmp_path):

@@ -20,6 +20,7 @@ from sdom.results import OptimizationResults
 from .results import optimization_results_from_system
 
 LOGGER = logging.getLogger(__name__)
+_SUMMARY_COLUMNS = ("Metric", "Technology", "Run", "Optimal Value", "Unit")
 
 
 def plot_system_results(
@@ -98,8 +99,7 @@ def _ensure_single_plot_summary(results: OptimizationResults) -> None:
     >>> result.summary_df["Metric"].tolist()
     ['Capacity', 'Total generation']
     """
-    required = {"Metric", "Technology", "Run", "Optimal Value", "Unit"}
-    if not results.summary_df.empty and required.issubset(results.summary_df.columns):
+    if set(_SUMMARY_COLUMNS).issubset(results.summary_df.columns):
         return
 
     rows: list[dict[str, object]] = []
@@ -120,7 +120,15 @@ def _ensure_single_plot_summary(results: OptimizationResults) -> None:
         rows.append(_summary_row("Total generation", technology, value, "MWh"))
 
     if rows:
-        results.summary_df = pd.DataFrame(rows)
+        results.summary_df = pd.DataFrame(rows, columns=list(_SUMMARY_COLUMNS))
+        return
+
+    LOGGER.warning(
+        "plot_system_results: no capacity, storage, or generation totals are "
+        "available to build summary_df; initializing empty legacy summary "
+        "columns and aggregate single-run plots may be skipped."
+    )
+    results.summary_df = pd.DataFrame(columns=list(_SUMMARY_COLUMNS))
 
 
 def _summary_row(metric: str, technology: object, value: object, unit: str) -> dict[str, object]:
