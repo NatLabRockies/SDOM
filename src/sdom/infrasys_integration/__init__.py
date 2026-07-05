@@ -7,6 +7,7 @@ CSV/dict entry points.
 
 from __future__ import annotations
 
+from .make_system import drop_system_source_data
 from .parametric import (
     SystemParametricStudy,
     add_parametric_results_to_system,
@@ -26,6 +27,7 @@ __all__ = [
     "add_results_to_system",
     "apply_scalar_sweep_to_system",
     "apply_time_series_sweep_to_system",
+    "drop_system_source_data",
     "optimization_results_from_system",
     "plot_system_results",
     "query_result_attributes",

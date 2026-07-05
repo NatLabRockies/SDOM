@@ -53,6 +53,36 @@ from .utils import (
 
 _SOURCE_DATA_ATTR = "_sdom_source_data_dict"
 
+
+def drop_system_source_data(system: System) -> None:
+    """Remove compatibility source data retained on an SDOM System.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        System previously created by :func:`load_system` or
+        :func:`load_system_from_data`.
+
+    Returns
+    -------
+    None
+        The system is mutated in place. Calling the function on a system with
+        no retained source data is a no-op.
+
+    Examples
+    --------
+    >>> from sdom.infrasys_integration.make_system import load_system, system_to_data_dict
+    >>> system = load_system("Data/no_exchange_run_of_river")
+    >>> drop_system_source_data(system)
+    >>> system_to_data_dict(system)
+    Traceback (most recent call last):
+    ...
+    ValueError: system does not include SDOM source data; use load_system() or load_system_from_data().
+    """
+    if hasattr(system, _SOURCE_DATA_ATTR):
+        delattr(system, _SOURCE_DATA_ATTR)
+
+
 def load_system(input_data_dir: str | Path, *, name: str = "SDOM") -> System:
     """Load SDOM CSV inputs into an infrasys system.
 

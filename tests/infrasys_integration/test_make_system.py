@@ -12,6 +12,7 @@ pytest.importorskip("r2x_core")
 
 from sdom import load_data  # noqa: E402
 from sdom.infrasys_integration.make_system import (  # noqa: E402
+    drop_system_source_data,
     load_system,
     load_system_from_data,
     system_to_data_dict,
@@ -164,3 +165,14 @@ def test_system_to_data_dict_rejects_unmanaged_system():
     """The compatibility adapter should reject systems it did not create."""
     with pytest.raises(ValueError, match=r"load_system\(\) or load_system_from_data\(\)"):
         system_to_data_dict(infrasys.System(name="external"))
+
+
+def test_drop_system_source_data_removes_compatibility_data():
+    """Source-data cleanup should make compatibility conversion unavailable."""
+    system = load_system("Data/no_exchange_run_of_river")
+
+    drop_system_source_data(system)
+    drop_system_source_data(system)
+
+    with pytest.raises(ValueError, match=r"does not include SDOM source data"):
+        system_to_data_dict(system)
