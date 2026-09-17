@@ -339,6 +339,7 @@ def test_interregional_exchange_results_missing_columns_warns(caplog):
     assert query_result_attributes(system, run_id="missing-exchange-columns", attribute_type=SDOMInterregionalExchangeResult) == []
 
 
+def test_storage_dispatch_unknown_technology_leaves_system_unmodified():
     """Storage dispatch should fail fast when no SDOMStorage owner exists."""
     data = load_data("Data/no_exchange_run_of_river")
     system = load_system_from_data(data)
@@ -347,6 +348,8 @@ def test_interregional_exchange_results_missing_columns_warns(caplog):
 
     with pytest.raises(ValueError, match="no matching SDOMStorage component exists"):
         add_results_to_system(system, results, run_id="bad-storage")
+
+    assert query_result_attributes(system, run_id="bad-storage") == []
 
 
 def test_area_owned_installed_capacity_requires_area_bus():

@@ -703,3 +703,22 @@ Deliverables: (A) aggregate metrics on ResiliencyResults, (B) save/load Parquet+
 - Doc updates: `docs/user-guide/resiliency.md` for metrics/persistence/plotting; API reference autodoc; quickstart snippet.
 - Consider adding `pyarrow` as an optional extra `[project.optional-dependencies] resiliency_io = ['pyarrow>=...']` once persistence is exercised by users.
 - Plotting extras: hour-of-year scatter; SOC trajectory plot when `keep_full_traces=True` lands.
+
+---
+
+## Infrasys Results Package Refactor (2026-09-17)
+
+### Scope
+Replaced `src/sdom/infrasys_integration/results.py` with a responsibility-based `results/` package, preserving the public import path and all existing result attachment/reconstruction behavior.
+
+### Layout and compatibility
+- `results/__init__.py` re-exports `DEFAULT_COPPERPLATE_AREA_NAME`, `add_results_to_system`, `optimization_results_from_system`, and `query_result_attributes` under the unchanged public path.
+- `api.py` owns public orchestration; `context.py` owns run metadata, filters, and result querying; `attach.py` owns supplemental-attribute attachment; `rebuild.py` owns reconstruction; `ownership.py` owns component lookups/ownership resolution; `helpers.py` owns scalar, frame, and constant helpers; `_shared.py` centralizes type imports.
+- Keep `_validate_storage_dispatch_owners` available from the package root for existing private-import consumers. It still runs before the first attached attribute, so unresolved storage dispatch owners leave the system unchanged.
+- Use `LOGGER = logging.getLogger("sdom.infrasys_integration.results")` in `helpers.py` to retain the pre-refactor logger namespace used by existing `caplog` tests.
+- `.gitignore` has a narrow exception for this package because the repository-wide `results/` pattern otherwise ignores source modules with that directory name.
+
+### Validation
+- `uv run pytest tests/infrasys_integration/test_results.py -q`: 11 passed.
+- `uv run pytest tests/infrasys_integration -q`: 57 passed.
+- Diagnostics clean across the eight new package modules.

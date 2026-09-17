@@ -20,7 +20,7 @@ from utils_tests import (
 )
 
 from sdom import get_default_solver_config_dict, initialize_model, load_data, run_solver
-from sdom.infrasys_integration.make_system import load_system, load_system_from_data
+from sdom.infrasys_integration.make_system import load_system, load_system_from_data, system_to_data_dict
 from sdom.infrasys_integration.pyomo_builder import (
     initialize_copperplate_model_from_system,
     initialize_model_from_system,
@@ -138,6 +138,21 @@ def test_copperplate_abstract_model_instantiates_existing_compatibility_path():
     assert list(instance.storage.j) == list(direct.storage.j)
     assert list(instance.thermal.plants_set) == list(direct.thermal.plants_set)
     assert value(instance.GenMix_Target) == pytest.approx(value(direct.GenMix_Target))
+
+
+def test_builder_drops_system_source_data_after_create_instance():
+    """System builders should release compatibility data after instantiation."""
+    system = load_system("Data/no_exchange_run_of_river")
+    abstract_model = initialize_model_from_system(system, n_hours=24)
+
+    instance = abstract_model.create_instance()
+
+    assert instance.is_constructed()
+    assert abstract_model._sdom_data is None
+    with pytest.raises(ValueError, match="does not include SDOM source data"):
+        system_to_data_dict(system)
+    with pytest.raises(ValueError, match="already released"):
+        abstract_model.create_instance()
 
 
 def test_exchange_dataset_instantiates_from_system():
