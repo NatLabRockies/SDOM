@@ -2,7 +2,7 @@
 name: code-implementer
 description: "Use when: implementing features, writing Python code, refactoring, optimizing performance, writing tests, fixing bugs, API design, Pyomo models, pandas operations, memory management. Expert Python programmer for SDOM."
 tools: [read, search, edit, execute]
-user-invocable: false
+user-invocable: true
 argument-hint: "Describe the code implementation or feature needed"
 ---
 
