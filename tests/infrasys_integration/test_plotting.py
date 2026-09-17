@@ -13,7 +13,8 @@ pytest.importorskip("r2x_core")
 
 from sdom import load_data
 from sdom.infrasys_integration.make_system import load_system_from_data
-from sdom.infrasys_integration.plotting import plot_system_results
+from sdom.infrasys_integration.parametric import SystemParametricStudy, add_parametric_results_to_system
+from sdom.infrasys_integration.plotting import plot_system_parametric_results, plot_system_results
 from sdom.infrasys_integration.results import add_results_to_system
 from sdom.results import OptimizationResults
 
@@ -49,6 +50,10 @@ def _single_run_summary() -> pd.DataFrame:
                 "Optimal Value": 960.0,
                 "Unit": "MWh",
             },
+            {"Metric": "Total VRE curtailment", "Technology": "All", "Run": None, "Optimal Value": 10.0, "Unit": "MWh"},
+            {"Metric": "VRE curtailment percentage", "Technology": "All", "Run": None, "Optimal Value": 1.0, "Unit": "%"},
+            {"Metric": "CAPEX", "Technology": "Thermal", "Run": None, "Optimal Value": 1000.0, "Unit": "USD"},
+            {"Metric": "OPEX", "Technology": "Thermal", "Run": None, "Optimal Value": 100.0, "Unit": "USD"},
         ]
     )
 
@@ -212,3 +217,51 @@ def test_plot_system_results_requires_existing_run(tmp_path):
 
     with pytest.raises(ValueError, match="No SDOMOptimizationResult"):
         plot_system_results(system, run_id="missing", output_dir=tmp_path)
+
+
+def test_plot_system_parametric_results_builds_chunked_sensitivity_plots(tmp_path):
+    """System parametric plot wrapper should rebuild every attached case."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+    study = SystemParametricStudy(system, solver_config={})
+    study._study._case_metadata = [
+        {"case_name": "GenMix_Target=0.8", "case_index": 0, "GenMix_Target": 0.8},
+        {"case_name": "GenMix_Target=1.0", "case_index": 1, "GenMix_Target": 1.0},
+    ]
+    add_parametric_results_to_system(
+        system,
+        study,
+        results=[_copperplate_results(), _copperplate_results()],
+        run_id="param-run",
+    )
+
+    plot_system_parametric_results(
+        system,
+        run_id="param-run",
+        group_by="GenMix_Target",
+        output_dir=tmp_path,
+        max_cases_per_figure=1,
+    )
+
+    sensitivity_dir = tmp_path / "sensitivity_plots"
+    for plot_name in (
+        "capacity_comparison",
+        "generation_comparison",
+        "cost_comparison",
+        "curtailment_absolute",
+        "curtailment_percentage",
+    ):
+        assert (sensitivity_dir / f"{plot_name}_part1.png").is_file()
+        assert (sensitivity_dir / f"{plot_name}_part2.png").is_file()
+
+
+def test_plot_system_parametric_results_requires_existing_run(tmp_path):
+    """System parametric plot wrapper should fail clearly when a run is missing."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+
+    with pytest.raises(ValueError, match="No SDOMScenarioMetadata"):
+        plot_system_parametric_results(
+            system,
+            run_id="missing",
+            group_by="GenMix_Target",
+            output_dir=tmp_path,
+        )
