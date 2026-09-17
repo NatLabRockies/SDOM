@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from infrasys import System
@@ -13,14 +15,24 @@ from sdom.analytic_tools import (
     plot_area_capacity_stacks,
     plot_area_generation_stacks,
     plot_line_flow_heatmap,
+    plot_parametric_results,
     plot_results,
 )
 from sdom.results import OptimizationResults
 
-from .results import optimization_results_from_system
+from .models import SDOMScenarioMetadata
+from .results import optimization_results_from_system, query_result_attributes
 
 LOGGER = logging.getLogger(__name__)
 _SUMMARY_COLUMNS = ("Metric", "Technology", "Run", "Optimal Value", "Unit")
+
+
+@dataclass
+class _SystemParametricStudyAdapter:
+    """Provide the study attributes required by the parametric plotter."""
+
+    case_metadata: list[dict[str, Any]]
+    output_dir: str | None = None
 
 
 def plot_system_results(
@@ -75,6 +87,131 @@ def plot_system_results(
 
     if results.is_zonal:
         _plot_zonal_system_results(results, plots_dir=plots_dir)
+
+
+def plot_system_parametric_results(
+    system: System,
+    *,
+    run_id: str,
+    group_by: str | list[str],
+    hue_by: str | None = None,
+    facet_by: str | None = None,
+    output_dir: str | Path,
+    max_cases_per_figure: int = 24,
+) -> None:
+    """Generate parametric sensitivity plots from System-attached results.
+
+    Reconstructs every case associated with ``run_id`` and delegates plot
+    rendering, validation, filenames, chunking, and legends to
+    :func:`sdom.analytic_tools.plot_parametric_results`.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        SDOM infrasys system containing parametric result attributes.
+    run_id : str
+        Parametric run identifier to plot.
+    group_by : str or list of str
+        Stored sweep dimension or dimensions defining comparison groups.
+    hue_by : str, optional
+        Stored sweep dimension defining bars within each group.
+    facet_by : str, optional
+        Stored sweep dimension defining separate figures.
+    output_dir : str or pathlib.Path
+        Root directory for per-case and sensitivity plot outputs.
+    max_cases_per_figure : int, default=24
+        Maximum group and hue combinations rendered in one comparison figure.
+
+    Returns
+    -------
+    None
+        Plots are written to disk.
+
+    Raises
+    ------
+    ValueError
+        If ``run_id`` is empty, has no attached parametric metadata, contains
+        incomplete case metadata without a stored scenario identifier or
+        attached scenario name, or references invalid plot dimensions.
+    """
+    study, results = _system_parametric_plot_data(system, run_id=run_id)
+    plot_parametric_results(
+        study,
+        results,
+        group_by,
+        hue_by=hue_by,
+        facet_by=facet_by,
+        output_dir=str(output_dir),
+        max_cases_per_figure=max_cases_per_figure,
+    )
+
+
+def _system_parametric_plot_data(
+    system: System,
+    *,
+    run_id: str,
+) -> tuple[_SystemParametricStudyAdapter, list[OptimizationResults]]:
+    """Rebuild ordered parametric metadata and results from a System.
+
+    Each case is identified by its stored ``scenario_id`` when available, or
+    by the attached result attribute's ``scenario_name`` for backward
+    compatibility.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        SDOM infrasys system containing parametric result attributes.
+    run_id : str
+        Parametric run identifier to reconstruct.
+
+    Returns
+    -------
+    tuple[_SystemParametricStudyAdapter, list[sdom.results.OptimizationResults]]
+        Ordered plotting adapter and one reconstructed result per case.
+
+    Raises
+    ------
+    ValueError
+        If ``run_id`` is empty, no metadata is attached, or a case has neither
+        a stored scenario identifier nor an attached scenario name.
+    """
+    if not run_id:
+        raise ValueError("run_id must be a non-empty string.")
+
+    attributes = query_result_attributes(
+        system,
+        run_id=run_id,
+        attribute_type=SDOMScenarioMetadata,
+    )
+    if not attributes:
+        raise ValueError(f"No SDOMScenarioMetadata found for run_id={run_id!r}.")
+
+    case_entries: list[tuple[int, dict[str, Any], str]] = []
+    for attribute in attributes:
+        metadata = attribute.metadata
+        scenario_id = metadata.get("scenario_id") or attribute.scenario_name
+        if not scenario_id:
+            raise ValueError(
+                f"Parametric metadata for run_id={run_id!r} has no scenario identifier."
+            )
+
+        case_index = int(metadata.get("case_index", 0))
+        case_metadata = {
+            "case_name": str(metadata.get("case_name") or attribute.case_name or scenario_id),
+            "case_index": case_index,
+            **dict(metadata.get("sweep_values", {})),
+        }
+        case_entries.append((case_index, case_metadata, str(scenario_id)))
+
+    case_entries.sort(key=lambda entry: entry[0])
+    study = _SystemParametricStudyAdapter(
+        case_metadata=[metadata for _, metadata, _ in case_entries],
+    )
+    results = [
+        optimization_results_from_system(system, run_id=run_id, scenario_name=scenario_id)
+        for _, _, scenario_id in case_entries
+    ]
+    return study, results
 
 
 def _ensure_single_plot_summary(results: OptimizationResults) -> None:
@@ -199,4 +336,4 @@ def _plot_zonal_system_results(results: OptimizationResults, *, plots_dir: Path)
     plot_line_flow_heatmap(results, save_path=plots_dir / "line_flow_heatmap.png")
 
 
-__all__ = ["plot_system_results"]
+__all__ = ["plot_system_parametric_results", "plot_system_results"]

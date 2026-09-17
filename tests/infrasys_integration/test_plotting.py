@@ -12,8 +12,11 @@ pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
 from sdom import load_data
+from sdom.infrasys_integration import plot_system_parametric_results
 from sdom.infrasys_integration.make_system import load_system_from_data
-from sdom.infrasys_integration.plotting import plot_system_results
+from sdom.infrasys_integration.parametric import SystemParametricStudy, add_parametric_results_to_system
+from sdom.infrasys_integration.plotting import _system_parametric_plot_data, plot_system_results
+from sdom.infrasys_integration.models import SDOMScenarioMetadata
 from sdom.infrasys_integration.results import add_results_to_system
 from sdom.results import OptimizationResults
 
@@ -49,6 +52,10 @@ def _single_run_summary() -> pd.DataFrame:
                 "Optimal Value": 960.0,
                 "Unit": "MWh",
             },
+            {"Metric": "Total VRE curtailment", "Technology": "All", "Run": None, "Optimal Value": 10.0, "Unit": "MWh"},
+            {"Metric": "VRE curtailment percentage", "Technology": "All", "Run": None, "Optimal Value": 1.0, "Unit": "%"},
+            {"Metric": "CAPEX", "Technology": "Thermal", "Run": None, "Optimal Value": 1000.0, "Unit": "USD"},
+            {"Metric": "OPEX", "Technology": "Thermal", "Run": None, "Optimal Value": 100.0, "Unit": "USD"},
         ]
     )
 
@@ -212,3 +219,113 @@ def test_plot_system_results_requires_existing_run(tmp_path):
 
     with pytest.raises(ValueError, match="No SDOMOptimizationResult"):
         plot_system_results(system, run_id="missing", output_dir=tmp_path)
+
+
+def test_plot_system_parametric_results_builds_chunked_sensitivity_plots(tmp_path):
+    """System parametric plot wrapper should rebuild every attached case."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+    study = SystemParametricStudy(system, solver_config={})
+    study._study._case_metadata = [
+        {"case_name": "GenMix_Target=0.8", "case_index": 0, "GenMix_Target": 0.8},
+        {"case_name": "GenMix_Target=1.0", "case_index": 1, "GenMix_Target": 1.0},
+    ]
+    add_parametric_results_to_system(
+        system,
+        study,
+        results=[_copperplate_results(), _copperplate_results()],
+        run_id="param-run",
+    )
+
+    plot_system_parametric_results(
+        system,
+        run_id="param-run",
+        group_by="GenMix_Target",
+        output_dir=tmp_path,
+        max_cases_per_figure=1,
+    )
+
+    sensitivity_dir = tmp_path / "sensitivity_plots"
+    for plot_name in (
+        "capacity_comparison",
+        "generation_comparison",
+        "cost_comparison",
+        "curtailment_absolute",
+        "curtailment_percentage",
+    ):
+        assert (sensitivity_dir / f"{plot_name}_part1.png").is_file()
+        assert (sensitivity_dir / f"{plot_name}_part2.png").is_file()
+
+
+def test_plot_system_parametric_results_requires_existing_run(tmp_path):
+    """System parametric plot wrapper should fail clearly when a run is missing."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+
+    with pytest.raises(ValueError, match="No SDOMScenarioMetadata"):
+        plot_system_parametric_results(
+            system,
+            run_id="missing",
+            group_by="GenMix_Target",
+            output_dir=tmp_path,
+        )
+
+
+def test_system_parametric_plot_data_requires_non_empty_run_id():
+    """Parametric plot reconstruction should reject an empty run identifier."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+
+    with pytest.raises(ValueError, match="run_id must be a non-empty string"):
+        _system_parametric_plot_data(system, run_id="")
+
+
+def test_system_parametric_plot_data_requires_scenario_identity(monkeypatch):
+    """Parametric plot reconstruction should require stored scenario identity."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+    metadata = SDOMScenarioMetadata(
+        run_id="param-run",
+        case_name="case-without-identity",
+        scenario_name="",
+        metadata={"case_index": 0},
+    )
+    monkeypatch.setattr(
+        "sdom.infrasys_integration.plotting.query_result_attributes",
+        lambda *args, **kwargs: [metadata],
+    )
+
+    with pytest.raises(ValueError, match="has no scenario identifier"):
+        _system_parametric_plot_data(system, run_id="param-run")
+
+
+def test_system_parametric_plot_data_orders_case_specific_reconstructions(monkeypatch):
+    """Parametric plot reconstruction should sort metadata and fetch each case."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+    later_case = SDOMScenarioMetadata(
+        run_id="param-run",
+        case_name="later",
+        scenario_name="stored-later",
+        metadata={"case_index": 2, "sweep_values": {"GenMix_Target": 1.0}},
+    )
+    first_case = SDOMScenarioMetadata(
+        run_id="param-run",
+        case_name="first",
+        scenario_name="stored-first",
+        metadata={"case_index": 1, "scenario_id": "metadata-first", "sweep_values": {"GenMix_Target": 0.8}},
+    )
+    reconstructed_results = {
+        "metadata-first": OptimizationResults(total_cost=80.0, capacity={"Solar PV": 8.0}),
+        "stored-later": OptimizationResults(total_cost=100.0, capacity={"Solar PV": 10.0}),
+    }
+    monkeypatch.setattr(
+        "sdom.infrasys_integration.plotting.query_result_attributes",
+        lambda *args, **kwargs: [later_case, first_case],
+    )
+    monkeypatch.setattr(
+        "sdom.infrasys_integration.plotting.optimization_results_from_system",
+        lambda _system, *, run_id, scenario_name: reconstructed_results[scenario_name],
+    )
+
+    study, results = _system_parametric_plot_data(system, run_id="param-run")
+
+    assert [case["case_name"] for case in study.case_metadata] == ["first", "later"]
+    assert [case["GenMix_Target"] for case in study.case_metadata] == [0.8, 1.0]
+    assert [result.total_cost for result in results] == [80.0, 100.0]
+    assert [result.capacity["Solar PV"] for result in results] == [8.0, 10.0]

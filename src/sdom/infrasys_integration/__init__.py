@@ -28,6 +28,7 @@ __all__ = [
     "apply_time_series_sweep_to_system",
     "drop_system_source_data",
     "optimization_results_from_system",
+    "plot_system_parametric_results",
     "plot_system_results",
     "query_result_attributes",
 ]
@@ -56,8 +57,11 @@ def __getattr__(name: str):
     >>> callable(__getattr__("plot_system_results"))
     True
     """
-    if name == "plot_system_results":
-        from .plotting import plot_system_results
+    if name in {"plot_system_parametric_results", "plot_system_results"}:
+        from .plotting import plot_system_parametric_results, plot_system_results
 
-        return plot_system_results
+        return {
+            "plot_system_parametric_results": plot_system_parametric_results,
+            "plot_system_results": plot_system_results,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
