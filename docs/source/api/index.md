@@ -14,6 +14,7 @@ io_manager
 utilities
 parametric
 resiliency
+infrasys_integration
 ```
 
 ## Quick Links
@@ -25,6 +26,7 @@ resiliency
 - {doc}`utilities` - Helper functions
 - {doc}`parametric` - Parametric & sensitivity analysis
 - {doc}`resiliency` - Operational resiliency evaluation
+- {doc}`infrasys_integration` - Optional infrasys System adapters
 
 ## Main Functions
 

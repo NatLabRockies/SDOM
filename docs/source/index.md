@@ -132,6 +132,7 @@ user_guide/zonal_inputs
 user_guide/running_and_outputs
 user_guide/zonal_model
 user_guide/parametric_analysis
+user_guide/infrasys_integration
 user_guide/resiliency
 user_guide/resiliency_math
 user_guide/exploring_model
@@ -150,6 +151,7 @@ api/models
 api/io_manager
 api/utilities
 api/resiliency
+api/infrasys_integration
 ```
 
 ```{toctree}
