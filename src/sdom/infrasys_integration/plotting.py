@@ -131,7 +131,8 @@ def plot_system_parametric_results(
     ------
     ValueError
         If ``run_id`` is empty, has no attached parametric metadata, contains
-        incomplete case metadata, or references invalid plot dimensions.
+        incomplete case metadata without a stored scenario identifier or
+        attached scenario name, or references invalid plot dimensions.
     """
     study, results = _system_parametric_plot_data(system, run_id=run_id)
     plot_parametric_results(
@@ -150,7 +151,30 @@ def _system_parametric_plot_data(
     *,
     run_id: str,
 ) -> tuple[_SystemParametricStudyAdapter, list[OptimizationResults]]:
-    """Rebuild ordered parametric metadata and results from a System."""
+    """Rebuild ordered parametric metadata and results from a System.
+
+    Each case is identified by its stored ``scenario_id`` when available, or
+    by the attached result attribute's ``scenario_name`` for backward
+    compatibility.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        SDOM infrasys system containing parametric result attributes.
+    run_id : str
+        Parametric run identifier to reconstruct.
+
+    Returns
+    -------
+    tuple[_SystemParametricStudyAdapter, list[sdom.results.OptimizationResults]]
+        Ordered plotting adapter and one reconstructed result per case.
+
+    Raises
+    ------
+    ValueError
+        If ``run_id`` is empty, no metadata is attached, or a case has neither
+        a stored scenario identifier nor an attached scenario name.
+    """
     if not run_id:
         raise ValueError("run_id must be a non-empty string.")
 
@@ -167,7 +191,9 @@ def _system_parametric_plot_data(
         metadata = attribute.metadata
         scenario_id = metadata.get("scenario_id") or attribute.scenario_name
         if not scenario_id:
-            raise ValueError(f"Parametric metadata for run_id={run_id!r} has no scenario_id.")
+            raise ValueError(
+                f"Parametric metadata for run_id={run_id!r} has no scenario identifier."
+            )
 
         case_index = int(metadata.get("case_index", 0))
         case_metadata = {
