@@ -108,6 +108,7 @@ def add_results_to_system(
         case_name=case_name,
     )
     owner = _get_scenario_owner(system)
+    _validate_storage_dispatch_owners(system, results.storage_df)
 
     system.add_supplemental_attribute(owner, SDOMScenarioMetadata(**context.kwargs, metadata=dict(metadata or {})))
     system.add_supplemental_attribute(
