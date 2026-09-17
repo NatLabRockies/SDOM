@@ -3,6 +3,8 @@
 *.pyd
 results_pyomo/*
 results/
+!src/sdom/infrasys_integration/results/
+!src/sdom/infrasys_integration/results/**
 .vscode/*
 ___*
 res_runs_paper/
