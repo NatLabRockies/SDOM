@@ -722,3 +722,21 @@ Replaced `src/sdom/infrasys_integration/results.py` with a responsibility-based 
 - `uv run pytest tests/infrasys_integration/test_results.py -q`: 11 passed.
 - `uv run pytest tests/infrasys_integration -q`: 57 passed.
 - Diagnostics clean across the eight new package modules.
+
+---
+
+## Infrasys Parametric Plotting (2026-09-17)
+
+### Scope
+- Added `plot_system_parametric_results` in `infrasys_integration.plotting` and a lazy package export.
+- The private `_SystemParametricStudyAdapter` supplies only `case_metadata` and `output_dir`, then delegates all rendering to `analytic_tools.plot_parametric_results`.
+
+### Contract and gotchas
+- Query `SDOMScenarioMetadata` for the requested `run_id`, sort by `metadata["case_index"]`, and reconstruct each result using the stored `metadata["scenario_id"]` (falling back to the attribute's `scenario_name`).
+- Rebuild plot metadata from `case_name`, `case_index`, and `sweep_values`; standard `add_parametric_results_to_system` guarantees these fields. Older/manual attachments without a scenario id fail clearly because individual case reconstruction would be ambiguous.
+- The focused test uses `max_cases_per_figure=1` to lock capacity, generation, cost, and both curtailment output families across two chunks.
+
+### Validation
+- `uv run pytest tests/infrasys_integration/test_plotting.py -k system_parametric -q`: passed.
+- `uv run pytest tests/infrasys_integration/test_plotting.py -q`: passed.
+- `uv run pytest tests/infrasys_integration -q`: passed.

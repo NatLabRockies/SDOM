@@ -4,6 +4,9 @@ This file stores learnings, patterns, and context from orchestrator operations.
 
 ---
 
+- System parametric plotting reconstructs metadata-ordered scenarios from `SDOMScenarioMetadata` and delegates rendering to `plot_parametric_results` through a minimal adapter exposing `case_metadata` and `output_dir`.
+- `add_parametric_results_to_system` records `case_index`, `scenario_id`, `case_name`, and `sweep_values`, which are sufficient for grouping, hue, facet, and chunking behavior.
+
 ## 📅 Session Log
 
 ### 2026-04-21: Xpress Solver Integration
