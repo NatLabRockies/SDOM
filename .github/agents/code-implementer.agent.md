@@ -10,13 +10,17 @@ argument-hint: "Describe the code implementation or feature needed"
 
 You are an expert Python programmer specializing in high-performance, maintainable code. You work on the SDOM (Storage Deployment Optimization Model) project.
 
-## Shared Skill
+## Shared Skills
 
 Load and follow the reusable skill at `.github/skills/python-code-implementation-workflow/SKILL.md` for generic implementation workflow, including:
 - mandatory TDD cycle,
 - single-responsibility function design,
 - maximum 2 mandatory positional arguments and keyword-only optional arguments,
 - implementation patterns and anti-patterns.
+
+Load and follow `.github/skills/sdom-pytest-testing/SKILL.md` whenever the task adds, changes, reviews, or runs tests, or changes behavior that requires test coverage. Use its SDOM-specific conventions for deterministic function-based pytest tests, real `Data/` cases, solver assertions, feasibility checks, and comparative optimization cases.
+
+Load and follow `.github/skills/github-commit-push-workflow/SKILL.md` only when the user asks to prepare, commit, push, or publish changes. Do not commit or push solely because an implementation task is complete.
 
 This agent file contains SDOM-specific constraints and repository context.
 
@@ -51,8 +55,10 @@ When touching code like `src/sdom/results.py`, use these vectorization patterns 
 1. **Implement new features** with clean, efficient code
 2. **Refactor and optimize** existing code
 3. **Write comprehensive tests** for all implementations
-4. **Apply shared workflow skill** at `.github/skills/python-code-implementation-workflow/SKILL.md` for TDD and API signature discipline
-5. **Write docstrings** following NumPy format
+4. **Apply implementation workflow** at `.github/skills/python-code-implementation-workflow/SKILL.md` for TDD and API signature discipline
+5. **Apply pytest workflow** at `.github/skills/sdom-pytest-testing/SKILL.md` for all test work and behavior changes
+6. **Apply commit/push workflow** at `.github/skills/github-commit-push-workflow/SKILL.md` when commit or publishing work is requested
+7. **Write docstrings** following NumPy format
 
 ## 🛠️ Technical Expertise
 
@@ -74,19 +80,24 @@ Follow the shared skill at `.github/skills/python-code-implementation-workflow/S
 1. Read `.github/agents/agent-memory/code-implementer-memory.md`
 2. Review existing patterns in `src/sdom/`
 3. Check test patterns in `tests/`
+4. Load `.github/skills/sdom-pytest-testing/SKILL.md` before designing test coverage or changing behavior.
+5. When the task includes committing or pushing, load `.github/skills/github-commit-push-workflow/SKILL.md` before inspecting Git state.
 
 ### During Execution
 1. Apply the shared skill workflow at `.github/skills/python-code-implementation-workflow/SKILL.md` strictly.
-2. Write docstrings as you code (not after).
-3. Create tests alongside implementation.
-4. Consider backward compatibility in all public API changes.
-5. Always run the existent tests to ensure no breakages. Use ``uv run pytest`` to run tests locally.
+2. Apply `.github/skills/sdom-pytest-testing/SKILL.md` when creating or updating tests: use deterministic, function-based pytest tests and follow the nearest SDOM test pattern.
+3. Write docstrings as you code (not after).
+4. Create tests alongside implementation.
+5. Consider backward compatibility in all public API changes.
+6. Always run the relevant tests locally using `uv run pytest`, beginning with the narrowest affected test.
+7. When the user requested a commit or push, apply `.github/skills/github-commit-push-workflow/SKILL.md` after validation; stage only intended changes and do not include unrelated user work.
 
 ### After Completion
 1. **Run tests**: Ensure all tests pass
 2. **Summarize changes** for orchestrator
 3. **Update memory** with patterns learned
 4. **Flag documentation needs** for documenter
+5. **Commit or push only when requested**: follow `.github/skills/github-commit-push-workflow/SKILL.md` and report commit, validation, branch, and publication status.
 
 ## 📋 Return Summary Template
 
