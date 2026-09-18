@@ -123,7 +123,10 @@ def test_infrasys_documentation_is_linked_and_mermaid_is_enabled():
     assert "user_guide/infrasys_integration" in index_text
     assert "infrasys_integration" in api_index_text
     assert "sphinxcontrib.mermaid" in conf_text
-    assert "```{mermaid}" in user_guide_path.read_text(encoding="utf-8")
+    user_guide_text = user_guide_path.read_text(encoding="utf-8")
+    assert "```mermaid" in user_guide_text
+    assert "## Data Model" in user_guide_text
+    assert "SDOMResultAttribute" in user_guide_text
 
 
 def test_docs_build_html():

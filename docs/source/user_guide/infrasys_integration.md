@@ -5,7 +5,7 @@ an infrasys `System` with typed components, time series, and attached results.
 They support system-centric persistence, result inspection, and plotting while
 delegating optimization to the established SDOM Pyomo and solver pipeline.
 
-```{mermaid}
+```mermaid
 flowchart LR
     CSV[SDOM CSV inputs] --> System[infrasys System]
     System --> Builder[Pyomo AbstractModel builder]
@@ -15,6 +15,89 @@ flowchart LR
     Rebuild --> Plots[Plots]
 ```
 
+## Data Model
+
+An infrasys `System` owns the typed input components that define an SDOM
+scenario. Every SDOM component inherits the shared `name`, optional `category`,
+and JSON-serializable `ext` metadata fields from `SDOMComponent`. Loads,
+generators, storage, and import/export interfaces connect to a bus; each bus
+belongs to an area. Time series are attached to the components that use them.
+
+```mermaid
+classDiagram
+    class Component
+    class SDOMComponent
+    class SDOMArea
+    class SDOMBus
+    class SDOMLoad
+    class SDOMGenerator
+    class SDOMStorage
+    class SDOMImportInterface
+    class SDOMExportInterface
+    class SDOMTransmissionInterface
+    Component <|-- SDOMComponent
+    SDOMComponent <|-- SDOMArea
+    SDOMComponent <|-- SDOMBus
+    SDOMComponent <|-- SDOMLoad
+    SDOMComponent <|-- SDOMGenerator
+    SDOMComponent <|-- SDOMStorage
+    SDOMComponent <|-- SDOMImportInterface
+    SDOMComponent <|-- SDOMExportInterface
+    SDOMComponent <|-- SDOMTransmissionInterface
+    SDOMBus --> SDOMArea : belongs to
+    SDOMLoad --> SDOMBus : connects to
+    SDOMGenerator --> SDOMBus : connects to
+    SDOMStorage --> SDOMBus : connects to
+```
+
+The generator subclasses are `SDOMThermalGenerator`, `SDOMSolarGenerator`,
+`SDOMWindGenerator`, `SDOMHydroGenerator`, `SDOMNuclearGenerator`, and
+`SDOMOtherRenewableGenerator`. `SDOMThermalGenerator` requires heat-rate and
+fuel-cost inputs, while `SDOMHydroGenerator` can record a budget period.
+`SDOMScalarParameter` and `SDOMFormulationConfig` store scalar input values
+and formulation selections outside the physical network hierarchy.
+
+### Result Attributes
+
+`add_results_to_system` stores a solved `OptimizationResults` instance as
+typed supplemental attributes. Every `SDOMResultAttribute` includes `run_id`
+and may include `scenario_name` and `case_name`; use `run_id` to keep several
+result sets on one System. Attributes are owned by the System or the component
+whose result they describe, then `optimization_results_from_system` rebuilds
+the legacy-compatible result object.
+
+```mermaid
+flowchart TD
+    Results[OptimizationResults] --> Attach[Attach typed result attributes]
+    Attach --> System[System owned attributes]
+    Attach --> Assets[Area and asset owned attributes]
+    System --> Rebuild[Rebuild OptimizationResults]
+    Assets --> Rebuild
+    Rebuild --> Query[Query or plot results]
+```
+
+| Result attribute | Owner | Key fields |
+| --- | --- | --- |
+| `SDOMScenarioMetadata` | System | Caller-supplied JSON-serializable `metadata`. |
+| `SDOMOptimizationResult` | System | `total_cost`, `gen_mix_target`, `termination_condition`, `solver_status`. |
+| `SDOMProblemInfoResult` | System | Solver problem-info `key` and scalar `value`. |
+| `SDOMResultTopologyMetadata` | System | `is_zonal`, ordered `areas`, and transmission `lines`. |
+| `SDOMCapacityResult` | System or area | `technology`, `capacity_type`, `value`, `unit`, and optional `area`. |
+| `SDOMGenerationResult` and `SDOMCurtailmentResult` | System or area | `technology`, horizon total in MWh, and optional `area`. |
+| `SDOMCostResult` | System or area | `cost_type`, optional `technology`, `value`, `unit`, and optional `area`. |
+| `SDOMSummaryMetricResult` | System | Original `row_order`, `metric`, optional `technology`, `run`, `optimal_value`, and `unit`. |
+| `SDOMInstalledCapacityResult` | Generator or storage | `plant_id`, `technology`, `row_order`, installed and maximum MW, and capacity fraction. |
+| `SDOMAreaDispatchResult` | Area | Ordered `hours`, optional `scenario`, and metric series aligned with those hours. |
+| `SDOMThermalGenerationResult` | Thermal generator | Ordered `hours` and aligned `generation_mw`. |
+| `SDOMStorageDispatchResult` | Storage | Ordered `hours`, `row_order`, and aligned charge MW, discharge MW, and state-of-charge MWh. |
+| `SDOMInterregionalExchangeResult` | Transmission interface | Ordered `hours`, signed and directional flow MW, capacities, and directional utilization. |
+| `SDOMDualResult` | System or area | `constraint_name`, dual `value`, and optional `hour` and `area`. |
+
+Hourly result vectors are validated to match their `hours` vector. Area dispatch
+also rejects duplicate metrics. `GeographicInfo` is a separate supplemental
+attribute for component location; it stores a GeoJSON `Point` and an optional
+data source, rather than optimization output.
+
 ## Compatibility policy
 
 System APIs are opt-in adapters. Existing `load_data`, `initialize_model`,
@@ -23,7 +106,7 @@ and retain their public API compatibility. Choose a System workflow when typed
 infrasys components, persistence, or System-attached results are useful; it is
 not a required migration for existing scripts.
 
-```{mermaid}
+```mermaid
 flowchart TD
     Start[Choose an SDOM workflow] --> Legacy[Keep dict and CSV APIs]
     Start --> System[Adopt optional System adapters]
@@ -137,7 +220,7 @@ the original System before creating sensitivity plots. On Windows, place
 `study.run()` behind an `if __name__ == "__main__":` guard because the legacy
 study may start worker processes.
 
-```{mermaid}
+```mermaid
 flowchart LR
     Cases[System parametric cases] --> Solve[Study run]
     Solve --> Attached[Attached scenarios and results]
