@@ -316,10 +316,9 @@ def collect_results_from_model(model, solver_result, case_name: str = "run") -> 
 
     Notes
     -----
-    Top-level ``summary_df`` is **left empty under the zonal path**; per-area
-    summaries are populated in :attr:`OptimizationResults.area_summary_df`
-    instead. A system-level zonal summary is a follow-up. CSV emission of
-    ``interregional_exchanges_df`` is also a follow-up (commit #11).
+    Under the zonal path, ``summary_df`` contains system-level aggregates and
+    :attr:`OptimizationResults.area_summary_df` contains per-area summaries.
+    ``interregional_exchanges_df`` is available for zonal CSV export.
     """
     is_zonal = hasattr(model, "A") and hasattr(model, "area")
     if is_zonal:
