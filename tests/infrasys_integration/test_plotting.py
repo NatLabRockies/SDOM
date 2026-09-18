@@ -15,7 +15,11 @@ from sdom import load_data
 from sdom.infrasys_integration import plot_system_parametric_results
 from sdom.infrasys_integration.make_system import load_system_from_data
 from sdom.infrasys_integration.parametric import SystemParametricStudy, add_parametric_results_to_system
-from sdom.infrasys_integration.plotting import _system_parametric_plot_data, plot_system_results
+from sdom.infrasys_integration.plotting import (  # noqa: E402
+    _ensure_single_plot_summary,
+    _system_parametric_plot_data,
+    plot_system_results,
+)
 from sdom.infrasys_integration.models import SDOMScenarioMetadata
 from sdom.infrasys_integration.results import add_results_to_system
 from sdom.results import OptimizationResults
@@ -254,6 +258,41 @@ def test_plot_system_parametric_results_builds_chunked_sensitivity_plots(tmp_pat
     ):
         assert (sensitivity_dir / f"{plot_name}_part1.png").is_file()
         assert (sensitivity_dir / f"{plot_name}_part2.png").is_file()
+
+
+def test_plot_system_parametric_results_builds_zonal_per_case_plots(tmp_path):
+    """System parametric plots should support reconstructed zonal cases."""
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    study = SystemParametricStudy(system, solver_config={})
+    study._study._case_metadata = [
+        {"case_name": "GenMix_Target=0.8", "case_index": 0, "GenMix_Target": 0.8},
+        {"case_name": "GenMix_Target=1.0", "case_index": 1, "GenMix_Target": 1.0},
+    ]
+    add_parametric_results_to_system(
+        system,
+        study,
+        results=[_zonal_results(), _zonal_results()],
+        run_id="zonal-param-run",
+    )
+    _, reconstructed_results = _system_parametric_plot_data(system, run_id="zonal-param-run")
+    _ensure_single_plot_summary(reconstructed_results[0])
+
+    curtailment_percentage = reconstructed_results[0].summary_df.loc[
+        (reconstructed_results[0].summary_df["Metric"] == "VRE curtailment percentage")
+        & (reconstructed_results[0].summary_df["Technology"] == "All"),
+        "Optimal Value",
+    ].item()
+    assert curtailment_percentage == pytest.approx(20.0 / 1940.0 * 100.0)
+
+    plot_system_parametric_results(
+        system,
+        run_id="zonal-param-run",
+        group_by="GenMix_Target",
+        output_dir=tmp_path,
+    )
+
+    assert (tmp_path / "GenMix_Target=0.8" / "plots" / "capacity_donut.png").is_file()
+    assert (tmp_path / "sensitivity_plots" / "capacity_comparison.png").is_file()
 
 
 def test_plot_system_parametric_results_requires_existing_run(tmp_path):

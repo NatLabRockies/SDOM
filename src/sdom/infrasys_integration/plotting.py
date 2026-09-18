@@ -135,6 +135,8 @@ def plot_system_parametric_results(
         attached scenario name, or references invalid plot dimensions.
     """
     study, results = _system_parametric_plot_data(system, run_id=run_id)
+    for result in results:
+        _ensure_single_plot_summary(result)
     plot_parametric_results(
         study,
         results,
@@ -239,6 +241,11 @@ def _ensure_single_plot_summary(results: OptimizationResults) -> None:
     if set(_SUMMARY_COLUMNS).issubset(results.summary_df.columns):
         return
 
+    area_summary = _aggregate_area_summaries(results)
+    if not area_summary.empty:
+        results.summary_df = area_summary
+        return
+
     rows: list[dict[str, object]] = []
     for technology, value in results.capacity.items():
         rows.append(_summary_row("Capacity", technology, value, "MW"))
@@ -266,6 +273,66 @@ def _ensure_single_plot_summary(results: OptimizationResults) -> None:
         "columns and aggregate single-run plots may be skipped."
     )
     results.summary_df = pd.DataFrame(columns=list(_SUMMARY_COLUMNS))
+
+
+def _aggregate_area_summaries(results: OptimizationResults) -> pd.DataFrame:
+    """Combine zonal area summaries into the legacy system-level schema.
+
+    Parameters
+    ----------
+    results : sdom.results.OptimizationResults
+        Reconstructed result containing per-area summary tables.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregate summary table, or an empty DataFrame when no complete
+        per-area summaries are available.
+    """
+    area_frames = [
+        frame.loc[:, list(_SUMMARY_COLUMNS)]
+        for frame in results.area_summary_df.values()
+        if set(_SUMMARY_COLUMNS).issubset(frame.columns)
+    ]
+    if not area_frames:
+        return pd.DataFrame()
+
+    summary = pd.concat(area_frames, ignore_index=True)
+    summary["Optimal Value"] = pd.to_numeric(summary["Optimal Value"], errors="coerce").fillna(0.0)
+    curtailment_percentage = summary[
+        (summary["Metric"] == "VRE curtailment percentage") & (summary["Technology"] == "All")
+    ]
+    summary = summary.drop(index=curtailment_percentage.index)
+    aggregate = (
+        summary.groupby(
+            ["Metric", "Technology", "Run", "Unit"],
+            as_index=False,
+            dropna=False,
+            sort=False,
+        )["Optimal Value"]
+        .sum()
+        .loc[:, list(_SUMMARY_COLUMNS)]
+    )
+    if curtailment_percentage.empty:
+        return aggregate
+
+    total_curtailment = aggregate.loc[
+        (aggregate["Metric"] == "Total VRE curtailment") & (aggregate["Technology"] == "All"),
+        "Optimal Value",
+    ].sum()
+    vre_generation = aggregate.loc[
+        (aggregate["Metric"] == "Total generation")
+        & aggregate["Technology"].isin(["Solar PV", "Wind"]),
+        "Optimal Value",
+    ].sum()
+    percentage = (
+        total_curtailment / (total_curtailment + vre_generation) * 100
+        if total_curtailment + vre_generation > 0
+        else 0.0
+    )
+    percentage_row = curtailment_percentage.iloc[0].copy()
+    percentage_row["Optimal Value"] = percentage
+    return pd.concat([aggregate, pd.DataFrame([percentage_row])], ignore_index=True)
 
 
 def _summary_row(metric: str, technology: object, value: object, unit: str) -> dict[str, object]:
