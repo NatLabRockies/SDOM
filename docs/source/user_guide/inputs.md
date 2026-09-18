@@ -4,14 +4,14 @@ This page describes all input data requirements for running SDOM optimizations.
 
 ## Input Data Structure
 
-All input CSV files should be placed in a directory (e.g., `Data/scenario_name/`). The file names are defined in `constants.py` and are flexible (case-insensitive matching with spaces/hyphens/underscores ignored).
+All input CSV files should be placed in a directory (e.g., `Data/scenario_name/`). File matching is case-insensitive and ignores spaces, hyphens, and underscores. Use the documented canonical filename stems so SDOM can identify each input file.
 
-In the next sections each file will be listed and the data it is supossed to be in each field will be described
+The following sections list each file and describe the data required in every field.
 
 > **⚠️ Attention:**  
 >  - Make sure all required CSV files are present in the specified folder before starting the simulation.
->  - Please keep the root names of each file. For instance, in the sample files you can change "2025" for whatever you prefer, but keeping the root name. For example, for "CapSolar_2025.csv" file you need to keep the root name as "CapSolar_".
->  - Please do not change the column names of each csv files.
+>  - Preserve the documented filename stem. For example, `CapSolar_2025.csv` must retain the `CapSolar` stem, though case and separators can vary.
+>  - Do not change required CSV column names.
 
 ## Zonal Mode Inputs
 
