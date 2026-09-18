@@ -4,6 +4,13 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Dependency Upgrade Pre-release Validation (2026-09-18)
+
+- Created `chore/upgrade-dependencies-v0.2.6` from clean `origin/main` at `dcedae2`; project version remains `0.2.5`.
+- Python-version markers retain Python 3.11 compatibility while allowing newer Python 3.12+ packages: NumPy `2.4.6` / `2.5.3`, Sphinx `9.0.4` / `9.1.0`, sphinx-autodoc-typehints `3.6.1` / `3.13.7`, and sphinx-reports `0.10.0` / `0.11.2`.
+- `uv lock --check` passes generally and with `--python 3.11` and `--python 3.12`; Python 3.13 was not installed locally. The regenerated lock resolves 109 packages.
+- `uv run ruff check .`, `uv run ty check src`, the focused HiGHS optimization regression, documentation build, `uv build`, and `twine check` all pass. The full `uv run pytest` suite was attempted twice but manually stopped at the pre-existing long-running zonal daily-hydro solver test after passing 16% of 555 tests; no failure was reported.
+
 ## Result Attribute Units (#64, 2026-09-17)
 
 - `OptimizationResults.attribute_units` is intentionally optional (`default_factory=dict`) so direct construction and legacy pickles remain compatible. `get_attribute_unit(name)` returns `None` when metadata is absent.
