@@ -12,6 +12,16 @@ from .common.utilities import safe_pyomo_value
 from .constants import MW_TO_KW
 
 
+_RESULT_ATTRIBUTE_UNITS = {
+    "capacity": "MW",
+    "storage_capacity.charge": "MW",
+    "storage_capacity.discharge": "MW",
+    "storage_capacity.energy": "MWh",
+    "generation_totals": "MWh",
+    "cost_breakdown": "USD",
+}
+
+
 def _value_or_nan(obj) -> float:
     """Return a float value or NaN when not initialized/available."""
     val = getattr(obj, "value", None)
@@ -66,6 +76,9 @@ class OptimizationResults:
         Total generation by technology.
     cost_breakdown : dict
         Detailed cost breakdown (CAPEX, OPEX, FOM, VOM).
+    attribute_units : dict[str, str]
+        Display units for public result-attribute dictionaries. This metadata
+        is optional for directly constructed and legacy deserialized results.
     """
 
     # Solver information
@@ -95,6 +108,9 @@ class OptimizationResults:
 
     # Cost breakdown
     cost_breakdown: dict = field(default_factory=dict)
+
+    # Public result attribute display units
+    attribute_units: dict[str, str] = field(default_factory=dict)
 
     # ----------------------------------------------------------------------------------
     # Zonal-aware optional fields (PRD §6.1).
@@ -126,6 +142,23 @@ class OptimizationResults:
     def is_optimal(self) -> bool:
         """Check if the solution is optimal."""
         return self.termination_condition == "optimal"
+
+    def get_attribute_unit(self, name: str) -> str | None:
+        """Return the display unit associated with a public result attribute.
+
+        Parameters
+        ----------
+        name : str
+            Result attribute name, including a dot-qualified nested key such
+            as ``"storage_capacity.energy"``.
+
+        Returns
+        -------
+        str or None
+            The configured display unit, or ``None`` when unit metadata is
+            unavailable for the attribute.
+        """
+        return self.attribute_units.get(name)
 
     # Capacity accessors
     @property
@@ -309,6 +342,7 @@ def _collect_results_copperplate(model, solver_result, *, case_name: str = "run"
     logging.info("Collecting SDOM results...")
 
     results = OptimizationResults()
+    results.attribute_units = _RESULT_ATTRIBUTE_UNITS.copy()
 
     # Extract solver information
     results.termination_condition = str(solver_result.solver.termination_condition)
@@ -1351,6 +1385,7 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     logging.info("Collecting SDOM zonal results...")
 
     results = OptimizationResults()
+    results.attribute_units = _RESULT_ATTRIBUTE_UNITS.copy()
     results.is_zonal = True
     results.areas = list(model.A)
     if hasattr(model, "L"):

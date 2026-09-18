@@ -4,6 +4,15 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Result Attribute Units (#64, 2026-09-17)
+
+- `OptimizationResults.attribute_units` is intentionally optional (`default_factory=dict`) so direct construction and legacy pickles remain compatible. `get_attribute_unit(name)` returns `None` when metadata is absent.
+- Collectors populate the same canonical mapping on copperplate and zonal results: `capacity` and storage charge/discharge are `MW`; storage energy and `generation_totals` are `MWh`; `cost_breakdown` is `USD`.
+- Plot helpers must use `get_attribute_unit` defensively and preserve legacy labels when metadata/accessor is unavailable. Where plotted values are scaled, title units must match the scaled values (`MWh` totals displayed as `TWh` remain labeled `TWh`).
+- Existing infrasys component `Annotated[..., Unit(...), Field(...)]` annotations require no duplication. `Unit` is a factory alias, so tests should inspect against `type(Unit("MW"))`; structured `{ "value": ..., "unit": ... }` inputs validate to the numeric field value with the installed r2x-core 0.5.1 API.
+
+---
+
 ## Zonal Capacity Expansion — Commit #13: parametric smoke test + plots deferral (2026-05-08) — **13-plan COMPLETE**
 
 ### Scope
@@ -758,3 +767,16 @@ Replaced `src/sdom/infrasys_integration/results.py` with a responsibility-based 
 ### Validation
 - The initial zonal System helper and worker regression tests failed on the tagged `Load@A1@`/`Load@A2@` source columns; both pass after the mutation change.
 - `uv run pytest tests/test_parametric.py -v`, `uv run pytest tests/infrasys_integration/test_system_parametric.py -v`, and `uv run pytest tests/test_zonal_parametric.py -v` passed.
+
+---
+
+## Hydro Feasibility and Sparse Zonal VRE (2026-09-17)
+
+### Decisions
+- `_validate_hydro_budget_feasibility` runs before copperplate model construction and once for each zonal legacy-shaped area slice. It reuses `get_formulation`, `VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP`, and `check_n_hours`.
+- `generic_budget_rule` compares unscaled hydro budget availability with dispatch, while hourly min/max constraints multiply bounds by `AlphaLargHy`. Therefore validation compares unscaled budget totals against alpha-scaled bound totals.
+- When a declared zonal area has no solar or wind capacity rows, `_build_per_area_data_slice` uses `data["cap_<type>"].iloc[0:0].copy()` to preserve the required `sc_gid` schema. Its capacity-factor fallback retains only the global time column, yielding no plant CF entries but allowing an empty plant set to initialize.
+
+### Validation
+- `uv run pytest tests/test_hydro_budget_feasibility.py tests/test_zonal_model_build.py -v` passed.
+- `uv run ruff check src/sdom/optimization_main.py tests/test_hydro_budget_feasibility.py tests/test_zonal_model_build.py` still reports 38 pre-existing violations in `optimization_main.py`; the touched tests are clean.

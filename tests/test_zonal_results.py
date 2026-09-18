@@ -98,6 +98,27 @@ def test_results_dataclass_has_zonal_defaults():
     assert r.area_summary_df == {}
     assert isinstance(r.interregional_exchanges_df, pd.DataFrame)
     assert r.interregional_exchanges_df.empty
+    assert r.attribute_units == {}
+    assert r.get_attribute_unit("capacity") is None
+
+
+def test_result_collectors_populate_canonical_attribute_units(
+    legacy_results, zonal_model_and_results
+):
+    """Copperplate and zonal collectors should expose the same result units."""
+    _model, zonal_results = zonal_model_and_results
+    expected_units = {
+        "capacity": "MW",
+        "storage_capacity.charge": "MW",
+        "storage_capacity.discharge": "MW",
+        "storage_capacity.energy": "MWh",
+        "generation_totals": "MWh",
+        "cost_breakdown": "USD",
+    }
+
+    assert legacy_results.attribute_units == expected_units
+    assert zonal_results.attribute_units == expected_units
+    assert zonal_results.get_attribute_unit("storage_capacity.energy") == "MWh"
 
 
 # ---------------------------------------------------------------------------

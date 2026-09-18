@@ -57,6 +57,19 @@ fuel-cost inputs, while `SDOMHydroGenerator` can record a budget period.
 `SDOMScalarParameter` and `SDOMFormulationConfig` store scalar input values
 and formulation selections outside the physical network hierarchy.
 
+### Units and Result Displays
+
+Physical infrasys component fields carry `r2x-core` `Unit` metadata. This
+metadata supports typed component validation and display; it does not change
+the base numeric-unit conventions of SDOM optimization input CSV files.
+
+Solved `OptimizationResults` objects optionally expose display metadata through
+`attribute_units` and `get_attribute_unit(name)`. SDOM collectors populate
+`MW` for installed and storage power capacities, `MWh` for storage energy and
+generation totals, and `USD` for cost breakdowns. Plotting helpers use this
+metadata when it is available and retain their existing labels for directly
+constructed or legacy-deserialized result objects without it.
+
 ### Result Attributes
 
 `add_results_to_system` stores a solved `OptimizationResults` instance as

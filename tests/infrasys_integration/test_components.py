@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib
+from typing import get_args, get_type_hints
 
 import pytest
+from r2x_core.units import Unit
 
 infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
@@ -152,6 +154,22 @@ def test_component_validation_rejects_invalid_values():
             heat_rate=9.5,
             fuel_cost=3.0,
         )
+
+
+def test_unit_annotated_component_field_validates_structured_input():
+    """Unit metadata should be present and accept a structured quantity input."""
+    annotation = get_type_hints(SDOMLoad, include_extras=True)["peak_active_power"]
+    metadata = get_args(get_args(annotation)[0])[1:]
+
+    assert any(isinstance(item, type(Unit("MW"))) for item in metadata)
+
+    load = SDOMLoad(
+        name="structured-load",
+        bus=_make_bus(),
+        peak_active_power={"value": 250.0, "unit": "MW"},
+    )
+
+    assert load.peak_active_power == 250.0
 
 
 def test_storage_duration_bounds_are_validated():
