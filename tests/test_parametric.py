@@ -9,6 +9,7 @@ import pytest
 from sdom.parametric import ParametricStudy, ScalarSweep, StorageFactorSweep, TsSweep
 from sdom.parametric.mutations import (
     TS_KEY_TO_COLUMN,
+    TS_KEY_TO_PER_AREA_VIEW,
     _apply_scalar_mutation,
     _apply_storage_factor_mutation,
     _apply_ts_mutation,
@@ -155,6 +156,32 @@ def test_apply_ts_mutation_does_not_affect_non_numeric_columns(load_df):
     original_hours = load_df["Hour"].copy()
     _apply_ts_mutation(data, "load_data", 2.0)
     pd.testing.assert_series_equal(data["load_data"]["Hour"], original_hours)
+
+
+@pytest.mark.parametrize("ts_key", TS_KEY_TO_COLUMN)
+def test_apply_ts_mutation_scales_tagged_columns_and_per_area_view(ts_key):
+    """Supported time-series keys should update zonal source and derived data."""
+    column = TS_KEY_TO_COLUMN[ts_key]
+    per_area_key, per_area_column = TS_KEY_TO_PER_AREA_VIEW[ts_key]
+    data = {
+        ts_key: pd.DataFrame(
+            {
+                "Hour": [1, 2],
+                f"{column}@A1@": [2.0, 3.0],
+                f"{column}@A2@": [4.0, 5.0],
+            }
+        ),
+        per_area_key: {
+            "A1": pd.DataFrame({"Hour": [1, 2], per_area_column: [2.0, 3.0]}),
+            "A2": pd.DataFrame({"Hour": [1, 2], per_area_column: [4.0, 5.0]}),
+        },
+    }
+
+    _apply_ts_mutation(data, ts_key, 1.5)
+
+    assert data[ts_key].iloc[:, 1:].to_numpy().tolist() == [[3.0, 6.0], [4.5, 7.5]]
+    assert data[per_area_key]["A1"][per_area_column].tolist() == [3.0, 4.5]
+    assert data[per_area_key]["A2"][per_area_column].tolist() == [6.0, 7.5]
 
 
 def test_apply_ts_mutation_unsupported_key_raises(load_df):
