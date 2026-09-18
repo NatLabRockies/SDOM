@@ -108,7 +108,8 @@ def check_supply_balance_constraint(results: OptimizationResults, tolerance: flo
 
     Verifies that for each hour in the solution, the supply balance equation is met:
     Load + StorageCharge - StorageDischarge - Nuclear - Hydro - OtherRenewables
-    - SolarPV - Wind - Thermal - Imports + Exports == 0
+    - SolarPV - Wind - Thermal - Imports + Exports + NetOutflow == 0.
+    For zonal results, ``NetOutflow`` is derived from interregional flows.
 
     Parameters
     ----------
@@ -140,6 +141,8 @@ def check_supply_balance_constraint(results: OptimizationResults, tolerance: flo
 
     violations = []
     max_imbalance = 0.0
+    exchanges = results.interregional_exchanges_df
+    is_zonal = "Area" in gen_df.columns and not exchanges.empty
 
     for _, row in gen_df.iterrows():
         hour = row["Hour"]
@@ -162,6 +165,14 @@ def check_supply_balance_constraint(results: OptimizationResults, tolerance: flo
             - row["Imports (MW)"]
             + row["Exports (MW)"]
         )
+        if is_zonal:
+            hour_flows = exchanges.loc[exchanges["hour"] == hour]
+            net_outflow = hour_flows.loc[
+                hour_flows["from_area"] == row["Area"], "flow_signed_MW"
+            ].sum() - hour_flows.loc[
+                hour_flows["to_area"] == row["Area"], "flow_signed_MW"
+            ].sum()
+            balance += net_outflow
 
         abs_balance = abs(balance)
         max_imbalance = max(max_imbalance, abs_balance)
@@ -221,13 +232,24 @@ def check_hydro_budget_matches_csv(
         return {"is_satisfied": False, "error": f"Large hydro CSV not found in {input_data_dir}"}
 
     hydro_df = pd.read_csv(hydro_csv_path)
-    required_columns = {"*Hour", "LargeHydro"}
-    missing_columns = required_columns - set(hydro_df.columns)
-    if missing_columns:
-        return {"is_satisfied": False, "error": f"Large hydro CSV missing columns {sorted(missing_columns)}"}
+    if "*Hour" not in hydro_df.columns:
+        return {"is_satisfied": False, "error": "Large hydro CSV missing columns ['*Hour']"}
+    if "LargeHydro" in hydro_df.columns:
+        csv_by_hour = hydro_df.set_index("*Hour")["LargeHydro"]
+    else:
+        tagged_columns = [
+            column
+            for column in hydro_df.columns
+            if column.startswith("LargeHydro@") and column.endswith("@")
+        ]
+        if not tagged_columns:
+            return {
+                "is_satisfied": False,
+                "error": "Large hydro CSV missing literal 'LargeHydro' or tagged 'LargeHydro@<area>@' columns",
+            }
+        csv_by_hour = hydro_df.set_index("*Hour")[tagged_columns].sum(axis=1)
 
     generation_by_hour = generation_df.set_index("Hour")["Hydro Generation (MW)"]
-    csv_by_hour = hydro_df.set_index("*Hour")["LargeHydro"]
     max_hour = int(generation_by_hour.index.max())
     n_budget_periods = max_hour // budget_hours
     if max_hour % budget_hours != 0:
