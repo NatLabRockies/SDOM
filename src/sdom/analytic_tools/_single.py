@@ -86,8 +86,8 @@ def plot_results(
 
     resolved_plots_dir = _resolve_plots_dir(output_dir, plots_dir)
 
-    _plot_capacity_donut(result.summary_df, resolved_plots_dir)
-    _plot_capacity_generation_donuts(result.summary_df, resolved_plots_dir)
+    _plot_capacity_donut(result, resolved_plots_dir)
+    _plot_capacity_generation_donuts(result, resolved_plots_dir)
     _plot_heatmaps(result.generation_df, resolved_plots_dir)
 
     logger.info("plot_results: all plots saved to '%s'.", resolved_plots_dir)
@@ -152,12 +152,18 @@ def _build_generation_df(summary_df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+def _result_unit(result: "OptimizationResults", name: str, fallback: str) -> str:
+    """Return result metadata display units while supporting legacy results."""
+    accessor = getattr(result, "get_attribute_unit", None)
+    return accessor(name) if accessor is not None and accessor(name) else fallback
+
+
 def _plot_capacity_donut(
-    summary_df: pd.DataFrame,
+    result: "OptimizationResults",
     plots_dir: str,
 ) -> None:
     """Save ``capacity_donut.png`` to *plots_dir*."""
-    cap_df = _build_capacity_df(summary_df)
+    cap_df = _build_capacity_df(result.summary_df)
     if cap_df.empty:
         logger.warning("_plot_capacity_donut: no capacity data found, skipping.")
         return
@@ -181,7 +187,11 @@ def _plot_capacity_donut(
     ax.add_artist(centre_circle)
     ax.axis("equal")
 
-    plt.title("Capacity per technology (MW)", y=0.95, fontsize=28)
+    plt.title(
+        f"Capacity per technology ({_result_unit(result, 'capacity', 'MW')})",
+        y=0.95,
+        fontsize=28,
+    )
     plt.legend(
         cap_df["Technology"],
         bbox_to_anchor=(1.15, 0.9),
@@ -206,12 +216,12 @@ def _plot_capacity_donut(
 
 
 def _plot_capacity_generation_donuts(
-    summary_df: pd.DataFrame,
+    result: "OptimizationResults",
     plots_dir: str,
 ) -> None:
     """Save ``capacity_generation_donuts.png`` to *plots_dir*."""
-    cap_df = _build_capacity_df(summary_df)
-    gen_df = _build_generation_df(summary_df)
+    cap_df = _build_capacity_df(result.summary_df)
+    gen_df = _build_generation_df(result.summary_df)
 
     if cap_df.empty and gen_df.empty:
         logger.warning(
@@ -242,7 +252,11 @@ def _plot_capacity_generation_donuts(
         )
         axes[0].add_artist(plt.Circle((0, 0), 0.60, fc="white"))
         axes[0].axis("equal")
-        axes[0].set_title("Capacity per technology (MW)", y=0.95, fontsize=16)
+        axes[0].set_title(
+            f"Capacity per technology ({_result_unit(result, 'capacity', 'MW')})",
+            y=0.95,
+            fontsize=16,
+        )
         total_cap_gw = round(cap_df["Optimal Value"].sum() / 1000)
         axes[0].text(0, 0.1, f"{total_cap_gw}GW", ha="center", va="center",
                      fontsize=20, fontweight="bold", color="black")
@@ -261,7 +275,11 @@ def _plot_capacity_generation_donuts(
         )
         axes[1].add_artist(plt.Circle((0, 0), 0.60, fc="white"))
         axes[1].axis("equal")
-        axes[1].set_title("Generation per technology (TWh)", y=0.95, fontsize=16)
+        generation_unit = _result_unit(result, "generation_totals", "MWh")
+        display_generation_unit = "TWh" if generation_unit == "MWh" else generation_unit
+        axes[1].set_title(
+            f"Generation per technology ({display_generation_unit})", y=0.95, fontsize=16
+        )
         total_gen_twh = round(gen_df["Optimal Value"].sum() / 1e6)
         axes[1].text(0, 0.1, f"{total_gen_twh}TWh", ha="center", va="center",
                      fontsize=20, fontweight="bold", color="black")

@@ -72,6 +72,12 @@ def _validate_zonal(results: "OptimizationResults") -> None:
         )
 
 
+def _result_unit(results: "OptimizationResults", name: str, fallback: str) -> str:
+    """Return result metadata display units while supporting legacy results."""
+    accessor = getattr(results, "get_attribute_unit", None)
+    return accessor(name) if accessor is not None and accessor(name) else fallback
+
+
 def _resolve_areas(
     results: "OptimizationResults",
     areas: Optional[Iterable[str]],
@@ -343,7 +349,8 @@ def plot_area_capacity_stacks(
             ax.barh(areas_list, vals, left=bottom, label=t, color=color)
         bottom = bottom + vals
 
-    unit = "MW" if mode == "power" else "MWh"
+    unit_name = "capacity" if mode == "power" else "storage_capacity.energy"
+    unit = _result_unit(results, unit_name, "MW" if mode == "power" else "MWh")
     if orientation == "vertical":
         ax.set_xlabel("Area")
         ax.set_ylabel(f"Installed capacity ({unit})")

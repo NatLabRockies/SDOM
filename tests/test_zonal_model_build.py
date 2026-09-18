@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import copy
 import os
+import shutil
 
 import pandas as pd
 import pyomo.environ as pyo
@@ -26,6 +27,7 @@ from sdom.constants import (
     IMPORTS_EXPORTS_NOT_MODEL,
 )
 from sdom.io_manager import get_network_formulation
+from sdom.optimization_main import _build_per_area_data_slice
 
 
 REL_ZONAL_FIXTURE = "Data/zonal_test"
@@ -33,6 +35,13 @@ REL_ZONAL_FIXTURE = "Data/zonal_test"
 
 def _abs_data_path(rel: str) -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", rel))
+
+
+def _copy_zonal_fixture(tmp_path) -> str:
+    """Copy the zonal fixture to a writable test-specific directory."""
+    destination = tmp_path / "zonal_data"
+    shutil.copytree(_abs_data_path(REL_ZONAL_FIXTURE), destination)
+    return str(destination)
 
 
 @pytest.fixture(scope="module")
@@ -196,6 +205,42 @@ def test_zonal_supply_balance_holds_at_optimum(zonal_model):
             assert abs(residual) < tol, (
                 f"area={a} hour={h} residual={residual:.6e}"
             )
+
+
+@pytest.mark.parametrize(
+    ("capacity_file", "per_area_capacity_key", "per_area_cf_key", "slice_capacity_key", "technology"),
+    [
+        ("CapWind.csv", "per_area_wind_plants", "per_area_capacity_factors_wind", "cap_wind", "wind"),
+        ("CapSolar.csv", "per_area_pv_plants", "per_area_capacity_factors_pv", "cap_solar", "pv"),
+    ],
+)
+def test_zonal_model_accepts_declared_area_without_vre_capacity_rows(
+    tmp_path,
+    capacity_file,
+    per_area_capacity_key,
+    per_area_cf_key,
+    slice_capacity_key,
+    technology,
+):
+    fixture_path = _copy_zonal_fixture(tmp_path)
+    capacity_path = os.path.join(fixture_path, capacity_file)
+    capacity = pd.read_csv(capacity_path)
+    capacity[capacity["area_id"] != "A1"].to_csv(capacity_path, index=False)
+
+    data = load_data(fixture_path)
+
+    assert "A1" not in data[per_area_capacity_key]
+    assert "A1" not in data[per_area_cf_key]
+    assert not data[per_area_capacity_key]["A2"].empty
+    assert not data[per_area_cf_key]["A2"].empty
+
+    area_slice = _build_per_area_data_slice(data, "A1")
+    assert area_slice[slice_capacity_key].empty
+    assert "sc_gid" in area_slice[slice_capacity_key].columns
+
+    model = initialize_model(data, n_hours=24)
+    assert list(getattr(model.area["A1"], technology).plants_set) == []
+    assert list(getattr(model.area["A2"], technology).plants_set)
 
 
 # ---------------------------------------------------------------------------

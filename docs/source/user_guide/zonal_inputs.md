@@ -40,7 +40,10 @@ If `Network` is missing, SDOM defaults to `CopperPlateNetwork`.
 
 ### areas.csv
 
-Required in zonal mode.
+Optional in zonal mode. When present, it declares the allowed `area_id` values.
+When omitted, SDOM infers areas from tagged wide-file headers and `area_id`
+columns in row-oriented files. Use `areas.csv` when you need explicit area
+descriptions or validation that referenced areas are declared.
 
 | Column | Meaning |
 |---|---|
@@ -138,7 +141,17 @@ Example:
 - `CFSolar.csv`
 - `CFWind.csv`
 
-These remain plant-keyed and do not require `@area_id@` tags.
+These remain plant-keyed and do not require `@area_id@` tags. Each capacity
+factor column is assigned to an area through the matching `sc_gid` record in
+`CapSolar.csv` or `CapWind.csv`; those capacity tables therefore require an
+`area_id` column in zonal mode.
+
+## Zonal Support Boundaries
+
+The tagged import/export files describe the common input schema, but enabled
+import/export formulations are not currently supported by
+`AreaTransportationModelNetwork`. Zonal initialization also rejects resiliency
+formulations. Select `NotModel` for these components in zonal runs.
 
 ## CopperPlate Aggregation Fallback
 

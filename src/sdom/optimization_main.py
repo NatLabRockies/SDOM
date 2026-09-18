@@ -21,6 +21,7 @@ from .models.formulations_hydro import add_hydro_variables, add_hydro_run_of_riv
 from .constants import (
     MW_TO_KW,
     RUN_OF_RIVER_FORMULATION,
+    VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
     IMPORTS_EXPORTS_NOT_MODEL,
     COPPER_PLATE_NETWORK,
     AREA_TRANSPORTATION_MODEL_NETWORK,
@@ -46,6 +47,74 @@ def _is_memory_profiling_enabled() -> bool:
     return os.getenv("SDOM_PROFILE_MEMORY", "0").strip().lower() in {
         "1", "true", "yes", "on"
     }
+
+
+def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
+    """Raise when hydro budget bins cannot satisfy their hourly bounds.
+
+    Hydro budget constraints require the unscaled hourly budget series to
+    equal dispatch. The hourly bounds are scaled by ``AlphaLargHy`` in the
+    model, so their bin totals are scaled before comparison.
+
+    Parameters
+    ----------
+    data : dict
+        Legacy-shaped input data dictionary, optionally scoped to one area.
+    n_hours : int
+        Requested model horizon before budget-period rounding.
+    area_id : str, optional
+        Area identifier included in validation errors for zonal models.
+
+    Raises
+    ------
+    ValueError
+        If one or more hydro budget bins lie outside their feasible lower and
+        upper bound totals.
+    """
+    from .initializations import check_n_hours
+
+    formulation = get_formulation(data, component="hydro")
+    if formulation == RUN_OF_RIVER_FORMULATION:
+        return
+    if formulation not in VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP:
+        return
+
+    interval = VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP[formulation]
+    n_hours_checked = check_n_hours(n_hours, interval)
+    alpha = float(data["scalars"].loc["AlphaLargHy"].Value)
+    budget_by_hour = data["large_hydro_data"].set_index("*Hour")["LargeHydro"]
+    minimum_by_hour = data["large_hydro_min"].set_index("*Hour")["LargeHydro"]
+    maximum_by_hour = data["large_hydro_max"].set_index("*Hour")["LargeHydro"]
+
+    infeasible_bins = []
+    for bin_index, start_hour in enumerate(range(1, n_hours_checked + 1, interval), start=1):
+        hours = range(start_hour, start_hour + interval)
+        budget = float(budget_by_hour.loc[list(hours)].sum())
+        minimum = alpha * float(minimum_by_hour.loc[list(hours)].sum())
+        maximum = alpha * float(maximum_by_hour.loc[list(hours)].sum())
+        if budget < minimum:
+            infeasible_bins.append(
+                f"{formulation}, "
+                f"{'area ' + repr(area_id) + ', ' if area_id is not None else ''}"
+                f"bin {bin_index} (hours {start_hour}-{start_hour + interval - 1}): "
+                f"summed min={minimum:.6f} MWh, summed max={maximum:.6f} MWh, "
+                f"budget={budget:.6f} MWh, lower violation={minimum - budget:.6f} MWh"
+            )
+        elif budget > maximum:
+            infeasible_bins.append(
+                f"{formulation}, "
+                f"{'area ' + repr(area_id) + ', ' if area_id is not None else ''}"
+                f"bin {bin_index} (hours {start_hour}-{start_hour + interval - 1}): "
+                f"summed min={minimum:.6f} MWh, summed max={maximum:.6f} MWh, "
+                f"budget={budget:.6f} MWh, upper violation={budget - maximum:.6f} MWh"
+            )
+
+    if infeasible_bins:
+        raise ValueError(
+            "Infeasible hydro budget input; each bin must satisfy "
+            "sum(min) <= availability budget <= sum(max):\n- "
+            + "\n- ".join(infeasible_bins)
+        )
 
 def initialize_model(data, n_hours=8760, with_resilience_constraints=False, model_name="SDOM_Model"):
     """Initialize a Pyomo SDOM optimization model (dispatcher).
@@ -156,6 +225,8 @@ def _initialize_model_copperplate(data, *, n_hours=8760, with_resilience_constra
     pyomo.environ.ConcreteModel
         The fully-built Pyomo model (with ``model.profiler`` attached).
     """
+
+    _validate_hydro_budget_feasibility(data, n_hours=n_hours)
 
     # Keep timing enabled by default, but make tracemalloc opt-in to avoid
     # global allocator overhead during normal production runs.
@@ -335,8 +406,6 @@ def _build_per_area_data_slice(data, area_id):
         A dict shaped like the legacy ``data`` dict, with global keys
         populated from the per-area views.
     """
-    import pandas as pd
-
     pv = data["per_area_pv_plants"].get(area_id)
     wind = data["per_area_wind_plants"].get(area_id)
     cf_pv = data["per_area_capacity_factors_pv"].get(area_id)
@@ -383,10 +452,18 @@ def _build_per_area_data_slice(data, area_id):
         "large_hydro_data": hydro,
         "large_hydro_max": hydro_max,
         "large_hydro_min": hydro_min,
-        "cf_solar": cf_pv if cf_pv is not None else pd.DataFrame(),
-        "cf_wind": cf_wind if cf_wind is not None else pd.DataFrame(),
-        "cap_solar": pv if pv is not None else pd.DataFrame(),
-        "cap_wind": wind if wind is not None else pd.DataFrame(),
+        "cf_solar": (
+            cf_pv if cf_pv is not None else data["cf_solar"].iloc[:, :1].copy()
+        ),
+        "cf_wind": (
+            cf_wind if cf_wind is not None else data["cf_wind"].iloc[:, :1].copy()
+        ),
+        "cap_solar": (
+            pv if pv is not None else data["cap_solar"].iloc[0:0].copy()
+        ),
+        "cap_wind": (
+            wind if wind is not None else data["cap_wind"].iloc[0:0].copy()
+        ),
         "thermal_data": bal,
         "storage_data": storage,
         "STORAGE_SET_J_TECHS": j_techs,
@@ -675,6 +752,15 @@ def _initialize_model_zonal(
         len(data["lines"]),
     )
 
+    area_slices = [
+        (area_id, _build_per_area_data_slice(data, area_id))
+        for area_id in (area["area_id"] for area in data["areas"])
+    ]
+    for area_id, data_slice in area_slices:
+        _validate_hydro_budget_feasibility(
+            data_slice, n_hours=n_hours, area_id=area_id
+        )
+
     profiler = ModelInitProfiler(
         track_memory=_is_memory_profiling_enabled(),
         enabled=True,
@@ -697,8 +783,7 @@ def _initialize_model_zonal(
     model = profiler.measure_step("Create model & area blocks", _create_skeleton)
 
     # Build each area block via the legacy per-host builder sequence.
-    for area_id in model.A:
-        slice_dict = _build_per_area_data_slice(data, area_id)
+    for area_id, slice_dict in area_slices:
         profiler.measure_step(
             f"Build area '{area_id}'",
             _build_one_area,

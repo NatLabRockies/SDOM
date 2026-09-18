@@ -6,9 +6,9 @@
 
 SDOM (Storage Deployment Optimization Model) is an open-source, high-resolution grid capacity-expansion framework developed by the National Lab of the Rockies (NLR). It’s purpose-built to optimize the deployment and operation of energy storage technologies, leveraging hourly temporal resolution and granular spatial representation of Variable Renewable Energy (VRE) sources such as solar and wind.
 
-SDOM is particularly well-suited for figure out the required capacity to meet a carbon-free generation mix target by:
+SDOM estimates technology portfolios required to meet a specified carbon-free generation mix target by:
 - 📆 Evaluating long-duration and seasonal storage technologies
-- 🌦 Analyzing complementarity and synergies among diverse VRE resources
+- 🌦 Analyzing complementarity and synergies among diverse VRE resources and load profiles
 - 📉 Assessing curtailment and operational strategies under various grid scenarios
 
 ## Table of contents
@@ -31,7 +31,8 @@ SDOM is particularly well-suited for figure out the required capacity to meet a 
 
 Inputs include time series data for:
 - Load profiles
-- Fixed generation (e.g., large hydropower, nuclear, and other must-run renewables)
+- Fixed generation (e.g., hydropower, nuclear, biomass, and geothermal). Hydropower can be configured as a fixed profile or operated flexibly with hydro-budget formulations.
+- Optional grid-import and grid-export capacity and price data
 
 Outputs include:
 - The optimal technology portfolio capacity (PV solar, wind, storage types, thermal capacity) to reliably meet demand.
@@ -46,21 +47,20 @@ An illustrative figure below shows the flow from inputs to optimization results,
 ⚙️
 
 - **Accurate Representation of Storage Technologies Diversity:** SDOM is strongly focused in providing a framework able to represent different storage technologies by:
-  - Representation of short, long an seassonal storage technologies,
-  -  Including charging/discharging capacity decoupling,
-  -  Optimization of both energy and power capacity,
-  -  Full temporal cronology.
+  - Representation of short-, long-duration, and seasonal storage technologies,
+  - Charging/discharging capacity decoupling,
+  - Optimization of both energy and power capacity,
+  - Full temporal chronology.
 
-- **Temporal Resolution:** Hourly simulations over a full year enable precise modeling of storage dynamics and renewable generation variability.
+- **Temporal Resolution:** Hourly time steps over a full-year, 8,760-hour default horizon enable precise modeling of storage dynamics and VRE variability. The `n_hours` argument can select a shorter horizon for testing or sensitivity analysis.
 
 - **Spatial Resolution:** Fine-grained representation of VRE sources (e.g., solar, wind) captures geographic diversity and enhances system fidelity.
 
 - **Copper Plate Modeling:** SDOM Model neglects transmission constraints to keep the model tractable from the computational standpoint. Future SDOM releases should include inter-regional transmission constraints.
 
-- **Fixed Generation Profiles:** Nuclear, hydropower, and other non-variable renewables (e.g., biomass, geothermal) are treated as fixed inputs using year-long time series data.
-  - Currently its beeing developed a modeling approach to include a Hydro modeling considering Monthly energy budgets in order to be able to represent the hydro flexibility.
+- **Fixed Generation Profiles:** Nuclear, hydropower, and other fixed-generation resources (e.g., biomass and geothermal) are represented with time-series inputs. Hydropower is configurable as run-of-river or as flexible daily- and monthly-budget operations through the hydro-budget formulations.
 
-- **System Optimization Objective:** Minimizes total system cost—including capital, fixed/variable O&M, and fuel costs—while satisfying user-defined carbon-free or renewable energy targets.
+- **System Optimization Objective:** Minimizes total system cost, including capital, fixed/variable O&M, and fuel costs. Enabled import/export formulations can add grid-exchange energy costs; the demand-charge formulation adds applicable demand charges. The model satisfies user-defined carbon-free or renewable energy targets.
 
 - **Modeling approach:** Formulated as a Mixed-Integer Linear Programming (MILP) model to allow rigorous optimization of investment and capacity decisions.
 

@@ -13,12 +13,14 @@ At its core, SDOM models the gap between electricity demand and fixed generation
 - **Variable Renewable Energy (VRE)**: Solar PV and wind capacity deployment
 - **Energy Storage**: Multiple storage technologies (Li-Ion, CAES, PHS, H2, etc)
 - **Thermal Generation**: Balancing thermal units capacity deployment
+- **Fixed Generation**: Nuclear, hydropower, biomass, geothermal, and other fixed-profile resources. Hydropower can be configured as a fixed profile or operated flexibly with hydro-budget formulations.
+- **Grid Exchange**: Optional import and export capacity and price inputs
 - **System Operation**: Hourly dispatch over 8760 hours (1 year)
 
 
-SDOM is particularly well-suited for figure out the required capacity to meet a carbon-free generation mix target by:
+SDOM estimates technology portfolios required to meet a specified carbon-free generation mix target by:
 - 📆 Evaluating required optimal short, long-duration and seasonal storage portfolios
-- 🌦 Analyzing complementarity and synergies among diverse VRE resources and load profile
+- 🌦 Analyzing complementarity and synergies among diverse VRE resources and load profiles
 - 📉 Assessing curtailment and operational strategies under various grid scenarios
 
 An illustrative figure below shows the flow from inputs to optimization results, enabling exploration of storage needs under varying renewable integration levels.
@@ -29,10 +31,11 @@ An illustrative figure below shows the flow from inputs to optimization results,
 ### Input Data
 
 - Load profiles (hourly demand)
-- Fixed generation profiles (nuclear, hydro, other renewables)
+- Fixed generation profiles (nuclear, hydro, biomass, geothermal, and other fixed-profile resources). Hydropower can use flexible daily- or monthly-budget formulations.
 - VRE capacity factors and cost data
 - Storage technology characteristics
 - Thermal generator parameters
+- Optional import/export capacity and price data
 - System scalars (discount rate, carbon targets, etc.)
 - [Click here for detailed input files description](inputs.md)
 
@@ -48,8 +51,11 @@ An illustrative figure below shows the flow from inputs to optimization results,
 SDOM is formulated as a **Mixed-Integer Linear Programming (MILP)** problem that minimizes total system cost:
 
 $$
-\min \text{Total Cost} = \text{CAPEX} + \text{Fixed O&M} + \text{Variable O&M} + \text{Fuel Costs}
+\min \text{Total Cost} = \text{CAPEX} + \text{Fixed O&M} + \text{Variable O&M} + \text{Fuel Costs} + \text{Optional Grid-Exchange and Demand-Charge Costs}
 $$
+
+Grid-exchange costs apply when import/export formulations are enabled. Demand
+charges apply only when the applicable demand-charge formulation is selected.
 
 Subject to:
 - Energy balance constraints ($supply = demand every hour$)
@@ -81,6 +87,7 @@ model.exports           # Cross-border exports (optional)
 - Full chronological 8760-hour simulation
 - No time-step aggregation or representative periods
 - Captures diurnal, weekly, and seasonal patterns
+- `n_hours` can select a shorter simulation horizon for testing or sensitivity analysis; the time step remains hourly.
 
 ### Storage Representation
 - Multiple storage technologies simultaneously

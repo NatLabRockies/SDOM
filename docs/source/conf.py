@@ -52,6 +52,10 @@ myst_enable_extensions = [
     "tasklist",        # Enable task lists
 ]
 
+# Route standard Markdown Mermaid fences to sphinxcontrib-mermaid. This keeps
+# the source compatible with both the VS Code Markdown preview and Sphinx HTML.
+myst_fence_as_directive = ["mermaid"]
+
 # Autodoc configuration
 autodoc_default_options = {
     'members': True,
