@@ -102,6 +102,40 @@ def test_results_dataclass_has_zonal_defaults():
     assert r.get_attribute_unit("capacity") is None
 
 
+def test_results_dataclass_preserves_legacy_positional_zonal_arguments():
+    """Legacy positional zonal arguments should retain their original bindings."""
+    result = OptimizationResults(
+        "optimal",
+        "ok",
+        0.0,
+        0.0,
+        pd.DataFrame(),
+        pd.DataFrame(),
+        pd.DataFrame(),
+        pd.DataFrame(),
+        pd.DataFrame(),
+        {},
+        {},
+        {},
+        {},
+        {},
+        True,
+        ["A1"],
+    )
+
+    assert result.is_zonal is True
+    assert result.areas == ["A1"]
+    assert result.attribute_units == {}
+
+
+def test_get_attribute_unit_handles_legacy_deserialized_result_state():
+    """Result-unit lookup should tolerate pickles without the new field."""
+    result = OptimizationResults()
+    del result.attribute_units
+
+    assert result.get_attribute_unit("capacity") is None
+
+
 def test_result_collectors_populate_canonical_attribute_units(
     legacy_results, zonal_model_and_results
 ):

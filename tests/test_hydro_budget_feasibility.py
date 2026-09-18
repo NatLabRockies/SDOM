@@ -98,6 +98,27 @@ def test_hydro_budget_validator_reports_all_infeasible_bins():
     assert "MWh" in message
 
 
+def test_zonal_hydro_budget_validator_reports_offending_area_during_initialization():
+    data = load_data(_abs_data_path("Data/zonal_test"))
+    hydro_formulation = data["formulations"]["Component"] == "Hydro"
+    data["formulations"].loc[hydro_formulation, "Formulation"] = (
+        "DailyBudgetFormulation"
+    )
+    for hydro_data in data["per_area_hydro"].values():
+        hydro_data["LargeHydro_Min"] = 0
+        hydro_data["LargeHydro_Max"] = float("inf")
+
+    a1_hydro = data["per_area_hydro"]["A1"]
+    first_day = a1_hydro["*Hour"].between(1, DAILY_BUDGET_HOURS_AGGREGATION)
+    a1_hydro.loc[first_day, "LargeHydro"] = 0
+    a1_hydro.loc[first_day, "LargeHydro_Min"] = 1
+
+    with pytest.raises(
+        ValueError, match=r"DailyBudgetFormulation.*area 'A1'.*bin 1.*lower"
+    ):
+        initialize_model(data, n_hours=24)
+
+
 def test_hydro_budget_validator_skips_run_of_river_data():
     data = load_data(_abs_data_path("Data/no_exchange_run_of_river"))
     data_without_hydro_bounds = copy.deepcopy(data)

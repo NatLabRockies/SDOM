@@ -109,9 +109,6 @@ class OptimizationResults:
     # Cost breakdown
     cost_breakdown: dict = field(default_factory=dict)
 
-    # Public result attribute display units
-    attribute_units: dict[str, str] = field(default_factory=dict)
-
     # ----------------------------------------------------------------------------------
     # Zonal-aware optional fields (PRD §6.1).
     #
@@ -133,6 +130,8 @@ class OptimizationResults:
     area_installed_plants_df: dict = field(default_factory=dict)
     area_summary_df: dict = field(default_factory=dict)
     interregional_exchanges_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+
+    attribute_units: dict[str, str] = field(default_factory=dict)
 
     # ----------------------------------------------------------------------------------
     # Convenience properties for backward compatibility and easy access
@@ -158,7 +157,7 @@ class OptimizationResults:
             The configured display unit, or ``None`` when unit metadata is
             unavailable for the attribute.
         """
-        return self.attribute_units.get(name)
+        return getattr(self, "attribute_units", {}).get(name)
 
     # Capacity accessors
     @property
