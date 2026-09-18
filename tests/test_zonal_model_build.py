@@ -243,6 +243,49 @@ def test_zonal_model_accepts_declared_area_without_vre_capacity_rows(
     assert list(getattr(model.area["A2"], technology).plants_set)
 
 
+def test_zonal_model_accepts_declared_area_without_optional_assets(tmp_path):
+    """An area with demand and a line may omit every optional technology."""
+    fixture_path = _copy_zonal_fixture(tmp_path)
+    for capacity_file in (
+        "Data_BalancingUnits.csv",
+        "CapSolar.csv",
+        "CapWind.csv",
+    ):
+        capacity_path = os.path.join(fixture_path, capacity_file)
+        capacity = pd.read_csv(capacity_path)
+        capacity[capacity["area_id"] != "A1"].to_csv(capacity_path, index=False)
+    for time_series_file in (
+        "lahy_hourly.csv",
+        "Nucl_hourly.csv",
+        "otre_hourly.csv",
+        "StorageData.csv",
+    ):
+        time_series_path = os.path.join(fixture_path, time_series_file)
+        time_series = pd.read_csv(time_series_path)
+        time_series.loc[:, ~time_series.columns.str.endswith("@A1@")].to_csv(
+            time_series_path, index=False
+        )
+
+    data = load_data(fixture_path)
+
+    assert "A1" not in data["per_area_balancing_units"]
+    assert "A1" in data["per_area_demand"]
+    assert any(
+        line["from_area"] == "A1" or line["to_area"] == "A1"
+        for line in data["lines"]
+    )
+
+    model = initialize_model(data, n_hours=24)
+    assert list(model.area["A1"].thermal.plants_set) == []
+    assert list(model.area["A1"].storage.j) == []
+    assert list(model.area["A1"].pv.plants_set) == []
+    assert list(model.area["A1"].wind.plants_set) == []
+    assert pyo.value(model.area["A1"].hydro.ts_parameter[1]) == 0
+    assert pyo.value(model.area["A1"].nuclear.ts_parameter[1]) == 0
+    assert pyo.value(model.area["A1"].other_renewables.ts_parameter[1]) == 0
+    assert len(model.area["A1"].SupplyBalance) == 24
+
+
 # ---------------------------------------------------------------------------
 # Guards: deferred features under the AT path
 # ---------------------------------------------------------------------------

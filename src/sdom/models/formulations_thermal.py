@@ -86,7 +86,7 @@ def add_thermal_variables(host):
         - value(host.other_renewables.alpha) * other_vals
     ))
     cap_thermal_units = sum(host.thermal.data["MaxCapacity", bu] for bu in host.thermal.plants_set)
-    if ( len( list(host.thermal.plants_set) ) <= 1 ):
+    if len(host.thermal.plants_set) == 1:
         host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setlb( host.thermal.data["MinCapacity", host.thermal.plants_set[1]] )
         if ( CapCC_upper_bound_value > cap_thermal_units ):
             host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setub( CapCC_upper_bound_value )
