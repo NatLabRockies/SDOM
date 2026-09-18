@@ -79,10 +79,12 @@ testpaths = ["tests"]
 addopts = [
     "--cov=sdom",
     "--cov-report=term-missing",
+    "--import-mode=importlib",
     "-v"
 ]
 markers = [
     "integration: marks tests as integration tests (may require solver binaries and full data)",
+    "slow: marks tests that require extended execution time",
     "bench_quick: fast/stable benchmark cases intended for frequent branch comparisons",
     "bench_deep: slower end-to-end benchmark cases intended for manual or nightly runs",
 ]
