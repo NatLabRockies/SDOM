@@ -4,6 +4,12 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Thermal Capacity Bounds (#85, 2026-09-18)
+
+- `add_thermal_variables` must apply each thermal unit's input `MinCapacity` and `MaxCapacity` directly, regardless of whether an area has zero, one, or many units. An empty Pyomo set is handled by the no-op bounds loop.
+- Do not infer local residual demand to warn about or expand thermal capacity: zonal feasibility can be supplied by VRE, storage, or inter-area transfers, so that heuristic creates false warnings and mutates the one-unit input contract.
+- `tests/test_zonal_model_build.py` now captures the asset-free A1 case with `caplog` to reject thermal-capacity warnings and constructs a one-unit A1 fixture to assert exact Pyomo lower/upper bounds from the CSV.
+
 ## Zonal Export/Plot Fixture Feasibility (2026-09-18)
 
 - `tests/test_zonal_results_export_plotting.py` has a test-local copied zonal fixture that intentionally removes every optional A1 asset while retaining A1 demand and the A1/A2 line.
