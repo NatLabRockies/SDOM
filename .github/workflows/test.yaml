@@ -68,5 +68,5 @@ jobs:
         continue-on-error: false
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'windows-latest' && matrix.python-version == '3.11'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         uses: codecov/codecov-action@v5
