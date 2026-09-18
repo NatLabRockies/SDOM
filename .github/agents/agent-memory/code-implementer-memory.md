@@ -4,6 +4,18 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Export/Plot Fixture Feasibility (2026-09-18)
+
+- `tests/test_zonal_results_export_plotting.py` has a test-local copied zonal fixture that intentionally removes every optional A1 asset while retaining A1 demand and the A1/A2 line.
+- Retained A2 thermal rows initially have `MinCapacity == MaxCapacity`, so their thermal expansion allowance is zero. In the helper, setting all retained A2 `MaxCapacity` values to `100_000.0` provides sufficient expansion capacity without adding A1 assets or changing installed minimum capacity.
+- Both `LineCap_FT.csv` and `LineCap_TF.csv` must be scaled in the copied fixture (to `100_000.0`) so A2 can transfer its expanded dispatch to demand-only A1. `uv run pytest tests/test_zonal_results_export_plotting.py -v` passes with these fixture-only changes.
+
+## Zonal Summary Adapter for Export and Standard Plots (#85, 2026-09-18)
+
+- `_collect_results_zonal` now builds `OptimizationResults.summary_df` from its already-aggregated system dictionaries after per-area collection. This preserves the legacy four-column summary schema (`Metric`, `Technology`, `Run`, `Optimal Value`, `Unit`) without probing flat model components that do not exist under zonal Blocks.
+- The adapter provides capacity, storage capacity, generation, demand, CAPEX/OPEX, and VRE-curtailment rows. Existing `export_results`, `plot_results`, and `plot_parametric_results` consume this schema unchanged, so no public API signatures changed.
+- `tests/test_zonal_results_export_plotting.py` uses a test-local copied `Data/zonal_test` fixture that strips all optional assets from `A1`, leaving demand and transmission. It bounds solves to 24 hours and `n_cores=1` for the parametric two-value `GenMix_Target` sweep; it verifies per-case summary CSVs, donut images, and non-empty sensitivity PNGs.
+
 ## Dependency Upgrade Pre-release Validation (2026-09-18)
 
 - Created `chore/upgrade-dependencies-v0.2.6` from clean `origin/main` at `dcedae2`; project version remains `0.2.5`.
@@ -787,3 +799,15 @@ Replaced `src/sdom/infrasys_integration/results.py` with a responsibility-based 
 ### Validation
 - `uv run pytest tests/test_hydro_budget_feasibility.py tests/test_zonal_model_build.py -v` passed.
 - `uv run ruff check src/sdom/optimization_main.py tests/test_hydro_budget_feasibility.py tests/test_zonal_model_build.py` still reports 38 pre-existing violations in `optimization_main.py`; the touched tests are clean.
+
+---
+
+## Zonal Empty Optional-Technology Partitions (#85, 2026-09-18)
+
+### Decision
+- Declared zonal areas may have demand and transmission endpoints while being absent from every optional technology partition. `_build_per_area_data_slice` now substitutes schema-preserving empty thermal/storage data and zero-valued hydro, nuclear, and other-renewable profiles using the shared time axis.
+- VRE already follows this pattern through empty capacity tables and time-axis-only capacity-factor frames. Thermal additionally requires `add_thermal_variables` to treat the one-unit capacity-bound branch as exactly one unit; applying it to an empty set attempted `plants_set[1]`.
+
+### Validation
+- `uv run pytest tests/test_zonal_model_build.py -k without_optional_assets -v`: passed (1 passed).
+- `uv run pytest tests/test_zonal_model_build.py -v`: passed (13 tests, 0 failures).

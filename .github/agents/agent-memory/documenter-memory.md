@@ -9,6 +9,8 @@ This file stores learnings, patterns, and decisions from documentation tasks.
 ### Established Conventions
 *Documentation style choices made for SDOM*
 
+- Document zonal input optionality as a user-facing convention in `docs/source/user_guide/zonal_inputs.md`; describe the accepted CSV omission pattern and resulting model behavior without naming private normalization helpers.
+
 ### Exceptions
 *Cases where standard conventions don't apply*
 

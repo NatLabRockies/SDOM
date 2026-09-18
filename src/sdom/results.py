@@ -316,10 +316,9 @@ def collect_results_from_model(model, solver_result, case_name: str = "run") -> 
 
     Notes
     -----
-    Top-level ``summary_df`` is **left empty under the zonal path**; per-area
-    summaries are populated in :attr:`OptimizationResults.area_summary_df`
-    instead. A system-level zonal summary is a follow-up. CSV emission of
-    ``interregional_exchanges_df`` is also a follow-up (commit #11).
+    Under the zonal path, ``summary_df`` contains system-level aggregates and
+    :attr:`OptimizationResults.area_summary_df` contains per-area summaries.
+    ``interregional_exchanges_df`` is available for zonal CSV export.
     """
     is_zonal = hasattr(model, "A") and hasattr(model, "area")
     if is_zonal:
@@ -824,6 +823,133 @@ def _build_summary_dataframe(model, results: OptimizationResults, storage_tech_l
     summary_results = concatenate_dataframes(summary_results, vre_curt_pct, run=1, unit="%", metric="VRE curtailment percentage")
 
     return summary_results
+
+
+def _build_zonal_summary_dataframe(
+    results: OptimizationResults,
+    storage_tech_list: list,
+) -> pd.DataFrame:
+    """Build a system-level summary from zonal aggregate result dictionaries.
+
+    Parameters
+    ----------
+    results : OptimizationResults
+        Zonal results with system-level aggregate dictionaries populated.
+    storage_tech_list : list
+        Storage technologies present in one or more areas.
+
+    Returns
+    -------
+    pd.DataFrame
+        Summary rows matching the legacy summary schema used by CSV export and
+        standard plotting functions.
+    """
+    from .common.utilities import concatenate_dataframes
+
+    total_cost = pd.DataFrame.from_dict(
+        {"Total cost": [None, 1, results.total_cost, "$US"]},
+        orient="index",
+        columns=["Technology", "Run", "Optimal Value", "Unit"],
+    ).reset_index(names="Metric")
+
+    def append(metric: str, values: dict, unit: str) -> None:
+        nonlocal total_cost
+        total_cost = concatenate_dataframes(
+            total_cost, values, run=1, unit=unit, metric=metric
+        )
+
+    storage_capacity = results.storage_capacity
+    cost_breakdown = results.cost_breakdown
+    append("Capacity", results.capacity, "MW")
+    append("Charge power capacity", storage_capacity["charge"], "MW")
+    append("Discharge power capacity", storage_capacity["discharge"], "MW")
+    append(
+        "Average power capacity",
+        {
+            tech: (
+                storage_capacity["charge"].get(tech, 0.0)
+                + storage_capacity["discharge"].get(tech, 0.0)
+            )
+            / 2
+            for tech in storage_tech_list
+        }
+        | {
+            "All": sum(
+                (
+                    storage_capacity["charge"].get(tech, 0.0)
+                    + storage_capacity["discharge"].get(tech, 0.0)
+                )
+                / 2
+                for tech in storage_tech_list
+            )
+        },
+        "MW",
+    )
+    append("Energy capacity", storage_capacity["energy"], "MWh")
+    append("Total generation", results.generation_totals, "MWh")
+
+    generation_df = results.generation_df
+    total_demand = pd.to_numeric(
+        generation_df.get("Load (MW)", pd.Series(dtype=float)), errors="coerce"
+    ).sum()
+    append("Total demand", {"demand": total_demand}, "MWh")
+
+    append("CAPEX", cost_breakdown["capex"], "$US")
+    append("Power-CAPEX", cost_breakdown["power_capex"], "$US")
+    append("Energy-CAPEX", cost_breakdown["energy_capex"], "$US")
+    append(
+        "Total-CAPEX",
+        {
+            tech: cost_breakdown["power_capex"].get(tech, 0.0)
+            + cost_breakdown["energy_capex"].get(tech, 0.0)
+            for tech in storage_tech_list
+        }
+        | {
+            "All": sum(
+                cost_breakdown["power_capex"].get(tech, 0.0)
+                + cost_breakdown["energy_capex"].get(tech, 0.0)
+                for tech in storage_tech_list
+            )
+        },
+        "$US",
+    )
+    opex = {
+        tech: cost_breakdown["fom"].get(tech, 0.0)
+        + cost_breakdown["vom"].get(tech, 0.0)
+        for tech in ("Thermal", "Solar PV", "Wind", *storage_tech_list)
+    }
+    opex["All"] = sum(opex.values())
+    append("OPEX", opex, "$US")
+
+    pv_curtailment = pd.to_numeric(
+        generation_df.get("Solar PV Curtailment (MW)", pd.Series(dtype=float)),
+        errors="coerce",
+    ).sum()
+    wind_curtailment = pd.to_numeric(
+        generation_df.get("Wind Curtailment (MW)", pd.Series(dtype=float)),
+        errors="coerce",
+    ).sum()
+    pv_generation = pd.to_numeric(
+        generation_df.get("Solar PV Generation (MW)", pd.Series(dtype=float)),
+        errors="coerce",
+    ).sum()
+    wind_generation = pd.to_numeric(
+        generation_df.get("Wind Generation (MW)", pd.Series(dtype=float)),
+        errors="coerce",
+    ).sum()
+    total_curtailment = pv_curtailment + wind_curtailment
+    total_vre = total_curtailment + pv_generation + wind_generation
+    append(
+        "Total VRE curtailment",
+        {"Solar PV": pv_curtailment, "Wind": wind_curtailment, "All": total_curtailment},
+        "MWh",
+    )
+    append(
+        "VRE curtailment percentage",
+        {"All": total_curtailment / total_vre * 100 if total_vre > 0 else 0.0},
+        "%",
+    )
+    return total_cost
 
 
 # ---------------------------------------------------------------------------------
@@ -1372,12 +1498,11 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     system-level rollups, and constructs the
     :attr:`OptimizationResults.interregional_exchanges_df` per PRD §2.4.
 
-    Top-level :attr:`OptimizationResults.summary_df` is **left empty**: the
-    legacy :func:`_build_summary_dataframe` is keyed off ``model.storage`` /
-    ``model.demand`` / etc. which under the zonal path live on per-area
-    sub-blocks. Per-area summaries are built and attached to
-    :attr:`OptimizationResults.area_summary_df` instead. A system-level
-    zonal summary is a follow-up.
+    Per-area summaries are attached to
+    :attr:`OptimizationResults.area_summary_df`. A system-level
+    :attr:`OptimizationResults.summary_df` is built from the aggregate result
+    dictionaries so the standard CSV export and plotting APIs work for zonal
+    results as well.
 
     Parameters mirror :func:`collect_results_from_model`.
     """
@@ -1424,9 +1549,11 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     storage_pieces = []
     thermal_pieces = []
     plants_pieces = []
+    storage_tech_set = set()
     for a in results.areas:
         host = model.area[a]
         bundle = _collect_host_metrics(host, hours, case_name=case_name)
+        storage_tech_set.update(bundle["storage_tech_list"])
 
         results.area_capacity[a] = bundle["capacity"]
         results.area_storage_capacity[a] = bundle["storage_capacity"]
@@ -1516,15 +1643,16 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     results.storage_capacity = storage_capacity_sys
     results.generation_totals = generation_totals_sys
     results.cost_breakdown = cost_breakdown_sys
+    results.summary_df = _build_zonal_summary_dataframe(
+        results, sorted(storage_tech_set)
+    )
 
     # Interregional exchanges (PRD §2.4) -----------------------------------
     results.interregional_exchanges_df = _build_interregional_exchanges_df(model)
 
-    # Top-level summary intentionally left empty under the zonal path; see
-    # the function docstring. CSV writers guard with ``if not df.empty``.
     logging.info(
-        "Zonal results collected: %d areas, %d lines, summary_df left empty "
-        "(see area_summary_df for per-area summaries).",
+        "Zonal results collected: %d areas, %d lines, including a system-level "
+        "summary_df.",
         len(results.areas),
         len(results.lines),
     )

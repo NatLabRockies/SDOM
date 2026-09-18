@@ -15,6 +15,18 @@ This file stores learnings, patterns, and context from orchestrator operations.
 **Outcome**: Zonal tagged source and normalized per-area time series now scale together. Reconstructed zonal per-case summaries aggregate per-area metrics before legacy parametric plotting, including a correctly recomputed VRE curtailment percentage.
 **Validation**: `uv run pytest tests/infrasys_integration/test_system_parametric.py tests/infrasys_integration/test_plotting.py -q` — 18 passed.
 
+### 2026-09-18: Issue #85 optional zonal assets
+**Task**: Permit zonal areas with demand/transmission but no optional technology assets.
+**Routing**: code-implementer followed by documenter.
+**Outcome**: The zonal per-area slice now normalizes absent optional partitions to empty schemas or zero fixed-generation profiles. Thermal generation correctly handles an empty plant set. The zonal input guide documents this contract.
+**Validation**: `uv run pytest tests/test_zonal_model_build.py -v` — 13 passed.
+
+### 2026-09-18: Issue #85 zonal outputs and plots
+**Task**: Validate results export and standard/parametric plots for asset-free zonal areas.
+**Routing**: code-implementer.
+**Outcome**: Zonal result collection now builds the system-level `summary_df` consumed by standard CSV export, `plot_results`, and `plot_parametric_results`. Coverage uses an asset-free, transfer-supplied A1 with adequate temporary A2 generation and line capacity.
+**Validation**: `uv run pytest tests/test_zonal_results_export_plotting.py -v` and existing zonal output suites.
+
 ### 2026-04-21: Xpress Solver Integration
 **Task**: Add Xpress commercial solver support to SDOM
 **Routing**: code-implementer (primary) → documenter (docs update)

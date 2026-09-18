@@ -17,6 +17,7 @@ Use this together with [Inputs](inputs.md).
 - `area_id` values must be consistent across files.
 - In row-oriented files (`CapSolar.csv`, `CapWind.csv`, `Data_BalancingUnits.csv`), IDs must be globally unique across areas.
 - `StorageData.csv` allows repeated technology names across areas because headers are tagged (for example `Li-Ion@A1@`, `Li-Ion@A2@`).
+- An area with demand and transmission connections may omit all optional technology inputs. Omit its rows from `CapSolar.csv`, `CapWind.csv`, and `Data_BalancingUnits.csv`, and omit its tagged columns from `StorageData.csv`, `lahy_hourly.csv`, `Nucl_hourly.csv`, and `otre_hourly.csv`. SDOM treats the missing technologies as empty sets and missing fixed-generation profiles as zero, so the area can be supplied through inter-area transfers.
 
 ## Network Selector
 

@@ -12,6 +12,7 @@ solver via the raw Pyomo solver factory.
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import shutil
 
@@ -241,6 +242,74 @@ def test_zonal_model_accepts_declared_area_without_vre_capacity_rows(
     model = initialize_model(data, n_hours=24)
     assert list(getattr(model.area["A1"], technology).plants_set) == []
     assert list(getattr(model.area["A2"], technology).plants_set)
+
+
+def test_zonal_model_accepts_declared_area_without_optional_assets(tmp_path, caplog):
+    """An area with demand and a line may omit every optional technology."""
+    fixture_path = _copy_zonal_fixture(tmp_path)
+    for capacity_file in (
+        "Data_BalancingUnits.csv",
+        "CapSolar.csv",
+        "CapWind.csv",
+    ):
+        capacity_path = os.path.join(fixture_path, capacity_file)
+        capacity = pd.read_csv(capacity_path)
+        capacity[capacity["area_id"] != "A1"].to_csv(capacity_path, index=False)
+    for time_series_file in (
+        "lahy_hourly.csv",
+        "Nucl_hourly.csv",
+        "otre_hourly.csv",
+        "StorageData.csv",
+    ):
+        time_series_path = os.path.join(fixture_path, time_series_file)
+        time_series = pd.read_csv(time_series_path)
+        time_series.loc[:, ~time_series.columns.str.endswith("@A1@")].to_csv(
+            time_series_path, index=False
+        )
+
+    data = load_data(fixture_path)
+
+    assert "A1" not in data["per_area_balancing_units"]
+    assert "A1" in data["per_area_demand"]
+    assert any(
+        line["from_area"] == "A1" or line["to_area"] == "A1"
+        for line in data["lines"]
+    )
+
+    with caplog.at_level(logging.WARNING):
+        model = initialize_model(data, n_hours=24)
+    assert list(model.area["A1"].thermal.plants_set) == []
+    assert list(model.area["A1"].storage.j) == []
+    assert list(model.area["A1"].pv.plants_set) == []
+    assert list(model.area["A1"].wind.plants_set) == []
+    assert pyo.value(model.area["A1"].hydro.ts_parameter[1]) == 0
+    assert pyo.value(model.area["A1"].nuclear.ts_parameter[1]) == 0
+    assert pyo.value(model.area["A1"].other_renewables.ts_parameter[1]) == 0
+    assert len(model.area["A1"].SupplyBalance) == 24
+    assert not any(
+        "thermal" in record.getMessage().lower()
+        and "capacity" in record.getMessage().lower()
+        for record in caplog.records
+    )
+
+
+def test_zonal_model_honors_single_thermal_unit_input_capacity_bounds(tmp_path):
+    """A single thermal unit retains its input MinCapacity and MaxCapacity."""
+    fixture_path = _copy_zonal_fixture(tmp_path)
+    thermal_path = os.path.join(fixture_path, "Data_BalancingUnits.csv")
+    thermal = pd.read_csv(thermal_path)
+    thermal = thermal[thermal["Plant_id"] != "83_Coal"]
+    thermal.to_csv(thermal_path, index=False)
+
+    data = load_data(fixture_path)
+    model = initialize_model(data, n_hours=24)
+
+    thermal_block = model.area["A1"].thermal
+    assert list(thermal_block.plants_set) == ["83_GAS"]
+    unit = thermal_block.plants_set.first()
+    capacity = thermal_block.plant_installed_capacity[unit]
+    assert capacity.lb == pyo.value(thermal_block.data["MinCapacity", unit])
+    assert capacity.ub == pyo.value(thermal_block.data["MaxCapacity", unit])
 
 
 # ---------------------------------------------------------------------------

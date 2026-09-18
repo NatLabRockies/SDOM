@@ -379,6 +379,13 @@ def _initialize_model_copperplate(data, *, n_hours=8760, with_resilience_constra
 # ---------------------------------------------------------------------------------
 # Zonal (AreaTransportationModelNetwork) model initialization
 # ---------------------------------------------------------------------------------
+def _zero_optional_time_series(data, *, data_key, column_name):
+    """Return a zero-valued optional-technology profile with the source time axis."""
+    time_series = data[data_key].iloc[:, :1].copy()
+    time_series[column_name] = 0.0
+    return time_series
+
+
 def _build_per_area_data_slice(data, area_id):
     """Build a legacy-shaped ``data`` dict scoped to a single area.
 
@@ -416,6 +423,27 @@ def _build_per_area_data_slice(data, area_id):
     nuclear = data["per_area_nuclear"].get(area_id)
     other = data["per_area_other_renewables"].get(area_id)
     hydro = data["per_area_hydro"].get(area_id)
+
+    # Optional technologies may be absent from a declared area. Preserve the
+    # expected input schemas so the shared legacy builders create empty sets.
+    if storage is None:
+        storage = data["storage_data"].iloc[:, :0].copy()
+    if bal is None:
+        bal = data["thermal_data"].iloc[0:0].copy()
+    if nuclear is None:
+        nuclear = _zero_optional_time_series(
+            data, data_key="nuclear_data", column_name="Nuclear"
+        )
+    if other is None:
+        other = _zero_optional_time_series(
+            data,
+            data_key="other_renewables_data",
+            column_name="OtherRenewables",
+        )
+    if hydro is None:
+        hydro = _zero_optional_time_series(
+            data, data_key="large_hydro_data", column_name="LargeHydro"
+        )
     hydro_max = None
     hydro_min = None
     if hydro is not None:
