@@ -13,7 +13,7 @@ At its core, SDOM models the gap between electricity demand and fixed generation
 - **Variable Renewable Energy (VRE)**: Solar PV and wind capacity deployment
 - **Energy Storage**: Multiple storage technologies (Li-Ion, CAES, PHS, H2, etc)
 - **Thermal Generation**: Balancing thermal units capacity deployment
-- **Fixed Generation**: Nuclear, hydropower, biomass, geothermal, and other fixed-profile resources
+- **Fixed Generation**: Nuclear, hydropower, biomass, geothermal, and other fixed-profile resources. Hydropower can be configured as a fixed profile or operated flexibly with hydro-budget formulations.
 - **Grid Exchange**: Optional import and export capacity and price inputs
 - **System Operation**: Hourly dispatch over 8760 hours (1 year)
 
@@ -31,7 +31,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
 ### Input Data
 
 - Load profiles (hourly demand)
-- Fixed generation profiles (nuclear, hydro, biomass, geothermal, and other fixed-profile resources)
+- Fixed generation profiles (nuclear, hydro, biomass, geothermal, and other fixed-profile resources). Hydropower can use flexible daily- or monthly-budget formulations.
 - VRE capacity factors and cost data
 - Storage technology characteristics
 - Thermal generator parameters

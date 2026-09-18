@@ -31,7 +31,7 @@ SDOM estimates technology portfolios required to meet a specified carbon-free ge
 
 Inputs include time series data for:
 - Load profiles
-- Fixed generation (e.g., hydropower, nuclear, biomass, and geothermal)
+- Fixed generation (e.g., hydropower, nuclear, biomass, and geothermal). Hydropower can be configured as a fixed profile or operated flexibly with hydro-budget formulations.
 - Optional grid-import and grid-export capacity and price data
 
 Outputs include:
@@ -58,7 +58,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
 
 - **Copper Plate Modeling:** SDOM Model neglects transmission constraints to keep the model tractable from the computational standpoint. Future SDOM releases should include inter-regional transmission constraints.
 
-- **Fixed Generation Profiles:** Nuclear, hydropower, and other fixed-generation resources (e.g., biomass and geothermal) are represented with time-series inputs. Hydropower supports run-of-river, monthly-budget, and daily-budget formulations.
+- **Fixed Generation Profiles:** Nuclear, hydropower, and other fixed-generation resources (e.g., biomass and geothermal) are represented with time-series inputs. Hydropower is configurable as run-of-river or as flexible daily- and monthly-budget operations through the hydro-budget formulations.
 
 - **System Optimization Objective:** Minimizes total system cost, including capital, fixed/variable O&M, and fuel costs. Enabled import/export formulations can add grid-exchange energy costs; the demand-charge formulation adds applicable demand charges. The model satisfies user-defined carbon-free or renewable energy targets.
 
