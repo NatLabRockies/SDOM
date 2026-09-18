@@ -174,4 +174,4 @@ print(f"Binary Variables: {problem_info['Number of binary variables']}")
 Collector dispatch behavior:
 
 - `collect_results_from_model(...)` uses the zonal collector when both `model.A` and `model.area` exist.
-- In zonal mode, `summary_df` is intentionally left empty and replaced by `area_summary_df`.
+- In zonal mode, `summary_df` contains aggregate system-level metrics and `area_summary_df` contains per-area summary DataFrames.

@@ -2,9 +2,66 @@
 
 This guide covers how to run SDOM optimizations and the outputs/results it provides.
 
+```{important}
+For new work, use the [Infrasys System interface](infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts, including the legacy example below.
+```
+
 ## Running an Optimization
 
-### Basic Workflow
+### System-first interface
+
+Install the optional integration dependencies before using this interface:
+
+```bash
+uv pip install "sdom[infrasys]"
+```
+
+The following copperplate example loads a scenario into an Infrasys `System`,
+builds its Pyomo model, solves it, and attaches the results to the System for
+querying and plotting. See [Infrasys System workflows](infrasys_integration.md)
+for the zonal and parametric variants.
+
+```python
+from sdom import get_default_solver_config_dict, run_solver
+from sdom.infrasys_integration import add_results_to_system, plot_system_results
+from sdom.infrasys_integration.make_system import load_system
+from sdom.infrasys_integration.pyomo_builder import (
+    initialize_copperplate_model_from_system,
+)
+
+system = load_system("Data/no_exchange_run_of_river", name="copperplate")
+model = initialize_copperplate_model_from_system(system, n_hours=24).create_instance()
+solver_config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+results = run_solver(model, solver_config, case_name="copperplate")
+
+if results.is_optimal:
+    add_results_to_system(system, results, run_id="copperplate-24h")
+    plot_system_results(
+        system,
+        run_id="copperplate-24h",
+        output_dir="results/copperplate",
+    )
+else:
+    print(f"Optimization failed: {results.termination_condition}")
+```
+
+```mermaid
+flowchart TD
+    Csv[Scenario CSV files] --> System[Load Infrasys System]
+    System --> Model[Build Pyomo model]
+    Model --> Config[Configure solver]
+    Config --> Solve[Run solver]
+    Solve --> Optimal{Optimal solution}
+    Optimal -->|yes| Attach[Attach results to System]
+    Attach --> Plot[Query and plot results]
+    Optimal -->|no| Diagnose[Inspect termination condition]
+```
+
+### Legacy interface
+
+This dict-based `load_data` and `initialize_model` workflow remains available
+in SDOM v0.2.7 for existing scripts. It is deprecated beginning with v0.3.0;
+use the System-first interface above for new work.
 
 ```python
 from sdom import (
@@ -56,6 +113,17 @@ if results.is_optimal:
     summary_df = results.summary_df
 else:
     print(f"Optimization failed: {results.termination_condition}")
+```
+
+```mermaid
+flowchart TD
+    Inputs[Load scenario data] --> Model[Build Pyomo model]
+    Model --> Config[Configure solver]
+    Config --> Solve[Run solver]
+    Solve --> Optimal{Optimal solution}
+    Optimal -->|yes| Results[Access results]
+    Results --> Outputs[Export tables and plots]
+    Optimal -->|no| Diagnose[Inspect termination condition]
 ```
 
 ```{tip}
@@ -177,7 +245,9 @@ When using `Network=AreaTransportationModelNetwork`, `run_solver` populates zona
 - `results.area_generation_df`, `results.area_storage_df`, `results.area_thermal_generation_df`, `results.area_installed_plants_df`, `results.area_summary_df`
 - `results.interregional_exchanges_df`
 
-`results.summary_df` is intentionally empty in the zonal path; use `results.area_summary_df` for per-area summary tables.
+`results.summary_df` remains available in zonal runs for aggregate system-level
+summary tables, exports, and plots. Use `results.area_summary_df` for
+per-area summary tables.
 
 ## Troubleshooting
 ### Solver Performance

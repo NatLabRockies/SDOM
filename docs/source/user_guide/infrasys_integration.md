@@ -113,21 +113,30 @@ data source, rather than optimization output.
 
 ## Compatibility policy
 
-System APIs are opt-in adapters. Existing `load_data`, `initialize_model`,
-`run_solver`, and legacy `ParametricStudy` dict/CSV workflows remain supported
-and retain their public API compatibility. Choose a System workflow when typed
-infrasys components, persistence, or System-attached results are useful; it is
-not a required migration for existing scripts.
+In SDOM v0.2.7, the System APIs are opt-in adapters and existing `load_data`,
+`initialize_model`, `run_solver`, and legacy `ParametricStudy` dict/CSV
+workflows remain supported. This is a planned migration notice: beginning with
+SDOM v0.3.0, the System/Infrasys interface becomes the primary supported
+interface and the dict-based `load_data`/`initialize_model` workflow is
+deprecated. New scripts should use the System workflows below; this notice does
+not change the runtime behavior of the current v0.2.7 release.
 
 ```mermaid
 flowchart TD
-    Start[Choose an SDOM workflow] --> Legacy[Keep dict and CSV APIs]
-    Start --> System[Adopt optional System adapters]
-    Legacy --> Existing[load_data to initialize_model to run_solver]
+    Start[Choose an SDOM workflow] --> System[Use System workflow]
+    Start --> Legacy[Maintain legacy script]
     System --> Adapted[load_system to builder to run_solver]
+    Legacy --> Existing[load_data to initialize_model to run_solver]
 ```
 
-## Copperplate flow
+## First workflow
+
+Choose the copperplate example for a single-area scenario and the zonal
+example when the scenario defines areas and a network. Both are runnable
+24-hour System-first workflows; install the optional integration dependencies
+with `uv pip install "sdom[infrasys]"` before running them.
+
+## Copperplate workflow
 
 Load a single-area CSV scenario directly into a System, create the
 copperplate builder, instantiate it once, solve, and attach the returned
@@ -168,7 +177,7 @@ plot_system_results(system, run_id="copperplate-24h", output_dir="results/copper
 supplemental attributes; `attributes` contains the corresponding typed result
 attributes. Use a distinct `run_id` for each result set retained on a System.
 
-## Zonal flow
+## Zonal workflow
 
 Use `initialize_model_from_system` for data whose network formulation and
 areas define the model, including the repository's `Data/zonal_test` example.
