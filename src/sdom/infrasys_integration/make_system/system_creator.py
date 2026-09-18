@@ -474,6 +474,7 @@ def _add_profile_generators(system: System, data: Mapping[str, Any], buses: Mapp
     >>> system.get_component(SDOMNuclearGenerator, "nuclear:A").max_active_power
     6.0
     """
+    hydro_budget_period = _hydro_budget_period(data)
     specs = [
         ("per_area_hydro", SDOMHydroGenerator, "hydro", "Hydro", SDOMTechnologyType.HYDRO.value),
         ("per_area_nuclear", SDOMNuclearGenerator, "nuclear", "Nuclear", SDOMTechnologyType.NUCLEAR.value),
@@ -487,16 +488,52 @@ def _add_profile_generators(system: System, data: Mapping[str, Any], buses: Mapp
     ]
     for data_key, component_type, name_prefix, label, category in specs:
         for area_id, frame in _iter_area_frames(data.get(data_key)):
-            generator = component_type(
-                name=f"{name_prefix}:{area_id}",
-                bus=buses[area_id],
-                category=category,
-                technology=label,
-                max_active_power=_peak_from_frame(frame),
-            )
+            generator_kwargs: dict[str, Any] = {
+                "name": f"{name_prefix}:{area_id}",
+                "bus": buses[area_id],
+                "category": category,
+                "technology": label,
+                "max_active_power": _peak_from_frame(frame),
+            }
+            if component_type is SDOMHydroGenerator:
+                generator_kwargs["budget_period"] = hydro_budget_period
+            generator = component_type(**generator_kwargs)
             system.add_component(generator)
             _attach_bus_geographic_info(system, generator, buses[area_id])
             _attach_first_numeric_series(system, generator, frame, name="active_power", source_key=data_key)
+
+
+def _hydro_budget_period(data: Mapping[str, Any]) -> str | None:
+    """Return the typed budget period selected by the hydro formulation.
+
+    Parameters
+    ----------
+    data : mapping of str to Any
+        SDOM data dictionary containing the optional formulations table.
+
+    Returns
+    -------
+    str or None
+        ``"daily"`` or ``"monthly"`` for budget formulations, otherwise
+        ``None``.
+    """
+    formulations = data.get("formulations")
+    if not isinstance(formulations, pd.DataFrame):
+        return None
+    required_columns = {"Component", "Formulation"}
+    if not required_columns.issubset(formulations.columns):
+        return None
+
+    hydro_formulations = formulations.loc[
+        formulations["Component"].astype(str).str.casefold() == "hydro",
+        "Formulation",
+    ]
+    if hydro_formulations.empty:
+        return None
+    return {
+        "DailyBudgetFormulation": "daily",
+        "MonthlyBudgetFormulation": "monthly",
+    }.get(str(hydro_formulations.iloc[0]))
 
 
 def _add_storage(system: System, data: Mapping[str, Any], buses: Mapping[str, SDOMBus]) -> None:

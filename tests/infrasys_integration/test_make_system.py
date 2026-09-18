@@ -21,6 +21,7 @@ from sdom.infrasys_integration.models import (  # noqa: E402
     GeographicInfo,
     SDOMArea,
     SDOMBus,
+    SDOMHydroGenerator,
     SDOMLoad,
     SDOMScalarParameter,
     SDOMSolarGenerator,
@@ -86,6 +87,24 @@ def test_time_series_are_discoverable_on_components():
     assert system.has_time_series(solar, name="capacity_factor")
     assert list(system.list_time_series_keys(load))
     assert list(system.list_time_series_metadata(solar))
+
+
+@pytest.mark.parametrize(
+    ("data_path", "expected_budget_period"),
+    [
+        ("Data/no_exchange_run_of_river", None),
+        ("Data/no_exchange_hydro_daily_budget_multiple_balancing_p95", "daily"),
+        ("Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50", "monthly"),
+    ],
+)
+def test_hydro_generators_expose_budget_period_from_formulation(data_path, expected_budget_period):
+    """Hydro components should retain the selected budget formulation metadata."""
+    system = load_system(data_path)
+
+    hydro_generators = list(system.get_components(SDOMHydroGenerator))
+
+    assert hydro_generators
+    assert {generator.budget_period for generator in hydro_generators} == {expected_budget_period}
 
 
 def test_geographic_supplemental_attributes_are_attached_to_generators_and_buses():

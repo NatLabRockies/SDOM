@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -17,6 +18,8 @@ from utils_tests import (
     check_budget_constraint,
     check_hydro_budget_matches_csv,
     check_supply_balance_constraint,
+    get_n_eq_ineq_constraints,
+    get_optimization_problem_solution_info,
 )
 
 from sdom import get_default_solver_config_dict, initialize_model, load_data, run_solver
@@ -112,6 +115,66 @@ def _assert_zonal_results_match(system_results, direct_results) -> None:
         assert system_frames.keys() == direct_frames.keys()
         for area_id, system_frame in system_frames.items():
             _assert_frame_results_equal(system_frame, direct_frames[area_id])
+
+
+@pytest.mark.parametrize(
+    ("data_path", "n_hours", "expected_counts"),
+    [
+        ("Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, {"equality": 5113, "inequality": 25571}),
+        ("Data/no_exchange_hydro_daily_budget_multiple_balancing_p95", 168, {"equality": 1185, "inequality": 5901}),
+    ],
+)
+def test_hydro_budget_system_path_matches_legacy_constraint_counts(data_path, n_hours, expected_counts):
+    """System-built hydro budget models should preserve legacy constraint counts."""
+    system = load_system(data_path)
+
+    instance = initialize_model_from_system(system, n_hours=n_hours).create_instance()
+
+    assert get_n_eq_ineq_constraints(instance) == expected_counts
+
+
+@pytest.mark.skipif(not _highs_available(), reason="appsi_highs solver is not available")
+@pytest.mark.parametrize(
+    ("data_path", "n_hours", "budget_hours", "expected_cost", "expected_budget_periods"),
+    [
+        ("Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, 730, 441627.4738187364, 1),
+        ("Data/no_exchange_hydro_daily_budget_multiple_balancing_p95", 168, 24, 578101.3, 7),
+    ],
+)
+def test_hydro_budget_system_path_matches_legacy_solution_assertions(
+    data_path,
+    n_hours,
+    budget_hours,
+    expected_cost,
+    expected_budget_periods,
+):
+    """System-built hydro budget models should satisfy legacy solution invariants."""
+    system = load_system(data_path)
+    instance = initialize_model_from_system(system, n_hours=n_hours).create_instance()
+    results = run_solver(instance, _highs_solver_config(), case_name="system_hydro_budget")
+
+    solution = get_optimization_problem_solution_info(results)
+    assert solution["Termination condition"] == "optimal"
+    assert solution["Total_Cost"] == pytest.approx(expected_cost, abs=10)
+    assert solution["Total_CapWind"] == pytest.approx(0.0, abs=1)
+    assert solution["Total_CapPV"] == pytest.approx(0.0, abs=0.001)
+    for technology in ("Li-Ion", "CAES", "PHS", "H2"):
+        assert solution[f"Total_CapScha_{technology}"] == pytest.approx(0.0, abs=1)
+
+    supply_balance = check_supply_balance_constraint(results)
+    assert supply_balance["is_satisfied"], supply_balance["violations"]
+    assert not supply_balance["has_imports"]
+    assert not supply_balance["has_exports"]
+
+    budget = check_budget_constraint(instance, block_name="hydro")
+    assert budget["is_satisfied"], budget["violations"]
+    assert budget["n_budget_periods"] == expected_budget_periods
+    if budget_hours == 24:
+        assert budget["budget_scalar"] == 24
+
+    csv_budget = check_hydro_budget_matches_csv(results, Path(data_path), budget_hours=budget_hours)
+    assert csv_budget["is_satisfied"], csv_budget["violations"]
+    assert csv_budget["n_budget_periods"] == expected_budget_periods
 
 
 def test_initialize_model_from_system_returns_abstract_model_builder():
