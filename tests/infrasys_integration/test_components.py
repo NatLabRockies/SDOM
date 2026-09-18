@@ -6,10 +6,11 @@ import importlib
 from typing import get_args, get_type_hints
 
 import pytest
-from r2x_core.units import Unit
 
 infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
+
+from r2x_core.units import Unit  # noqa: E402
 
 from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMArea,
