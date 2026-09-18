@@ -77,15 +77,16 @@ _EXPECTED_SENSITIVITY_PLOTS = [
 # ---------------------------------------------------------------------------
 # Reference numeric values (generated from the golden results stored under
 # Data/no_exchange_run_of_river/results).
-# Tolerance: 2 % relative for cost and most capacities.
+# Tolerance: 2 % relative for cost and thermal capacity.
 # ---------------------------------------------------------------------------
 _TOLERANCE = 0.02  # 2 %
 # Solar PV capacity is widened to 12 % because solar and storage are near-perfect
 # substitutes in some parametric cases, producing LP alternate optima: the same
 # objective value is reached at different solar/storage splits depending on the
-# solver's vertex choice (observed cross-OS drift up to ~9 %). Cost, thermal,
-# and wind capacity remain stable across solvers/OSes.
+# solver's vertex choice (observed cross-OS drift up to ~9 %). The highest-load,
+# 100 % generation-mix case also shows up to ~2.1 % wind-capacity drift on macOS.
 _TOLERANCE_SOLAR = 0.12
+_TOLERANCE_WIND = 0.03
 
 # key = case_name, value = {metric: expected_value}
 _REFERENCE = {
@@ -366,7 +367,7 @@ class TestPlotFiles:
 
 
 class TestNumericResults:
-    """Validate key per-case numeric values against reference at ≤2 % tolerance."""
+    """Validate key per-case numeric values against solver-aware references."""
 
     @pytest.mark.parametrize("case_name", list(_REFERENCE.keys()))
     def test_total_cost(self, parametric_run, case_name):
@@ -415,7 +416,7 @@ class TestNumericResults:
         df = pd.read_csv(csv)
         actual = _get_summary_metric(df, "Capacity", "Wind")
         ref = _REFERENCE[case_name]["wind_cap_MW"]
-        assert _rel(actual, ref) <= _TOLERANCE, (
+        assert _rel(actual, ref) <= _TOLERANCE_WIND, (
             f"[{case_name}] Wind capacity: got {actual:.2f} MW, expected ~{ref:.2f} MW "
             f"(rel diff = {_rel(actual, ref):.2%})"
         )

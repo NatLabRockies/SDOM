@@ -64,5 +64,9 @@ jobs:
 
       - name: ▶️ Run tests
         run: |
-          pytest --ignore=tests/test_docs_build.py --ignore=tests/benchmarks
+          pytest --cov-report=xml --ignore=tests/test_docs_build.py --ignore=tests/benchmarks
         continue-on-error: false
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v5
