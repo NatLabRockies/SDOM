@@ -40,6 +40,7 @@ extensions = [
     'sphinx.ext.intersphinx',       # Link to other project's documentation
     'sphinx.ext.mathjax',           # Render math equations
     'myst_parser',                  # Parse Markdown files
+    'sphinxcontrib.mermaid',        # Render Mermaid diagrams in Markdown pages
 ]
 
 # MyST parser configuration

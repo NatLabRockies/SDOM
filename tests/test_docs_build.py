@@ -108,6 +108,24 @@ def test_myst_parser_imports():
         pytest.skip("myst_parser not installed - install with: uv sync --group docs")
 
 
+def test_infrasys_documentation_is_linked_and_mermaid_is_enabled():
+    """Test that infrasys workflow docs are discoverable and render diagrams."""
+    repo_root = Path(__file__).parent.parent
+    source_dir = repo_root / "docs" / "source"
+    user_guide_path = source_dir / "user_guide" / "infrasys_integration.md"
+    api_path = source_dir / "api" / "infrasys_integration.md"
+    index_text = (source_dir / "index.md").read_text(encoding="utf-8")
+    api_index_text = (source_dir / "api" / "index.md").read_text(encoding="utf-8")
+    conf_text = (source_dir / "conf.py").read_text(encoding="utf-8")
+
+    assert user_guide_path.is_file(), "Infrasys user-guide page not found"
+    assert api_path.is_file(), "Infrasys API page not found"
+    assert "user_guide/infrasys_integration" in index_text
+    assert "infrasys_integration" in api_index_text
+    assert "sphinxcontrib.mermaid" in conf_text
+    assert "```{mermaid}" in user_guide_path.read_text(encoding="utf-8")
+
+
 def test_docs_build_html():
     """Test that documentation builds successfully.
     
