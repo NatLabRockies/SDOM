@@ -9,6 +9,12 @@ This file stores learnings, patterns, and context from orchestrator operations.
 
 ## 📅 Session Log
 
+### 2026-09-17: PR #81 Copilot comments #1 and #4
+**Task**: Fix zonal System time-series sweeps and zonal parametric System plotting.
+**Routing**: code-implementer for comment #1; orchestrator completed comment #4 with focused TDD.
+**Outcome**: Zonal tagged source and normalized per-area time series now scale together. Reconstructed zonal per-case summaries aggregate per-area metrics before legacy parametric plotting, including a correctly recomputed VRE curtailment percentage.
+**Validation**: `uv run pytest tests/infrasys_integration/test_system_parametric.py tests/infrasys_integration/test_plotting.py -q` — 18 passed.
+
 ### 2026-04-21: Xpress Solver Integration
 **Task**: Add Xpress commercial solver support to SDOM
 **Routing**: code-implementer (primary) → documenter (docs update)

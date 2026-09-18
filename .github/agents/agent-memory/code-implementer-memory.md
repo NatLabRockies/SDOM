@@ -740,3 +740,21 @@ Replaced `src/sdom/infrasys_integration/results.py` with a responsibility-based 
 - `uv run pytest tests/infrasys_integration/test_plotting.py -k system_parametric -q`: passed.
 - `uv run pytest tests/infrasys_integration/test_plotting.py -q`: passed.
 - `uv run pytest tests/infrasys_integration -q`: passed.
+
+---
+
+## Zonal Time-Series Parametric Sweeps (2026-09-17)
+
+### Scope
+- `_apply_ts_mutation` now scales both the top-level time-series source and the derived zonal `per_area_*` view used by `_build_per_area_data_slice`.
+- Top-level column selection supports the legacy exact column name and every zonal tagged `<column>@<area>@` column via one vectorized pandas assignment.
+
+### Mapping
+- `load_data` -> `per_area_demand.Load`; `nuclear_data` -> `per_area_nuclear.Nuclear`; `other_renewables_data` -> `per_area_other_renewables.OtherRenewables`.
+- All hydro keys map to the normalized `per_area_hydro` composite: `LargeHydro`, `LargeHydro_Max`, and `LargeHydro_Min`.
+- Import/export capacity and price keys map to their respective combined `per_area_imports` / `per_area_exports` views.
+- The public supported-key set remains `TS_KEY_TO_COLUMN`; no new time-series keys were introduced.
+
+### Validation
+- The initial zonal System helper and worker regression tests failed on the tagged `Load@A1@`/`Load@A2@` source columns; both pass after the mutation change.
+- `uv run pytest tests/test_parametric.py -v`, `uv run pytest tests/infrasys_integration/test_system_parametric.py -v`, and `uv run pytest tests/test_zonal_parametric.py -v` passed.
