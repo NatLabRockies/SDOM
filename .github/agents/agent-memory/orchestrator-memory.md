@@ -4,7 +4,16 @@ This file stores learnings, patterns, and context from orchestrator operations.
 
 ---
 
+- System parametric plotting reconstructs metadata-ordered scenarios from `SDOMScenarioMetadata` and delegates rendering to `plot_parametric_results` through a minimal adapter exposing `case_metadata` and `output_dir`.
+- `add_parametric_results_to_system` records `case_index`, `scenario_id`, `case_name`, and `sweep_values`, which are sufficient for grouping, hue, facet, and chunking behavior.
+
 ## 📅 Session Log
+
+### 2026-09-17: PR #81 Copilot comments #1 and #4
+**Task**: Fix zonal System time-series sweeps and zonal parametric System plotting.
+**Routing**: code-implementer for comment #1; orchestrator completed comment #4 with focused TDD.
+**Outcome**: Zonal tagged source and normalized per-area time series now scale together. Reconstructed zonal per-case summaries aggregate per-area metrics before legacy parametric plotting, including a correctly recomputed VRE curtailment percentage.
+**Validation**: `uv run pytest tests/infrasys_integration/test_system_parametric.py tests/infrasys_integration/test_plotting.py -q` — 18 passed.
 
 ### 2026-04-21: Xpress Solver Integration
 **Task**: Add Xpress commercial solver support to SDOM

@@ -347,6 +347,18 @@ def _build_per_area_data_slice(data, area_id):
     nuclear = data["per_area_nuclear"].get(area_id)
     other = data["per_area_other_renewables"].get(area_id)
     hydro = data["per_area_hydro"].get(area_id)
+    hydro_max = None
+    hydro_min = None
+    if hydro is not None:
+        time_column = hydro.columns[0]
+        if "LargeHydro_Max" in hydro.columns:
+            hydro_max = hydro[[time_column, "LargeHydro_Max"]].rename(
+                columns={"LargeHydro_Max": "LargeHydro"}
+            )
+        if "LargeHydro_Min" in hydro.columns:
+            hydro_min = hydro[[time_column, "LargeHydro_Min"]].rename(
+                columns={"LargeHydro_Min": "LargeHydro"}
+            )
 
     # Per-area storage tech sets (columns are stripped of the @area_id@ tag).
     if storage is not None and not storage.empty:
@@ -369,6 +381,8 @@ def _build_per_area_data_slice(data, area_id):
         "nuclear_data": nuclear,
         "other_renewables_data": other,
         "large_hydro_data": hydro,
+        "large_hydro_max": hydro_max,
+        "large_hydro_min": hydro_min,
         "cf_solar": cf_pv if cf_pv is not None else pd.DataFrame(),
         "cf_wind": cf_wind if cf_wind is not None else pd.DataFrame(),
         "cap_solar": pv if pv is not None else pd.DataFrame(),

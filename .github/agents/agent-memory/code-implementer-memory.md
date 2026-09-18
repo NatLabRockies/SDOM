@@ -703,3 +703,58 @@ Deliverables: (A) aggregate metrics on ResiliencyResults, (B) save/load Parquet+
 - Doc updates: `docs/user-guide/resiliency.md` for metrics/persistence/plotting; API reference autodoc; quickstart snippet.
 - Consider adding `pyarrow` as an optional extra `[project.optional-dependencies] resiliency_io = ['pyarrow>=...']` once persistence is exercised by users.
 - Plotting extras: hour-of-year scatter; SOC trajectory plot when `keep_full_traces=True` lands.
+
+---
+
+## Infrasys Results Package Refactor (2026-09-17)
+
+### Scope
+Replaced `src/sdom/infrasys_integration/results.py` with a responsibility-based `results/` package, preserving the public import path and all existing result attachment/reconstruction behavior.
+
+### Layout and compatibility
+- `results/__init__.py` re-exports `DEFAULT_COPPERPLATE_AREA_NAME`, `add_results_to_system`, `optimization_results_from_system`, and `query_result_attributes` under the unchanged public path.
+- `api.py` owns public orchestration; `context.py` owns run metadata, filters, and result querying; `attach.py` owns supplemental-attribute attachment; `rebuild.py` owns reconstruction; `ownership.py` owns component lookups/ownership resolution; `helpers.py` owns scalar, frame, and constant helpers; `_shared.py` centralizes type imports.
+- Keep `_validate_storage_dispatch_owners` available from the package root for existing private-import consumers. It still runs before the first attached attribute, so unresolved storage dispatch owners leave the system unchanged.
+- Use `LOGGER = logging.getLogger("sdom.infrasys_integration.results")` in `helpers.py` to retain the pre-refactor logger namespace used by existing `caplog` tests.
+- `.gitignore` has a narrow exception for this package because the repository-wide `results/` pattern otherwise ignores source modules with that directory name.
+
+### Validation
+- `uv run pytest tests/infrasys_integration/test_results.py -q`: 11 passed.
+- `uv run pytest tests/infrasys_integration -q`: 57 passed.
+- Diagnostics clean across the eight new package modules.
+
+---
+
+## Infrasys Parametric Plotting (2026-09-17)
+
+### Scope
+- Added `plot_system_parametric_results` in `infrasys_integration.plotting` and a lazy package export.
+- The private `_SystemParametricStudyAdapter` supplies only `case_metadata` and `output_dir`, then delegates all rendering to `analytic_tools.plot_parametric_results`.
+
+### Contract and gotchas
+- Query `SDOMScenarioMetadata` for the requested `run_id`, sort by `metadata["case_index"]`, and reconstruct each result using the stored `metadata["scenario_id"]` (falling back to the attribute's `scenario_name`).
+- Rebuild plot metadata from `case_name`, `case_index`, and `sweep_values`; standard `add_parametric_results_to_system` guarantees these fields. Older/manual attachments without a scenario id fail clearly because individual case reconstruction would be ambiguous.
+- The focused test uses `max_cases_per_figure=1` to lock capacity, generation, cost, and both curtailment output families across two chunks.
+
+### Validation
+- `uv run pytest tests/infrasys_integration/test_plotting.py -k system_parametric -q`: passed.
+- `uv run pytest tests/infrasys_integration/test_plotting.py -q`: passed.
+- `uv run pytest tests/infrasys_integration -q`: passed.
+
+---
+
+## Zonal Time-Series Parametric Sweeps (2026-09-17)
+
+### Scope
+- `_apply_ts_mutation` now scales both the top-level time-series source and the derived zonal `per_area_*` view used by `_build_per_area_data_slice`.
+- Top-level column selection supports the legacy exact column name and every zonal tagged `<column>@<area>@` column via one vectorized pandas assignment.
+
+### Mapping
+- `load_data` -> `per_area_demand.Load`; `nuclear_data` -> `per_area_nuclear.Nuclear`; `other_renewables_data` -> `per_area_other_renewables.OtherRenewables`.
+- All hydro keys map to the normalized `per_area_hydro` composite: `LargeHydro`, `LargeHydro_Max`, and `LargeHydro_Min`.
+- Import/export capacity and price keys map to their respective combined `per_area_imports` / `per_area_exports` views.
+- The public supported-key set remains `TS_KEY_TO_COLUMN`; no new time-series keys were introduced.
+
+### Validation
+- The initial zonal System helper and worker regression tests failed on the tagged `Load@A1@`/`Load@A2@` source columns; both pass after the mutation change.
+- `uv run pytest tests/test_parametric.py -v`, `uv run pytest tests/infrasys_integration/test_system_parametric.py -v`, and `uv run pytest tests/test_zonal_parametric.py -v` passed.

@@ -32,6 +32,21 @@ TS_KEY_TO_COLUMN: dict[str, str] = {
     "other_renewables_data": "OtherRenewables",
 }
 
+#: Maps supported time-series keys to their zonal per-area view and column.
+#: Hydro bounds use normalized names in the composite ``per_area_hydro`` view.
+TS_KEY_TO_PER_AREA_VIEW: dict[str, tuple[str, str]] = {
+    "load_data": ("per_area_demand", "Load"),
+    "large_hydro_data": ("per_area_hydro", "LargeHydro"),
+    "large_hydro_max": ("per_area_hydro", "LargeHydro_Max"),
+    "large_hydro_min": ("per_area_hydro", "LargeHydro_Min"),
+    "cap_imports": ("per_area_imports", "Imports"),
+    "price_imports": ("per_area_imports", "Imports_price"),
+    "cap_exports": ("per_area_exports", "Exports"),
+    "price_exports": ("per_area_exports", "Exports_price"),
+    "nuclear_data": ("per_area_nuclear", "Nuclear"),
+    "other_renewables_data": ("per_area_other_renewables", "OtherRenewables"),
+}
+
 # ---------------------------------------------------------------------------
 # Mutation helpers
 # ---------------------------------------------------------------------------
@@ -120,8 +135,9 @@ def _apply_storage_factor_mutation(data: dict, param_name: str, factor: float) -
 def _apply_ts_mutation(data: dict, ts_key: str, factor: float) -> None:
     """Scale the numeric column of a time-series DataFrame by a multiplicative factor.
 
-    Looks up the target column name in :data:`TS_KEY_TO_COLUMN` and multiplies
-    ``data[ts_key][column] *= factor``.
+    Looks up the target column name in :data:`TS_KEY_TO_COLUMN` and scales the
+    matching top-level column(s). For zonal data, this includes every tagged
+    ``<column>@<area>@`` column and its derived ``per_area_*`` view.
 
     Parameters
     ----------
@@ -152,13 +168,25 @@ def _apply_ts_mutation(data: dict, ts_key: str, factor: float) -> None:
         )
     column = TS_KEY_TO_COLUMN[ts_key]
     df: pd.DataFrame = data[ts_key]
-    if column not in df.columns:
+    target_columns = [
+        name
+        for name in df.columns
+        if name == column or (str(name).startswith(f"{column}@") and str(name).endswith("@"))
+    ]
+    if not target_columns:
         raise ValueError(
             f"_apply_ts_mutation: expected column '{column}' not found in "
             f"data['{ts_key}'].columns. Available: {list(df.columns)}"
         )
     logger.debug(
-        "_apply_ts_mutation: data['%s']['%s'] *= %s",
-        ts_key, column, factor,
+        "_apply_ts_mutation: data['%s'][%s] *= %s",
+        ts_key, target_columns, factor,
     )
-    data[ts_key][column] = data[ts_key][column] * factor
+    df.loc[:, target_columns] = df.loc[:, target_columns].mul(factor)
+
+    per_area_key, per_area_column = TS_KEY_TO_PER_AREA_VIEW[ts_key]
+    per_area_data = data.get(per_area_key)
+    if isinstance(per_area_data, dict):
+        for area_df in per_area_data.values():
+            if per_area_column in area_df.columns:
+                area_df.loc[:, per_area_column] = area_df[per_area_column].mul(factor)
