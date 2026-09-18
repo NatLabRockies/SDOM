@@ -6,6 +6,10 @@ over what values, and SDOM automatically generates every combination
 (Cartesian product), solves each one in a separate worker process, and
 writes per-case CSV outputs plus a consolidated summary.
 
+```{important}
+For new work, use the [Infrasys System interface](infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts, including the legacy `ParametricStudy` example below.
+```
+
 ---
 
 ## When to use parametric analysis
@@ -25,6 +29,21 @@ implements them. Each sweep type is documented in detail in the
 ---
 
 ## Quick-start example
+
+This is the legacy dict-based study API. For the System-first parametric
+workflow, see [System parametric studies](infrasys_integration.md#system-parametric-studies).
+
+```mermaid
+flowchart TD
+  Inputs[Load base data] --> Define[Define parameter sweeps]
+  Define --> Cases[Generate case combinations]
+  Cases --> Solve[Run case solves]
+  Solve --> Check{Case optimal}
+  Check -->|yes| Export[Write outputs and plots]
+  Check -->|no| Record[Record failed case]
+  Export --> Summary[Create study summary]
+  Record --> Summary
+```
 
 ```{important}
 **Windows users:** Every script that calls `study.run()` **must** guard

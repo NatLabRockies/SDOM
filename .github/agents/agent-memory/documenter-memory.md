@@ -10,6 +10,8 @@ This file stores learnings, patterns, and decisions from documentation tasks.
 *Documentation style choices made for SDOM*
 
 - Document zonal input optionality as a user-facing convention in `docs/source/user_guide/zonal_inputs.md`; describe the accepted CSV omission pattern and resulting model behavior without naming private normalization helpers.
+- Lead new-user examples with the Infrasys System interface. State the v0.3.0 System-only migration as a planned deprecation while retaining the accurate v0.2.7 behavior that legacy dict-based workflows still run.
+- Keep Mermaid diagrams as unstyled common-subset flowcharts with ASCII node IDs, concise labels, and explicitly labeled decision edges.
 
 ### Exceptions
 *Cases where standard conventions don't apply*
@@ -43,6 +45,8 @@ This file stores learnings, patterns, and decisions from documentation tasks.
 
 ### Broken References
 *Reference issues encountered and fixes*
+
+- Use `NatLabRockies/SDOM` for repository and license links; legacy `Omar0902/SDOM` URLs are obsolete.
 
 ---
 

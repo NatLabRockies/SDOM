@@ -17,7 +17,7 @@
 - Open VS code and use file -> open folder and select the folder where you want to copy the repo.
 - Clone in your local the python version of SDOM repo:
 ```powershell
-git clone https://github.com/Omar0902/SDOM.git
+git clone https://github.com/NatLabRockies/SDOM.git
 ```
 
 # Setting up your enviroment
