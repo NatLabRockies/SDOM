@@ -12,6 +12,7 @@ solver via the raw Pyomo solver factory.
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import shutil
 
@@ -243,7 +244,7 @@ def test_zonal_model_accepts_declared_area_without_vre_capacity_rows(
     assert list(getattr(model.area["A2"], technology).plants_set)
 
 
-def test_zonal_model_accepts_declared_area_without_optional_assets(tmp_path):
+def test_zonal_model_accepts_declared_area_without_optional_assets(tmp_path, caplog):
     """An area with demand and a line may omit every optional technology."""
     fixture_path = _copy_zonal_fixture(tmp_path)
     for capacity_file in (
@@ -275,7 +276,8 @@ def test_zonal_model_accepts_declared_area_without_optional_assets(tmp_path):
         for line in data["lines"]
     )
 
-    model = initialize_model(data, n_hours=24)
+    with caplog.at_level(logging.WARNING):
+        model = initialize_model(data, n_hours=24)
     assert list(model.area["A1"].thermal.plants_set) == []
     assert list(model.area["A1"].storage.j) == []
     assert list(model.area["A1"].pv.plants_set) == []
@@ -284,6 +286,30 @@ def test_zonal_model_accepts_declared_area_without_optional_assets(tmp_path):
     assert pyo.value(model.area["A1"].nuclear.ts_parameter[1]) == 0
     assert pyo.value(model.area["A1"].other_renewables.ts_parameter[1]) == 0
     assert len(model.area["A1"].SupplyBalance) == 24
+    assert not any(
+        "thermal" in record.getMessage().lower()
+        and "capacity" in record.getMessage().lower()
+        for record in caplog.records
+    )
+
+
+def test_zonal_model_honors_single_thermal_unit_input_capacity_bounds(tmp_path):
+    """A single thermal unit retains its input MinCapacity and MaxCapacity."""
+    fixture_path = _copy_zonal_fixture(tmp_path)
+    thermal_path = os.path.join(fixture_path, "Data_BalancingUnits.csv")
+    thermal = pd.read_csv(thermal_path)
+    thermal = thermal[thermal["Plant_id"] != "83_Coal"]
+    thermal.to_csv(thermal_path, index=False)
+
+    data = load_data(fixture_path)
+    model = initialize_model(data, n_hours=24)
+
+    thermal_block = model.area["A1"].thermal
+    assert list(thermal_block.plants_set) == ["83_GAS"]
+    unit = thermal_block.plants_set.first()
+    capacity = thermal_block.plant_installed_capacity[unit]
+    assert capacity.lb == pyo.value(thermal_block.data["MinCapacity", unit])
+    assert capacity.ub == pyo.value(thermal_block.data["MaxCapacity", unit])
 
 
 # ---------------------------------------------------------------------------

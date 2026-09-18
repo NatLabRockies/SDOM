@@ -1,6 +1,5 @@
 from pyomo.core import Var, Constraint, Expression
-from pyomo.environ import Set, Param, value, NonNegativeReals, quicksum
-import numpy as np
+from pyomo.environ import Set, Param, NonNegativeReals, quicksum
 import logging
 from .models_utils import build_annualization_factor_map, generic_fixed_om_cost_expr_rule, different_fcr_capex_cost_expr_rule, sum_installed_capacity_by_plants_set_expr_rule, add_generic_fixed_costs, add_generation_variables
 from ..constants import MW_TO_KW, THERMAL_PROPERTIES_NAMES
@@ -72,35 +71,13 @@ def add_thermal_variables(host):
     host.thermal.plant_installed_capacity = Var(host.thermal.plants_set, domain=NonNegativeReals, initialize=0)
     add_generation_variables(host.thermal, host.h, host.thermal.plants_set, domain=NonNegativeReals,  initialize=0)
 
-    # Compute and set the upper bound for CapCC
-    hours = list(host.h)
-    demand_vals = np.fromiter((value(host.demand.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
-    nuclear_vals = np.fromiter((value(host.nuclear.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
-    hydro_vals = np.fromiter((value(host.hydro.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
-    other_vals = np.fromiter((value(host.other_renewables.ts_parameter[h]) for h in hours), dtype=float, count=len(hours))
-
-    CapCC_upper_bound_value = float(np.max(
-        demand_vals
-        - value(host.nuclear.alpha) * nuclear_vals
-        - value(host.hydro.alpha) * hydro_vals
-        - value(host.other_renewables.alpha) * other_vals
-    ))
-    cap_thermal_units = sum(host.thermal.data["MaxCapacity", bu] for bu in host.thermal.plants_set)
-    if len(host.thermal.plants_set) == 1:
-        host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setlb( host.thermal.data["MinCapacity", host.thermal.plants_set[1]] )
-        if ( CapCC_upper_bound_value > cap_thermal_units ):
-            host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setub( CapCC_upper_bound_value )
-            logging.warning(f"There is only one thermal balancing unit. " \
-            f"Upper bound for Capacity variable was set to {CapCC_upper_bound_value} instead of the input = {cap_thermal_units} to ensure feasibility.")
-        else:
-            host.thermal.plant_installed_capacity[host.thermal.plants_set[1]].setub( host.thermal.data["MaxCapacity", host.thermal.plants_set[1]] )
-    else:
-        
-        for bu in host.thermal.plants_set:
-            host.thermal.plant_installed_capacity[bu].setub( host.thermal.data["MaxCapacity", bu] )
-            host.thermal.plant_installed_capacity[bu].setlb( host.thermal.data["MinCapacity", bu] )
-        if ( CapCC_upper_bound_value > cap_thermal_units ):
-            logging.warning(f"Total allowed capacity for thermal units is {cap_thermal_units}MW. This value might be insufficient to achieve problem feasibility, consider increase it to at least {CapCC_upper_bound_value}MW.")
+    for bu in host.thermal.plants_set:
+        host.thermal.plant_installed_capacity[bu].setlb(
+            host.thermal.data["MinCapacity", bu]
+        )
+        host.thermal.plant_installed_capacity[bu].setub(
+            host.thermal.data["MaxCapacity", bu]
+        )
 
 
 ####################################################################################|
