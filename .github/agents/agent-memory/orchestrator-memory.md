@@ -27,6 +27,12 @@ This file stores learnings, patterns, and context from orchestrator operations.
 **Outcome**: Zonal result collection now builds the system-level `summary_df` consumed by standard CSV export, `plot_results`, and `plot_parametric_results`. Coverage uses an asset-free, transfer-supplied A1 with adequate temporary A2 generation and line capacity.
 **Validation**: `uv run pytest tests/test_zonal_results_export_plotting.py -v` and existing zonal output suites.
 
+### 2026-09-18: Documentation audit and Infrasys migration guidance
+**Task**: Improve documentation accuracy and accessibility, add focused Mermaid diagrams, and establish System-first examples.
+**Routing**: documenter.
+**Outcome**: Canonical docs now state Python `>=3.11,<3.14`, link to NatLabRockies/SDOM, and correctly document zonal aggregate `summary_df`. README and docs landing pages include runnable System-first copperplate commands. Documentation announces that v0.3.0 will make the Infrasys System workflow the only supported workflow and deprecate the dict-based interface; it explicitly preserves current v0.2.7 compatibility.
+**Validation**: `uv run pytest tests/test_docs_build.py -q` - 14 passed.
+
 ### 2026-04-21: Xpress Solver Integration
 **Task**: Add Xpress commercial solver support to SDOM
 **Routing**: code-implementer (primary) → documenter (docs update)

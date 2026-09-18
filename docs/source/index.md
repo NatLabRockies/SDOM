@@ -19,6 +19,7 @@ SDOM is an open-source, high-resolution grid capacity-expansion framework develo
 ### System Setup and Prerequisites 
 
 - a. You'll need to install [python](https://www.python.org/downloads/)
+  - SDOM supports Python `>=3.11,<3.14`.
   - After the installation make sure the [python enviroment variable is set](https://realpython.com/add-python-to-path/).
 - b. Also, You'll need an IDE (Integrated Development Environment), we recommend to install [MS VS code](https://code.visualstudio.com/)
 - c. We also recommend to install extensions such as:
@@ -85,6 +86,32 @@ If either command prints `INFO: Could not find files for the given pattern(s).`,
 3. **Close and reopen your terminal** (and VS Code) so the new PATH is picked up, then re-run `where.exe python` and `where.exe uv` to confirm both now resolve.
 
 ## Quick Start
+
+```{important}
+For new work, use the [Infrasys System interface](user_guide/infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts.
+```
+
+### System-first quick start
+
+Install the Infrasys integration with `sdom[infrasys]` before running this example.
+
+```python
+from sdom import get_default_solver_config_dict, run_solver
+from sdom.infrasys_integration import add_results_to_system, plot_system_results
+from sdom.infrasys_integration.make_system import load_system
+from sdom.infrasys_integration.pyomo_builder import initialize_copperplate_model_from_system
+
+system = load_system("Data/no_exchange_run_of_river", name="copperplate")
+model = initialize_copperplate_model_from_system(system, n_hours=24).create_instance()
+solver_config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+results = run_solver(model, solver_config, case_name="copperplate")
+
+if results.is_optimal:
+  add_results_to_system(system, results, run_id="copperplate-24h")
+  plot_system_results(system, run_id="copperplate-24h", output_dir="results/copperplate")
+```
+
+The System-first copperplate and zonal examples are in the [Infrasys System workflows guide](user_guide/infrasys_integration.md). The legacy example below remains available for existing v0.2.7 scripts.
 
 ```python
 from sdom import (
@@ -161,7 +188,7 @@ api/infrasys_integration
 sdom_Developers_guide
 parametric_implementation
 sdom_publications
-GitHub Repository <https://github.com/Omar0902/SDOM>
+GitHub Repository <https://github.com/NatLabRockies/SDOM>
 ```
 
 ## Publications and Use Cases
@@ -180,7 +207,7 @@ We welcome contributions! Please see our [Contributing Guidelines](sdom_Develope
 
 ## License
 
-SDOM is released under the [MIT License](https://github.com/Omar0902/SDOM/blob/master/LICENSE).
+SDOM is released under the [MIT License](https://github.com/NatLabRockies/SDOM/blob/main/LICENSE.txt).
 
 ## Indices and tables
 

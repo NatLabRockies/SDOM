@@ -70,7 +70,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
 - **Platforms:** 
   - SDOM was originally developed in GAMS. 
   
-  - In order offer a full open-source solution also was developed this python package. This version requires python 3.10+.
+  - To provide a full open-source solution, SDOM is also available as a Python package. It supports Python `>=3.11,<3.14`.
 
 - **Solver Compatibility:** Currently the SDOM python version has been tested using the [open-source CBC solver](https://www.coin-or.org/Cbc/cbcuserguide.html), the [HiGHS open-source solver](https://highs.dev/) through the `highspy` module, and [FICO Xpress](https://www.fico.com/en/products/fico-xpress-optimization) through the `xpress` Python interface. In this repo the [Windows executable for CBC](./cbc.exe) is provided. You will need to provide the path of the CBC solver to run SDOM as illustrated in our [simple script example](#sdom-simple-script-example). Xpress is commercial and requires a valid license.
 
@@ -189,13 +189,7 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
   uv pip install "sdom[xpress]"
   ```
 
-- e. Install the Logging package to be able to see sdom info, warning and error messages and log those:
-
-  ```bash
-  uv pip install logging
-  ```
-
-- f. Verify your environment by listing installed packages:
+- e. Verify your environment by listing installed packages:
 
   In your terminal or powershell run:
 
@@ -231,7 +225,31 @@ We recommend to use `uv`, a Python manager for virtual environments and packages
 For detailed information about SDOM input files, please refer to the [SDOM Input Documentation](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/inputs.md).
 
 ## SDOM simple script example
-For an script about how to run SDOM, please refer to the [SDOM simple script example](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/running_and_outputs.md).
+
+> [!IMPORTANT]
+> For new work, use the [Infrasys System interface](docs/source/user_guide/infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts.
+
+### System-first quick start
+
+Install the Infrasys integration with `sdom[infrasys]` before running this example.
+
+```python
+from sdom import get_default_solver_config_dict, run_solver
+from sdom.infrasys_integration import add_results_to_system, plot_system_results
+from sdom.infrasys_integration.make_system import load_system
+from sdom.infrasys_integration.pyomo_builder import initialize_copperplate_model_from_system
+
+system = load_system("Data/no_exchange_run_of_river", name="copperplate")
+model = initialize_copperplate_model_from_system(system, n_hours=24).create_instance()
+solver_config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+results = run_solver(model, solver_config, case_name="copperplate")
+
+if results.is_optimal:
+  add_results_to_system(system, results, run_id="copperplate-24h")
+  plot_system_results(system, run_id="copperplate-24h", output_dir="results/copperplate")
+```
+
+The recommended copperplate and zonal examples are in the [Infrasys System workflows guide](docs/source/user_guide/infrasys_integration.md). The legacy dict-based example remains available in the [running and outputs guide](https://github.com/NatLabRockies/SDOM/blob/main/docs/source/user_guide/running_and_outputs.md).
 
 # PUBLICATIONS AND USE CASES OF SDOM
 📄

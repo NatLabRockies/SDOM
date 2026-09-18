@@ -415,4 +415,4 @@ The model formulation is split across multiple files in `src/sdom/models/`:
 ## Next Steps
 
 - [View API documentation](../api/index.md)
-- [Explore source code on GitHub](https://github.com/Omar0902/SDOM)
+- [Explore source code on GitHub](https://github.com/NatLabRockies/SDOM)

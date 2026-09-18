@@ -10,6 +10,18 @@ This module is purely additive and does not modify any existing module under
 `src/sdom/models/`. Capacities are read from prior SDOM design-run snapshots
 and treated as fixed parameters.
 
+```mermaid
+flowchart TD
+    Snapshot[Load design snapshot] --> Baseline[Build baseline dispatch]
+    Inputs[Load prior inputs] --> Baseline
+    Baseline --> SolveBase[Solve baseline LP]
+    SolveBase --> Anchors[Select outage hours]
+    Spec[Define outage specification] --> Outage[Build outage dispatch]
+    Anchors --> Outage
+    Outage --> SolveOutage[Solve outage LP]
+    SolveOutage --> Metrics[Aggregate resiliency metrics]
+```
+
 
 ---
 
