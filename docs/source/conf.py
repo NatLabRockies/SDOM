@@ -56,19 +56,6 @@ myst_enable_extensions = [
 # the source compatible with both the VS Code Markdown preview and Sphinx HTML.
 myst_fence_as_directive = ["mermaid"]
 
-# Render diagrams in the browser so they remain sharp, responsive, and
-# inspectable. Pin the Mermaid runtime for reproducible documentation builds.
-mermaid_output_format = "raw"
-mermaid_version = "11.12.1"
-mermaid_width = "100%"
-mermaid_height = "auto"
-mermaid_fullscreen = True
-mermaid_d3_zoom = True
-mermaid_init_config = {
-    "theme": "neutral",
-    "flowchart": {"useMaxWidth": True, "htmlLabels": False},
-}
-
 # Autodoc configuration
 autodoc_default_options = {
     'members': True,
