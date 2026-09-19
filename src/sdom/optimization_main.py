@@ -2,11 +2,14 @@ import logging
 import math
 import os
 from datetime import datetime
+from typing import Any
+
+import pandas as pd
 #from pympler import muppy, summary
 #from pympler import muppy, summary
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, check_available_solvers
 from pyomo.util.infeasible import log_infeasible_constraints
-from pyomo.environ import ConcreteModel, Objective, Block, minimize
+from pyomo.environ import ConcreteModel, Objective, Block, Reals, Suffix, Var, minimize
 
 from .initializations import initialize_sets, initialize_params
 from .common.utilities import safe_pyomo_value
@@ -30,7 +33,11 @@ from .constants import (
 
 from .io_manager import get_formulation, get_network_formulation
 from .utils_performance_meassure import ModelInitProfiler
-from .results import OptimizationResults, collect_results_from_model
+from .results import (
+    OptimizationResults,
+    collect_marginal_prices_from_model,
+    collect_results_from_model,
+)
 
 # ---------------------------------------------------------------------------------
 # Model initialization
@@ -1194,6 +1201,104 @@ def get_default_solver_config_dict(
     return solver_dict
 
 
+def _fix_pricing_decisions(model: ConcreteModel) -> None:
+    """Fix incumbent discrete and investment decisions on a pricing-model clone."""
+    capacity_variables = {
+        "capacity_fraction",
+        "plant_installed_capacity",
+        "Pcha",
+        "Pdis",
+        "Ecap",
+    }
+    for variable in model.component_data_objects(Var, descend_into=True):
+        if variable.is_binary() or variable.is_integer():
+            variable.domain = Reals
+            variable.fix(round(variable.value))
+        elif variable.parent_component().local_name in capacity_variables:
+            variable.fix(variable.value)
+
+
+def _get_solve_tee(solver_config_dict: dict[str, Any]) -> bool:
+    """Return solver output streaming compatible with the selected solver."""
+    solve_tee = solver_config_dict["solve_keywords"].get("tee", False)
+    if solver_config_dict.get("solver_name") == "appsi_highs" and solve_tee:
+        # Appsi HiGHS always routes output to a logger and, with tee=True,
+        # also mirrors it to stdout, which duplicates every solver line.
+        return False
+    return solve_tee
+
+
+def _collect_fixed_decision_marginal_prices(
+    model: ConcreteModel,
+    solver_config_dict: dict[str, Any],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Solve an incumbent-fixed LP using the configured planning solver.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Solved planning model whose discrete and investment decisions are
+        fixed on a clone before pricing.
+    solver_config_dict : dict[str, Any]
+        Solver configuration used for the planning solve.
+
+    Returns
+    -------
+    tuple[pandas.DataFrame, pandas.DataFrame]
+        Marginal-price rows and directional line-capacity dual audit rows.
+        Both DataFrames are empty when called with a non-Pyomo test double.
+    """
+    if not hasattr(model, "clone"):
+        logging.debug(
+            "Skipping fixed-decision LP pricing for non-Pyomo model test double."
+        )
+        return pd.DataFrame(), pd.DataFrame()
+
+    pricing_method = (
+        f"fixed_decision_lp_{solver_config_dict.get('solver_name', 'unknown')}"
+    )
+    pricing_model = None
+    try:
+        pricing_model = model.clone()
+        _fix_pricing_decisions(pricing_model)
+        pricing_model.dual = Suffix(direction=Suffix.IMPORT)
+        pricing_solver = configure_solver(solver_config_dict)
+        pricing_result = pricing_solver.solve(
+            pricing_model,
+            tee=_get_solve_tee(solver_config_dict),
+            load_solutions=solver_config_dict["solve_keywords"].get(
+                "load_solutions", True
+            ),
+            timelimit=solver_config_dict["solve_keywords"].get(
+                "timelimit", None
+            ),
+            report_timing=solver_config_dict["solve_keywords"].get(
+                "report_timing", True
+            ),
+            keepfiles=solver_config_dict["solve_keywords"].get(
+                "keepfiles", True
+            ),
+        )
+    except Exception:
+        logging.exception("Fixed-decision LP pricing solve failed.")
+        if pricing_model is None:
+            return collect_marginal_prices_from_model(
+                model,
+                None,
+                pricing_method=pricing_method,
+            )
+        return collect_marginal_prices_from_model(
+            pricing_model,
+            None,
+            pricing_method=pricing_method,
+        )
+    return collect_marginal_prices_from_model(
+        pricing_model,
+        pricing_result,
+        pricing_method=pricing_method,
+    )
+
+
 # Run solver function
 def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> OptimizationResults:
     """Solve the optimization model and return structured results.
@@ -1241,11 +1346,7 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     solver_name = solver_config_dict.get("solver_name", "")
 
     target_value = float(model.GenMix_Target.value)
-    solve_tee = solver_config_dict["solve_keywords"].get("tee", False)
-    if solver_name == "appsi_highs" and solve_tee:
-        # Appsi HiGHS always routes output to a logger and, with tee=True,
-        # also mirrors it to stdout, which duplicates every solver line.
-        solve_tee = False
+    solve_tee = _get_solve_tee(solver_config_dict)
 
     logging.info(f"Running optimization for GenMix_Target = {target_value:.2f}")
     solver_result = solver.solve(
@@ -1262,6 +1363,10 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     ):
         # Collect results using the new structured approach
         results = collect_results_from_model(model, solver_result, case_name)
+        (
+            results.marginal_prices_df,
+            results.line_congestion_duals_df,
+        ) = _collect_fixed_decision_marginal_prices(model, solver_config_dict)
     else:
         logging.warning(f"Solver did not find an optimal solution for GenMix_Target = {target_value:.2f}.")
         logging.warning("Logging infeasible constraints...")

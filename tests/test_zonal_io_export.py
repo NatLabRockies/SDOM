@@ -42,6 +42,18 @@ PRD_2_4_COLUMNS = [
     "utilization_TF",
 ]
 
+MARGINAL_PRICE_COLUMNS = [
+    "hour",
+    "area_id",
+    "marginal_price_USD_per_MWh",
+    "generation_component_USD_per_MWh",
+    "congestion_component_USD_per_MWh",
+    "supply_balance_dual",
+    "line_congestion_dual_sum",
+    "pricing_method",
+    "pricing_status",
+]
+
 
 def _abs_data_path(rel: str) -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", rel))
@@ -142,3 +154,38 @@ def test_export_skips_when_interregional_dataframe_is_empty(tmp_path):
     export_results(results, "empty_case", output_dir=str(tmp_path))
 
     assert not (tmp_path / "OutputInterregionalExchanges_empty_case.csv").exists()
+
+
+def test_zonal_marginal_prices_have_area_hour_rows_and_auditable_duals(
+    zonal_model_and_results,
+):
+    """Zonal pricing exposes one available LMP per area-hour and line duals."""
+    model, results = zonal_model_and_results
+    prices = results.get_marginal_prices_dataframe()
+    audit = results.get_line_congestion_duals_dataframe()
+
+    assert list(prices.columns) == MARGINAL_PRICE_COLUMNS
+    assert len(prices) == len(model.A) * len(model.h)
+    assert set(prices["area_id"]) == set(model.A)
+    assert set(prices["pricing_status"]) == {"available"}
+    assert prices["marginal_price_USD_per_MWh"].notna().all()
+    assert len(audit) == len(model.L) * len(model.h)
+
+    for hour in model.h:
+        hourly = prices.loc[prices["hour"] == hour].set_index("area_id")
+        reference = sorted(model.A)[0]
+        assert hourly.loc[reference, "congestion_component_USD_per_MWh"] == pytest.approx(0.0)
+        assert hourly["marginal_price_USD_per_MWh"].to_numpy() == pytest.approx(
+            (
+                hourly["generation_component_USD_per_MWh"]
+                + hourly["congestion_component_USD_per_MWh"]
+            ).to_numpy()
+        )
+
+    for _, row in audit.iterrows():
+        prices_at_hour = prices.loc[prices["hour"] == row["hour"]].set_index("area_id")
+        price_delta = (
+            prices_at_hour.loc[row["to_area"], "marginal_price_USD_per_MWh"]
+            - prices_at_hour.loc[row["from_area"], "marginal_price_USD_per_MWh"]
+        )
+        assert price_delta == pytest.approx(-row["line_congestion_dual_sum"])

@@ -73,6 +73,10 @@ summary_df = results.get_summary_dataframe()
 
 # Get disaggregated thermal generation (if multiple plants)
 thermal_df = results.get_thermal_generation_dataframe()
+
+# Get fixed-decision LP marginal prices and zonal line-dual audit values
+marginal_prices_df = results.get_marginal_prices_dataframe()
+line_congestion_duals_df = results.get_line_congestion_duals_dataframe()
 ```
 
 ### Accessing Cost Breakdown
@@ -153,6 +157,8 @@ print(f"Binary Variables: {problem_info['Number of binary variables']}")
 | `storage_df` | pd.DataFrame | Hourly storage operation |
 | `thermal_generation_df` | pd.DataFrame | Disaggregated thermal generation |
 | `summary_df` | pd.DataFrame | Summary metrics |
+| `marginal_prices_df` | pd.DataFrame | Fixed-decision LP LMP rows with price components and pricing method/status metadata. Use `get_marginal_prices_dataframe()` for a defensive copy. |
+| `line_congestion_duals_df` | pd.DataFrame | Zonal directional line-capacity dual audit rows. Empty for copperplate runs; use `get_line_congestion_duals_dataframe()` for a defensive copy. |
 
 ### Zonal Fields
 | Attribute | Type | Description |
@@ -170,6 +176,14 @@ print(f"Binary Variables: {problem_info['Number of binary variables']}")
 | `area_installed_plants_df` | dict[str, pd.DataFrame] | Installed plants by area. |
 | `area_summary_df` | dict[str, pd.DataFrame] | Per-area summary DataFrames. |
 | `interregional_exchanges_df` | pd.DataFrame | Per-line/per-hour flow, directional capacity, and utilization. |
+
+Marginal prices are calculated after an optimal planning solve by fixing the
+incumbent investment, capacity, and binary decisions on a cloned model and
+solving that clone as an LP with the same configured solver. In zonal runs, the
+generation component is the LMP of the lexicographically first area in each
+connected component; the congestion component is the local LMP less that
+reference price. Raw imported supply-balance duals and directional line-capacity
+duals remain available for audit.
 
 Collector dispatch behavior:
 

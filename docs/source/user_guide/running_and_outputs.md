@@ -235,6 +235,30 @@ In the path specified by "output_dir", sdom will writhe the following output csv
 | OutputThermalGeneration_CASENAME.csv | Hourly results for thermal generation plants.           |
 | OutputInstalledPowerPlants_CASENAME.csv | Installed capacity for each individual power plant (Solar PV, Wind, Thermal). |
 | OutputInterregionalExchanges_CASENAME.csv | Zonal-only line flows (`line_id`, `from_area`, `to_area`, `hour`, signed and directional flows, directional capacity and utilization). |
+| marginal_prices.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
+
+### Marginal Prices
+
+After every successful planning solve, SDOM clones the solved model, fixes its
+investment, capacity, and discrete decisions to the incumbent values, and
+re-solves the operational problem as a continuous LP with the configured
+solver. The resulting `marginal_prices.csv` contains the fixed-decision
+operational LMPs rather than duals from the planning MIP.
+
+The CSV columns are `hour`, `area_id`, `marginal_price_USD_per_MWh`,
+`generation_component_USD_per_MWh`, `congestion_component_USD_per_MWh`,
+`supply_balance_dual`, `line_congestion_dual_sum`, `pricing_method`, and
+`pricing_status`. `supply_balance_dual` is the raw imported solver dual; the
+reported marginal price is its demand-derivative sign convention. A missing
+pricing solve or dual is reported by `pricing_status` and uses missing numeric
+values, never zeros.
+
+For a zonal connected component, the lexicographically first area is the
+reference area. Its LMP is reported as the generation component for every area
+in that component, and each congestion component is the local LMP less that
+reference LMP. The directional `f_upper` and `f_lower` duals are available via
+`results.get_line_congestion_duals_dataframe()` for KKT auditing. Copperplate
+congestion components are zero.
 
 ## Zonal Results Access
 
@@ -244,6 +268,10 @@ When using `Network=AreaTransportationModelNetwork`, `run_solver` populates zona
 - `results.areas`, `results.lines`
 - `results.area_generation_df`, `results.area_storage_df`, `results.area_thermal_generation_df`, `results.area_installed_plants_df`, `results.area_summary_df`
 - `results.interregional_exchanges_df`
+- `results.marginal_prices_df`, or its defensive-copy accessor
+    `results.get_marginal_prices_dataframe()`
+- `results.line_congestion_duals_df`, or its defensive-copy accessor
+    `results.get_line_congestion_duals_dataframe()`
 
 `results.summary_df` remains available in zonal runs for aggregate system-level
 summary tables, exports, and plots. Use `results.area_summary_df` for
