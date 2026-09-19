@@ -237,8 +237,13 @@ def test_fixed_decision_prices_follow_balance_and_directional_dual_sign(
 
     solver = _highs()
     solution = solver.solve(m)
-    prices, audit = collect_marginal_prices_from_model(m, solution)
+    prices, audit = collect_marginal_prices_from_model(
+        m,
+        solution,
+        pricing_method="fixed_decision_lp_test_solver",
+    )
     hourly = prices.set_index("area_id")
+    assert set(prices["pricing_method"]) == {"fixed_decision_lp_test_solver"}
     assert hourly.loc["A1", "marginal_price_USD_per_MWh"] == pytest.approx(10.0)
     assert hourly.loc["A2", "marginal_price_USD_per_MWh"] == pytest.approx(expected_destination_price)
     assert hourly.loc["A1", "supply_balance_dual"] == pytest.approx(-10.0)

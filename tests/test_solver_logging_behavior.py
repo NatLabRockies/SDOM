@@ -97,3 +97,38 @@ def test_run_solver_keeps_tee_for_non_appsi_highs(monkeypatch):
 
     assert fake_solver.last_kwargs is not None
     assert fake_solver.last_kwargs["tee"] is True
+
+
+def test_run_solver_passes_configured_solver_to_pricing(monkeypatch):
+    fake_solver = _FakeSolver()
+    pricing_configs = []
+
+    monkeypatch.setattr("sdom.optimization_main.configure_solver", lambda _cfg: fake_solver)
+    monkeypatch.setattr(
+        "sdom.optimization_main.collect_results_from_model",
+        lambda _model, _solver_result, _case_name: OptimizationResults(
+            termination_condition="optimal",
+            solver_status="ok",
+        ),
+    )
+    monkeypatch.setattr(
+        "sdom.optimization_main._collect_fixed_decision_marginal_prices",
+        lambda _model, solver_config: (
+            pricing_configs.append(solver_config) or (None, None)
+        ),
+    )
+
+    cfg = {
+        "solver_name": "cbc",
+        "solve_keywords": {
+            "tee": False,
+            "load_solutions": True,
+            "timelimit": None,
+            "report_timing": False,
+            "keepfiles": False,
+        },
+    }
+
+    run_solver(_FakeModel(), cfg)
+
+    assert pricing_configs == [cfg]

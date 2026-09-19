@@ -241,15 +241,15 @@ In the path specified by "output_dir", sdom will writhe the following output csv
 
 After every successful planning solve, SDOM clones the solved model, fixes its
 investment, capacity, and discrete decisions to the incumbent values, and
-re-solves the operational problem as a continuous LP with HiGHS. The resulting
-`marginal_prices.csv` contains the fixed-decision operational LMPs rather than
-duals from the planning MIP.
+re-solves the operational problem as a continuous LP with the configured
+solver. The resulting `marginal_prices.csv` contains the fixed-decision
+operational LMPs rather than duals from the planning MIP.
 
 The CSV columns are `hour`, `area_id`, `marginal_price_USD_per_MWh`,
 `generation_component_USD_per_MWh`, `congestion_component_USD_per_MWh`,
 `supply_balance_dual`, `line_congestion_dual_sum`, `pricing_method`, and
-`pricing_status`. `supply_balance_dual` is the raw imported Pyomo/HiGHS dual;
-the reported marginal price is its demand-derivative sign convention. A missing
+`pricing_status`. `supply_balance_dual` is the raw imported solver dual; the
+reported marginal price is its demand-derivative sign convention. A missing
 pricing solve or dual is reported by `pricing_status` and uses missing numeric
 values, never zeros.
 

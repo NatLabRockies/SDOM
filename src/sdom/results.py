@@ -325,7 +325,12 @@ _LINE_CONGESTION_DUAL_COLUMNS = [
 ]
 
 
-def collect_marginal_prices_from_model(model, pricing_result) -> tuple[pd.DataFrame, pd.DataFrame]:
+def collect_marginal_prices_from_model(
+    model,
+    pricing_result,
+    *,
+    pricing_method: str = "fixed_decision_lp_appsi_highs",
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Collect marginal prices and directional capacity duals from a pricing LP.
 
     Parameters
@@ -334,6 +339,9 @@ def collect_marginal_prices_from_model(model, pricing_result) -> tuple[pd.DataFr
         Fixed-decision LP model solved with an imported ``dual`` suffix.
     pricing_result : pyomo.opt.SolverResults or None
         Pricing solve result. ``None`` represents an unavailable pricing solve.
+    pricing_method : str, optional
+        Identifier for the solver and fixed-decision LP method used for
+        pricing. Defaults to ``"fixed_decision_lp_appsi_highs"``.
 
     Returns
     -------
@@ -342,7 +350,7 @@ def collect_marginal_prices_from_model(model, pricing_result) -> tuple[pd.DataFr
         pricing solve or missing required dual leaves numeric price fields NaN
         and marks every price row unavailable.
     """
-    method = "fixed_decision_lp_appsi_highs"
+    method = pricing_method
     is_zonal = hasattr(model, "A") and hasattr(model, "area")
     areas = list(model.A) if is_zonal else ["copperplate"]
     hours = list(model.h)

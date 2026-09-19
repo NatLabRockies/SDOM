@@ -2,6 +2,8 @@ import logging
 import math
 import os
 from datetime import datetime
+from typing import Any
+
 import pandas as pd
 #from pympler import muppy, summary
 #from pympler import muppy, summary
@@ -1199,7 +1201,7 @@ def get_default_solver_config_dict(
     return solver_dict
 
 
-def _fix_pricing_decisions(model) -> None:
+def _fix_pricing_decisions(model: ConcreteModel) -> None:
     """Fix incumbent discrete and investment decisions on a pricing-model clone."""
     capacity_variables = {
         "capacity_fraction",
@@ -1216,26 +1218,71 @@ def _fix_pricing_decisions(model) -> None:
             variable.fix(variable.value)
 
 
-def _collect_fixed_decision_marginal_prices(model):
-    """Solve an incumbent-fixed HiGHS LP and return price and line-dual frames."""
+def _collect_fixed_decision_marginal_prices(
+    model: ConcreteModel,
+    solver_config_dict: dict[str, Any],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Solve an incumbent-fixed LP using the configured planning solver.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Solved planning model whose discrete and investment decisions are
+        fixed on a clone before pricing.
+    solver_config_dict : dict[str, Any]
+        Solver configuration used for the planning solve.
+
+    Returns
+    -------
+    tuple[pandas.DataFrame, pandas.DataFrame]
+        Marginal-price rows and directional line-capacity dual audit rows.
+        Both DataFrames are empty when called with a non-Pyomo test double.
+    """
     if not hasattr(model, "clone"):
         logging.debug(
             "Skipping fixed-decision LP pricing for non-Pyomo model test double."
         )
         return pd.DataFrame(), pd.DataFrame()
 
+    pricing_method = (
+        f"fixed_decision_lp_{solver_config_dict.get('solver_name', 'unknown')}"
+    )
+    pricing_model = None
     try:
         pricing_model = model.clone()
         _fix_pricing_decisions(pricing_model)
         pricing_model.dual = Suffix(direction=Suffix.IMPORT)
-        pricing_solver = SolverFactory("appsi_highs")
-        if not pricing_solver.available(exception_flag=False):
-            return collect_marginal_prices_from_model(pricing_model, None)
-        pricing_result = pricing_solver.solve(pricing_model, load_solutions=True)
+        pricing_solver = configure_solver(solver_config_dict)
+        pricing_result = pricing_solver.solve(
+            pricing_model,
+            tee=solver_config_dict["solve_keywords"].get("tee", False),
+            load_solutions=solver_config_dict["solve_keywords"].get(
+                "load_solutions", True
+            ),
+            timelimit=solver_config_dict["solve_keywords"].get(
+                "timelimit", None
+            ),
+            report_timing=solver_config_dict["solve_keywords"].get(
+                "report_timing", True
+            ),
+            keepfiles=solver_config_dict["solve_keywords"].get(
+                "keepfiles", True
+            ),
+        )
     except Exception:
         logging.exception("Fixed-decision LP pricing solve failed.")
-        return collect_marginal_prices_from_model(pricing_model, None)
-    return collect_marginal_prices_from_model(pricing_model, pricing_result)
+        if pricing_model is None:
+            return pd.DataFrame(), pd.DataFrame()
+        return collect_marginal_prices_from_model(
+            pricing_model,
+            None,
+            pricing_method=pricing_method,
+        )
+    return collect_marginal_prices_from_model(
+        pricing_model,
+        pricing_result,
+        pricing_method=pricing_method,
+    )
 
 
 # Run solver function
@@ -1309,7 +1356,7 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
         (
             results.marginal_prices_df,
             results.line_congestion_duals_df,
-        ) = _collect_fixed_decision_marginal_prices(model)
+        ) = _collect_fixed_decision_marginal_prices(model, solver_config_dict)
     else:
         logging.warning(f"Solver did not find an optimal solution for GenMix_Target = {target_value:.2f}.")
         logging.warning("Logging infeasible constraints...")

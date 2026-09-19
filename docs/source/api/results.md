@@ -179,11 +179,11 @@ print(f"Binary Variables: {problem_info['Number of binary variables']}")
 
 Marginal prices are calculated after an optimal planning solve by fixing the
 incumbent investment, capacity, and binary decisions on a cloned model and
-solving that clone as a HiGHS LP. In zonal runs, the generation component is the
-LMP of the lexicographically first area in each connected component; the
-congestion component is the local LMP less that reference price. Raw imported
-supply-balance duals and directional line-capacity duals remain available for
-audit.
+solving that clone as an LP with the same configured solver. In zonal runs, the
+generation component is the LMP of the lexicographically first area in each
+connected component; the congestion component is the local LMP less that
+reference price. Raw imported supply-balance duals and directional line-capacity
+duals remain available for audit.
 
 Collector dispatch behavior:
 
