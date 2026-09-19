@@ -1,4 +1,7 @@
 import logging
+import math
+
+import pandas as pd
 
 from pyomo.environ import Param, Set, RangeSet
 
@@ -18,6 +21,55 @@ from .constants import (
     IMPORTS_EXPORTS_NOT_MODEL,
 )
 from .io_manager import get_formulation
+
+
+def validate_vre_capacity_data(capacity_data, *, source_table: str, vre_type: str):
+    """Validate and normalize optional VRE minimum-capacity input values.
+
+    Parameters
+    ----------
+    capacity_data : pandas.DataFrame
+        Retained VRE candidate rows with ``sc_gid`` and ``capacity`` columns.
+    source_table : str
+        Source table name used in validation errors.
+    vre_type : str
+        VRE technology label used in validation errors.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of ``capacity_data`` with a numeric ``MinCapacity`` column.
+
+    Raises
+    ------
+    ValueError
+        If a retained candidate has invalid capacity bounds.
+    """
+    normalized = capacity_data.copy()
+    minimums = normalized.get("MinCapacity", pd.Series(0.0, index=normalized.index))
+    blank_minimums = minimums.astype(str).str.strip().eq("")
+    normalized["MinCapacity"] = minimums.where(~minimums.isna() & ~blank_minimums, 0.0)
+
+    for index, row in normalized.iterrows():
+        plant_id = str(row["sc_gid"])
+        try:
+            capacity = float(row["capacity"])
+            minimum = float(row["MinCapacity"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{source_table} {vre_type} plant '{plant_id}' requires finite numeric capacity and MinCapacity."
+            ) from exc
+        if not math.isfinite(capacity) or capacity < 0:
+            raise ValueError(
+                f"{source_table} {vre_type} plant '{plant_id}' requires a finite nonnegative capacity."
+            )
+        if not math.isfinite(minimum) or minimum < 0 or minimum > capacity:
+            raise ValueError(
+                f"{source_table} {vre_type} plant '{plant_id}' requires finite MinCapacity with 0 <= MinCapacity <= capacity."
+            )
+        normalized.at[index, "capacity"] = capacity
+        normalized.at[index, "MinCapacity"] = minimum
+    return normalized
 
 def initialize_vre_sets(data, block, vre_type: str):
     """Initialize VRE (Variable Renewable Energy) plant sets and filter data for a technology.
@@ -51,18 +103,26 @@ def initialize_vre_sets(data, block, vre_type: str):
     # Filter solar data and initialize model set
     complete_vre_data = data[f"cap_{vre_type}"][data[f"cap_{vre_type}"]['sc_gid'].astype(str).isin(common_vre_plants)]
     complete_vre_data = complete_vre_data.dropna(subset=['CAPEX_M', 'trans_cap_cost', 'FOM_M', 'capacity'])
+    complete_vre_data = validate_vre_capacity_data(
+        complete_vre_data,
+        source_table=f"cap_{vre_type}",
+        vre_type=vre_type,
+    )
     common_vre_plants_filtered = complete_vre_data['sc_gid'].astype(str).tolist()
     
     block.plants_set = Set( initialize = common_vre_plants_filtered )
 
     # Load the solar capacities
-    cap_vre_dict = complete_vre_data.set_index('sc_gid')['capacity'].to_dict()
+    cap_vre_dict = complete_vre_data.assign(sc_gid=complete_vre_data["sc_gid"].astype(str)).set_index('sc_gid')['capacity'].to_dict()
+    min_cap_vre_dict = complete_vre_data.assign(sc_gid=complete_vre_data["sc_gid"].astype(str)).set_index('sc_gid')['MinCapacity'].to_dict()
 
     # Filter the dictionary to ensure only valid keys are included
     default_capacity_value = 0.0
     filtered_cap_vre_dict = {k: cap_vre_dict.get(k, default_capacity_value) for k in block.plants_set}
+    filtered_min_cap_vre_dict = {k: min_cap_vre_dict.get(k, default_capacity_value) for k in block.plants_set}
 
     data[f'filtered_cap_{vre_type}_dict'] = filtered_cap_vre_dict
+    data[f'filtered_min_cap_{vre_type}_dict'] = filtered_min_cap_vre_dict
     data[f'complete_{vre_type}_data'] = complete_vre_data
 
 

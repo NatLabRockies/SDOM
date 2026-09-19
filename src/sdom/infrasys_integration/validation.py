@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import math
 from typing import Any
 
 from infrasys import System
@@ -68,6 +69,7 @@ def validate_sdom_system(system: System) -> None:
     """
     validate_required_components(system)
     validate_area_bus_consistency(system)
+    validate_vre_capacity_bounds(system)
 
 
 def validate_required_components(system: System) -> None:
@@ -201,6 +203,49 @@ def validate_area_bus_consistency(system: System) -> None:
     for interface in system.get_components(SDOMTransmissionInterface):
         _require_component(system, SDOMBus, interface.from_bus.name, owner=interface.name, relationship="from_bus")
         _require_component(system, SDOMBus, interface.to_bus.name, owner=interface.name, relationship="to_bus")
+
+
+def validate_vre_capacity_bounds(system: System) -> None:
+    """Validate finite, ordered capacity bounds on VRE generators.
+
+    Parameters
+    ----------
+    system : infrasys.System
+        System containing SDOM VRE generator components.
+
+    Returns
+    -------
+    None
+        Returns normally when all VRE bounds are valid.
+
+    Raises
+    ------
+    ValueError
+        If a VRE component has nonfinite or inverted capacity bounds.
+    """
+    for component_type, technology in (
+        (SDOMSolarGenerator, "solar"),
+        (SDOMWindGenerator, "wind"),
+    ):
+        for generator in system.get_components(component_type):
+            maximum = generator.max_active_power
+            minimum = generator.min_active_power
+            if maximum is None:
+                continue
+            if not math.isfinite(float(maximum)) or float(maximum) < 0:
+                raise ValueError(
+                    f"VRE {technology} generator '{generator.name}' requires a finite nonnegative capacity."
+                )
+            if minimum is None:
+                continue
+            if (
+                not math.isfinite(float(minimum))
+                or float(minimum) < 0
+                or float(minimum) > float(maximum)
+            ):
+                raise ValueError(
+                    f"VRE {technology} generator '{generator.name}' requires MinCapacity with 0 <= MinCapacity <= capacity."
+                )
 
 
 def _has_component(system: System, component_type: type[Any]) -> bool:

@@ -10,6 +10,7 @@ import pandas as pd
 from infrasys import System
 
 from sdom import load_data as _load_data
+from sdom.initializations import validate_vre_capacity_data
 
 from ..models import (
     SDOMArea,
@@ -52,6 +53,71 @@ from .utils import (
 )
 
 _SOURCE_DATA_ATTR = "_sdom_source_data_dict"
+
+
+def _validate_vre_source_data(data: Mapping[str, Any]) -> None:
+    """Validate global and per-area VRE capacity tables before conversion."""
+    for technology, global_key, per_area_key in (
+        ("solar", "cap_solar", "per_area_pv_plants"),
+        ("wind", "cap_wind", "per_area_wind_plants"),
+    ):
+        frame = data.get(global_key)
+        if isinstance(frame, pd.DataFrame):
+            validate_vre_capacity_data(
+                frame,
+                source_table=global_key,
+                vre_type=technology,
+            )
+        for area_id, area_frame in _iter_area_frames(data.get(per_area_key)):
+            validate_vre_capacity_data(
+                area_frame,
+                source_table=f"{per_area_key}[{area_id}]",
+                vre_type=technology,
+            )
+
+
+def _project_vre_minimums(data: dict[str, Any], system: System) -> None:
+    """Project VRE component minimums into copied VRE capacity tables only."""
+    for global_key, per_area_key, component_type in (
+        ("cap_solar", "per_area_pv_plants", SDOMSolarGenerator),
+        ("cap_wind", "per_area_wind_plants", SDOMWindGenerator),
+    ):
+        components = list(system.get_components(component_type))
+        minimum_by_plant = {
+            component.name.split(":", 1)[1]: float(component.min_active_power or 0.0)
+            for component in components
+        }
+        minimum_by_area_plant = {
+            (component.bus.area.name, component.name.split(":", 1)[1]): float(component.min_active_power or 0.0)
+            for component in components
+        }
+        frame = data.get(global_key)
+        if isinstance(frame, pd.DataFrame) and minimum_by_plant:
+            data[global_key] = _project_vre_minimums_to_frame(frame, minimum_by_plant)
+
+        per_area_frames = data.get(per_area_key)
+        if isinstance(per_area_frames, Mapping) and minimum_by_area_plant:
+            projected_frames = dict(per_area_frames)
+            for area_id, area_frame in _iter_area_frames(per_area_frames):
+                values = {
+                    plant_id: minimum
+                    for (component_area, plant_id), minimum in minimum_by_area_plant.items()
+                    if component_area == area_id
+                }
+                if values:
+                    projected_frames[area_id] = _project_vre_minimums_to_frame(area_frame, values)
+            data[per_area_key] = projected_frames
+
+
+def _project_vre_minimums_to_frame(frame: pd.DataFrame, minimum_by_plant: Mapping[str, float]) -> pd.DataFrame:
+    """Copy one VRE capacity table and update matching minimum-capacity rows."""
+    projected = frame.copy()
+    if "MinCapacity" not in projected.columns:
+        projected["MinCapacity"] = 0.0
+    plant_ids = projected["sc_gid"].astype(str)
+    for plant_id, minimum in minimum_by_plant.items():
+        projected.loc[plant_ids == plant_id, "MinCapacity"] = minimum
+    return projected
 
 
 def drop_system_source_data(system: System) -> None:
@@ -147,6 +213,7 @@ def load_system_from_data(data: dict[str, Any], *, name: str = "SDOM") -> System
     >>> bool(list(system.get_components(SDOMArea)))
     True
     """
+    _validate_vre_source_data(data)
     system = System(name=name)
     _, buses = _add_areas_and_buses(system, data)
     _add_loads(system, data, buses)
@@ -196,7 +263,9 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     data = getattr(system, _SOURCE_DATA_ATTR, None)
     if data is None:
         raise ValueError("system does not include SDOM source data; use load_system() or load_system_from_data().")
-    return dict(data)
+    restored = dict(data)
+    _project_vre_minimums(restored, system)
+    return restored
 
 
 def _add_areas_and_buses(system: System, data: Mapping[str, Any]) -> tuple[dict[str, SDOMArea], dict[str, SDOMBus]]:
@@ -349,11 +418,12 @@ def _add_vre_generators(system: System, data: Mapping[str, Any], buses: Mapping[
                 bus=buses[area_id],
                 category=category,
                 technology=label,
+                min_active_power=_optional_float(row_data.get("MinCapacity")) or 0.0,
                 max_active_power=_optional_float(row_data.get("capacity")),
                 capex=_optional_float(row_data.get("CAPEX_M")),
                 fom=_optional_float(row_data.get("FOM_M")),
                 trans_cap_cost=_optional_float(row_data.get("trans_cap_cost")),
-                ext=_row_ext(row_data, exclude={"area_id", "sc_gid", "capacity", "CAPEX_M", "FOM_M", "trans_cap_cost"}),
+                ext=_row_ext(row_data, exclude={"area_id", "sc_gid", "capacity", "MinCapacity", "CAPEX_M", "FOM_M", "trans_cap_cost"}),
             )
             system.add_component(generator)
             if not _attach_geographic_info(system, generator, row_data, source=plant_key):
