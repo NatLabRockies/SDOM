@@ -256,6 +256,30 @@ def test_zonal_system_generation_aggregates_sparse_area_rows_by_hour():
     assert list(system_df["Net Load (MW)"]) == [103.0, 85.0]
 
 
+def test_zonal_system_generation_falls_back_for_legacy_pickle():
+    """Legacy zonal results should aggregate when the cached field is absent."""
+    result = OptimizationResults(
+        is_zonal=True,
+        generation_df=pd.DataFrame(
+            {
+                "Area": ["A1", "A2"],
+                "Hour": [1, 1],
+                "Load (MW)": [100.0, 50.0],
+                "Solar PV Generation (MW)": [20.0, 10.0],
+            }
+        ),
+    )
+    expected = result.get_system_generation_dataframe()
+    del result.system_generation_df
+
+    legacy_result = pickle.loads(pickle.dumps(result))
+
+    assert not hasattr(legacy_result, "system_generation_df")
+    pd.testing.assert_frame_equal(
+        legacy_result.get_system_generation_dataframe(), expected
+    )
+
+
 # ---------------------------------------------------------------------------
 # Interregional exchanges: PRD §2.4 schema
 # ---------------------------------------------------------------------------

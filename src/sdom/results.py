@@ -290,8 +290,9 @@ class OptimizationResults:
         """
         if not self.is_zonal:
             return self.generation_df.copy()
-        if not self.system_generation_df.empty:
-            return self.system_generation_df.copy()
+        system_generation_df = getattr(self, "system_generation_df", None)
+        if system_generation_df is not None and not system_generation_df.empty:
+            return system_generation_df.copy()
         return _aggregate_zonal_generation_by_hour(self.generation_df)
 
     def get_storage_dataframe(self) -> pd.DataFrame:
