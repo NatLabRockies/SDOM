@@ -16,6 +16,7 @@ from sdom.models.formulations_network import (
     add_network_variables,
     network_transmission_cost_rule,
 )
+from sdom.results import collect_marginal_prices_from_model
 
 
 # ---------------------------------------------------------------------------
@@ -202,3 +203,54 @@ def test_add_network_expressions_are_signed_scalars():
             # Downstream code is expected to clip to >= 0 with max(value, 0).
             assert max(pyo.value(m.f_FT[l, h]), 0.0) == pytest.approx(0.0)
             assert max(pyo.value(m.f_TF[l, h]), 0.0) == pytest.approx(30.0)
+
+
+@pytest.mark.parametrize(
+    ("line_capacity", "expected_destination_price"),
+    [(1.0, 100.0), (100.0, 10.0)],
+    ids=["binding_line_separates_prices", "uncongested_line_equalizes_prices"],
+)
+def test_fixed_decision_prices_follow_balance_and_directional_dual_sign(
+    line_capacity,
+    expected_destination_price,
+):
+    """LMPs match demand finite differences and the signed line-dual identity."""
+    m = pyo.ConcreteModel()
+    m.A = pyo.Set(initialize=["A1", "A2"], ordered=True)
+    m.h = pyo.Set(initialize=[1], ordered=True)
+    m.area = pyo.Block(m.A)
+    add_network_sets(m, lines=["L"], line_from={"L": "A1"}, line_to={"L": "A2"})
+    add_network_parameters(
+        m,
+        line_cap_ft={("L", 1): line_capacity},
+        line_cap_tf={("L", 1): line_capacity},
+    )
+    add_network_variables(m)
+    add_network_constraints(m)
+    m.area["A1"].generation = pyo.Var(domain=pyo.NonNegativeReals)
+    m.area["A2"].generation = pyo.Var(domain=pyo.NonNegativeReals)
+    m.demand = pyo.Param(initialize=2.0, mutable=True)
+    m.area["A1"].SupplyBalance = pyo.Constraint(expr=m.f["L", 1] - m.area["A1"].generation == 0)
+    m.area["A2"].SupplyBalance = pyo.Constraint(expr=m.demand - m.f["L", 1] - m.area["A2"].generation == 0)
+    m.Obj = pyo.Objective(expr=10 * m.area["A1"].generation + 100 * m.area["A2"].generation)
+    m.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
+
+    solver = _highs()
+    solution = solver.solve(m)
+    prices, audit = collect_marginal_prices_from_model(m, solution)
+    hourly = prices.set_index("area_id")
+    assert hourly.loc["A1", "marginal_price_USD_per_MWh"] == pytest.approx(10.0)
+    assert hourly.loc["A2", "marginal_price_USD_per_MWh"] == pytest.approx(expected_destination_price)
+    assert hourly.loc["A1", "supply_balance_dual"] == pytest.approx(-10.0)
+    assert (
+        hourly.loc["A2", "marginal_price_USD_per_MWh"]
+        - hourly.loc["A1", "marginal_price_USD_per_MWh"]
+    ) == pytest.approx(-audit.iloc[0]["line_congestion_dual_sum"])
+
+    baseline_objective = pyo.value(m.Obj)
+    perturbation = 1e-3
+    m.demand.set_value(pyo.value(m.demand) + perturbation)
+    solver.solve(m)
+    assert (
+        (pyo.value(m.Obj) - baseline_objective) / perturbation
+    ) == pytest.approx(expected_destination_price, abs=1e-6)

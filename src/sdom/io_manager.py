@@ -1646,6 +1646,13 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
         flow_TF_MW, cap_FT_MW, cap_TF_MW, utilization_FT, utilization_TF``.
         Row count is ``|L| * n_hours``.
 
+    marginal_prices.csv
+        Fixed-decision LP marginal prices for successful solves. Columns:
+        ``hour, area_id, marginal_price_USD_per_MWh,
+        generation_component_USD_per_MWh, congestion_component_USD_per_MWh,
+        supply_balance_dual, line_congestion_dual_sum, pricing_method,
+        pricing_status``.
+
     Notes
     -----
     This function accepts either an OptimizationResults dataclass (new API)
@@ -1721,6 +1728,13 @@ def _export_from_results_object(results, case: str, output_dir: str):
     if interregional_df is not None and not interregional_df.empty:
         interregional_df.to_csv(
             os.path.join(output_dir, f"OutputInterregionalExchanges_{case}.csv"),
+            index=False,
+        )
+
+    marginal_prices_df = getattr(results, "marginal_prices_df", None)
+    if marginal_prices_df is not None and not marginal_prices_df.empty:
+        marginal_prices_df.to_csv(
+            os.path.join(output_dir, "marginal_prices.csv"),
             index=False,
         )
 

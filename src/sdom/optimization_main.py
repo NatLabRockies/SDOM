@@ -2,11 +2,12 @@ import logging
 import math
 import os
 from datetime import datetime
+import pandas as pd
 #from pympler import muppy, summary
 #from pympler import muppy, summary
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, check_available_solvers
 from pyomo.util.infeasible import log_infeasible_constraints
-from pyomo.environ import ConcreteModel, Objective, Block, minimize
+from pyomo.environ import ConcreteModel, Objective, Block, Reals, Suffix, Var, minimize
 
 from .initializations import initialize_sets, initialize_params
 from .common.utilities import safe_pyomo_value
@@ -30,7 +31,11 @@ from .constants import (
 
 from .io_manager import get_formulation, get_network_formulation
 from .utils_performance_meassure import ModelInitProfiler
-from .results import OptimizationResults, collect_results_from_model
+from .results import (
+    OptimizationResults,
+    collect_marginal_prices_from_model,
+    collect_results_from_model,
+)
 
 # ---------------------------------------------------------------------------------
 # Model initialization
@@ -1194,6 +1199,45 @@ def get_default_solver_config_dict(
     return solver_dict
 
 
+def _fix_pricing_decisions(model) -> None:
+    """Fix incumbent discrete and investment decisions on a pricing-model clone."""
+    capacity_variables = {
+        "capacity_fraction",
+        "plant_installed_capacity",
+        "Pcha",
+        "Pdis",
+        "Ecap",
+    }
+    for variable in model.component_data_objects(Var, descend_into=True):
+        if variable.is_binary() or variable.is_integer():
+            variable.domain = Reals
+            variable.fix(round(variable.value))
+        elif variable.parent_component().local_name in capacity_variables:
+            variable.fix(variable.value)
+
+
+def _collect_fixed_decision_marginal_prices(model):
+    """Solve an incumbent-fixed HiGHS LP and return price and line-dual frames."""
+    if not hasattr(model, "clone"):
+        logging.debug(
+            "Skipping fixed-decision LP pricing for non-Pyomo model test double."
+        )
+        return pd.DataFrame(), pd.DataFrame()
+
+    try:
+        pricing_model = model.clone()
+        _fix_pricing_decisions(pricing_model)
+        pricing_model.dual = Suffix(direction=Suffix.IMPORT)
+        pricing_solver = SolverFactory("appsi_highs")
+        if not pricing_solver.available(exception_flag=False):
+            return collect_marginal_prices_from_model(pricing_model, None)
+        pricing_result = pricing_solver.solve(pricing_model, load_solutions=True)
+    except Exception:
+        logging.exception("Fixed-decision LP pricing solve failed.")
+        return collect_marginal_prices_from_model(pricing_model, None)
+    return collect_marginal_prices_from_model(pricing_model, pricing_result)
+
+
 # Run solver function
 def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> OptimizationResults:
     """Solve the optimization model and return structured results.
@@ -1262,6 +1306,10 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     ):
         # Collect results using the new structured approach
         results = collect_results_from_model(model, solver_result, case_name)
+        (
+            results.marginal_prices_df,
+            results.line_congestion_duals_df,
+        ) = _collect_fixed_decision_marginal_prices(model)
     else:
         logging.warning(f"Solver did not find an optimal solution for GenMix_Target = {target_value:.2f}.")
         logging.warning("Logging infeasible constraints...")

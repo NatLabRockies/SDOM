@@ -12,6 +12,19 @@ from sdom import run_solver, initialize_model, export_results, get_default_solve
 
 from constants_test import REL_PATH_DATA_RUN_OF_RIVER_TEST
 
+
+MARGINAL_PRICE_COLUMNS = [
+    "hour",
+    "area_id",
+    "marginal_price_USD_per_MWh",
+    "generation_component_USD_per_MWh",
+    "congestion_component_USD_per_MWh",
+    "supply_balance_dual",
+    "line_congestion_dual_sum",
+    "pricing_method",
+    "pricing_status",
+]
+
 def test_output_files_creation_case_no_resiliency():
 
     test_data_path = os.path.join(os.path.dirname(__file__), '..', REL_PATH_DATA_RUN_OF_RIVER_TEST)
@@ -87,6 +100,31 @@ def test_export_results_summary_has_expected_columns(_solved_run_of_river):
         df = pd.read_csv(summary_path)
         for col in ("Metric", "Technology", "Optimal Value", "Unit"):
             assert col in df.columns, f"Column '{col}' missing from OutputSummary"
+    finally:
+        shutil.rmtree(tmp_dir)
+
+
+def test_successful_copperplate_solve_exports_marginal_prices(_solved_run_of_river):
+    """A successful 24-hour solve exposes and exports fixed-decision LP prices."""
+    _, results = _solved_run_of_river
+    prices = results.get_marginal_prices_dataframe()
+
+    assert list(prices.columns) == MARGINAL_PRICE_COLUMNS
+    assert len(prices) == 24
+    assert set(prices["area_id"]) == {"copperplate"}
+    assert set(prices["pricing_method"]) == {"fixed_decision_lp_appsi_highs"}
+    assert set(prices["pricing_status"]) == {"available"}
+    assert prices["marginal_price_USD_per_MWh"].notna().all()
+
+    prices.loc[:, "area_id"] = "mutated"
+    assert set(results.marginal_prices_df["area_id"]) == {"copperplate"}
+
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        export_results(results, "marginal_prices_case", tmp_dir + os.sep)
+        csv_path = os.path.join(tmp_dir, "marginal_prices.csv")
+        assert os.path.exists(csv_path)
+        assert list(pd.read_csv(csv_path).columns) == MARGINAL_PRICE_COLUMNS
     finally:
         shutil.rmtree(tmp_dir)
 
