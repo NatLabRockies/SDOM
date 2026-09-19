@@ -1624,6 +1624,10 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
         Hourly dispatch results containing: Scenario, Hour, Solar PV/Wind
         generation and curtailment, Thermal, hydro, nuclear, other renewables
         generation, Storage net charge/discharge, imports, exports, Load.
+        Zonal runs contain one system aggregate row per hour.
+
+    OutputGenerationPerArea_{case}.csv
+        Zonal-only hourly dispatch results with one row per ``Area`` and hour.
 
     OutputStorage_{case}.csv
         Hourly storage operation for each technology: Hour, Technology,
@@ -1692,11 +1696,20 @@ def _export_from_results_object(results, case: str, output_dir: str):
 
     # Save generation results to CSV
     logging.debug("-- Saving generation results to CSV...")
-    gen_df = results.get_generation_dataframe()
+    gen_df = results.get_system_generation_dataframe()
     if not gen_df.empty:
         # Update scenario column with the case name
         gen_df["Scenario"] = case
         gen_df.to_csv(os.path.join(output_dir, f"OutputGeneration_{case}.csv"), index=False)
+
+    if getattr(results, "is_zonal", False):
+        area_gen_df = results.get_generation_dataframe()
+        if not area_gen_df.empty:
+            area_gen_df["Scenario"] = case
+            area_gen_df.to_csv(
+                os.path.join(output_dir, f"OutputGenerationPerArea_{case}.csv"),
+                index=False,
+            )
 
     # Save storage results to CSV
     logging.debug("-- Saving storage results to CSV...")
