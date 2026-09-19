@@ -177,8 +177,13 @@ def concatenate_dataframes( df: pd.DataFrame,
     Notes:
         The new_data_dict is pivoted so each key becomes a separate row in the
         resulting DataFrame, all sharing the same Run, Unit, and Metric values.
+        An empty dictionary leaves the DataFrame unchanged.
     """
+    if not new_data_dict:
+        return df.copy()
+
     new_df = pd.DataFrame.from_dict(new_data_dict, orient='index',columns=['Optimal Value'])
+    new_df['Optimal Value'] = pd.to_numeric(new_df['Optimal Value'], errors='coerce')
     new_df = new_df.reset_index(names=['Technology'])
     new_df['Run'] = run
     new_df['Unit'] = unit
