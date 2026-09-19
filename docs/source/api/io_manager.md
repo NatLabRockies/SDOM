@@ -58,10 +58,11 @@ if results.is_optimal:
         output_dir="./results_pyomo/"
     )
 
-# This creates three CSV files:
+# This creates the standard result CSV files, including:
 # - OutputGeneration_scenario_95pct_clean.csv
 # - OutputStorage_scenario_95pct_clean.csv
 # - OutputSummary_scenario_95pct_clean.csv
+# - marginal_prices.csv (fixed-decision LP hourly marginal prices)
 
 # You can also access the DataFrames directly from results:
 generation_df = results.generation_df
