@@ -9,6 +9,7 @@ import pytest
 
 from sdom import load_data
 from sdom import run_solver, initialize_model, export_results, get_default_solver_config_dict
+from sdom.results import OptimizationResults
 
 from constants_test import REL_PATH_DATA_RUN_OF_RIVER_TEST
 
@@ -127,6 +128,15 @@ def test_successful_copperplate_solve_exports_marginal_prices(_solved_run_of_riv
         assert list(pd.read_csv(csv_path).columns) == MARGINAL_PRICE_COLUMNS
     finally:
         shutil.rmtree(tmp_dir)
+
+
+def test_optimization_results_preserves_legacy_attribute_units_position():
+    """The pre-price positional constructor layout must keep attribute_units."""
+    legacy_arguments = [None] * 27 + [{"capacity": "MW"}]
+
+    results = OptimizationResults(*legacy_arguments)
+
+    assert results.attribute_units == {"capacity": "MW"}
 
 
 # =============================================================================

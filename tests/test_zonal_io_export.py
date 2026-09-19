@@ -175,11 +175,12 @@ def test_zonal_marginal_prices_have_area_hour_rows_and_auditable_duals(
         hourly = prices.loc[prices["hour"] == hour].set_index("area_id")
         reference = sorted(model.A)[0]
         assert hourly.loc[reference, "congestion_component_USD_per_MWh"] == pytest.approx(0.0)
-        assert (
-            hourly["marginal_price_USD_per_MWh"]
-            == hourly["generation_component_USD_per_MWh"]
-            + hourly["congestion_component_USD_per_MWh"]
-        ).all()
+        assert hourly["marginal_price_USD_per_MWh"].to_numpy() == pytest.approx(
+            (
+                hourly["generation_component_USD_per_MWh"]
+                + hourly["congestion_component_USD_per_MWh"]
+            ).to_numpy()
+        )
 
     for _, row in audit.iterrows():
         prices_at_hour = prices.loc[prices["hour"] == row["hour"]].set_index("area_id")

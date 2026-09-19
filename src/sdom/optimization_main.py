@@ -1218,6 +1218,16 @@ def _fix_pricing_decisions(model: ConcreteModel) -> None:
             variable.fix(variable.value)
 
 
+def _get_solve_tee(solver_config_dict: dict[str, Any]) -> bool:
+    """Return solver output streaming compatible with the selected solver."""
+    solve_tee = solver_config_dict["solve_keywords"].get("tee", False)
+    if solver_config_dict.get("solver_name") == "appsi_highs" and solve_tee:
+        # Appsi HiGHS always routes output to a logger and, with tee=True,
+        # also mirrors it to stdout, which duplicates every solver line.
+        return False
+    return solve_tee
+
+
 def _collect_fixed_decision_marginal_prices(
     model: ConcreteModel,
     solver_config_dict: dict[str, Any],
@@ -1255,7 +1265,7 @@ def _collect_fixed_decision_marginal_prices(
         pricing_solver = configure_solver(solver_config_dict)
         pricing_result = pricing_solver.solve(
             pricing_model,
-            tee=solver_config_dict["solve_keywords"].get("tee", False),
+            tee=_get_solve_tee(solver_config_dict),
             load_solutions=solver_config_dict["solve_keywords"].get(
                 "load_solutions", True
             ),
@@ -1272,7 +1282,11 @@ def _collect_fixed_decision_marginal_prices(
     except Exception:
         logging.exception("Fixed-decision LP pricing solve failed.")
         if pricing_model is None:
-            return pd.DataFrame(), pd.DataFrame()
+            return collect_marginal_prices_from_model(
+                model,
+                None,
+                pricing_method=pricing_method,
+            )
         return collect_marginal_prices_from_model(
             pricing_model,
             None,
@@ -1332,11 +1346,7 @@ def run_solver(model, solver_config_dict: dict, case_name: str = "run") -> Optim
     solver_name = solver_config_dict.get("solver_name", "")
 
     target_value = float(model.GenMix_Target.value)
-    solve_tee = solver_config_dict["solve_keywords"].get("tee", False)
-    if solver_name == "appsi_highs" and solve_tee:
-        # Appsi HiGHS always routes output to a logger and, with tee=True,
-        # also mirrors it to stdout, which duplicates every solver line.
-        solve_tee = False
+    solve_tee = _get_solve_tee(solver_config_dict)
 
     logging.info(f"Running optimization for GenMix_Target = {target_value:.2f}")
     solver_result = solver.solve(

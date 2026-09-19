@@ -130,10 +130,10 @@ class OptimizationResults:
     area_installed_plants_df: dict = field(default_factory=dict)
     area_summary_df: dict = field(default_factory=dict)
     interregional_exchanges_df: pd.DataFrame = field(default_factory=pd.DataFrame)
-    marginal_prices_df: pd.DataFrame = field(default_factory=pd.DataFrame)
-    line_congestion_duals_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     attribute_units: dict[str, str] = field(default_factory=dict)
+    marginal_prices_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    line_congestion_duals_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     # ----------------------------------------------------------------------------------
     # Convenience properties for backward compatibility and easy access
@@ -376,7 +376,13 @@ def collect_marginal_prices_from_model(
         )
         return price_df, line_df if line_df is not None else pd.DataFrame(columns=_LINE_CONGESTION_DUAL_COLUMNS)
 
-    if pricing_result is None or str(pricing_result.solver.termination_condition) != "optimal":
+    termination_condition = (
+        None if pricing_result is None else pricing_result.solver.termination_condition
+    )
+    if (
+        termination_condition is None
+        or str(termination_condition).split(".")[-1].lower() != "optimal"
+    ):
         return unavailable("unavailable_pricing_lp")
 
     dual = getattr(model, "dual", None)
@@ -402,8 +408,8 @@ def collect_marginal_prices_from_model(
     line_sums = {}
     if is_zonal:
         for line in model.L:
-            from_area = str(pyo_value(model.line_from[line]))
-            to_area = str(pyo_value(model.line_to[line]))
+            from_area = pyo_value(model.line_from[line])
+            to_area = pyo_value(model.line_to[line])
             for hour in hours:
                 upper = dual.get(model.f_upper[line, hour])
                 lower = dual.get(model.f_lower[line, hour])
@@ -413,7 +419,7 @@ def collect_marginal_prices_from_model(
                 line_sums[hour, line] = dual_sum
                 line_rows.append(
                     {
-                        "line_id": str(line),
+                        "line_id": line,
                         "from_area": from_area,
                         "to_area": to_area,
                         "hour": hour,
@@ -425,15 +431,15 @@ def collect_marginal_prices_from_model(
 
     references = {"copperplate": "copperplate"}
     if is_zonal:
-        neighbors = {str(area): set() for area in areas}
+        neighbors = {area: set() for area in areas}
         for line in model.L:
-            origin = str(pyo_value(model.line_from[line]))
-            destination = str(pyo_value(model.line_to[line]))
+            origin = pyo_value(model.line_from[line])
+            destination = pyo_value(model.line_to[line])
             neighbors[origin].add(destination)
             neighbors[destination].add(origin)
         unvisited = set(neighbors)
         while unvisited:
-            root = min(unvisited)
+            root = min(unvisited, key=str)
             component, pending = set(), [root]
             while pending:
                 area = pending.pop()
@@ -442,7 +448,7 @@ def collect_marginal_prices_from_model(
                 component.add(area)
                 pending.extend(neighbors[area] - component)
             unvisited -= component
-            reference = min(component)
+            reference = min(component, key=str)
             references.update({area: reference for area in component})
 
     price_rows = []
@@ -452,7 +458,7 @@ def collect_marginal_prices_from_model(
         reference_price = -supply_duals[hour, references[area]]
         line_sum = (
             sum(line_sums[hour, line] for line in model.L if area in {
-                str(pyo_value(model.line_from[line])), str(pyo_value(model.line_to[line]))
+                pyo_value(model.line_from[line]), pyo_value(model.line_to[line])
             })
             if is_zonal else 0.0
         )
