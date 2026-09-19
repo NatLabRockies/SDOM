@@ -42,11 +42,14 @@ def test_vre_min_capacity_maps_to_system_and_back(
     assert "MinCapacity" not in generator.ext
 
     generator.min_active_power = minimum * 2
+    generator.max_active_power = float(generator.max_active_power) * 0.8
     restored = system_to_data_dict(system)
     assert restored[capacity_key] is not data[capacity_key]
     assert restored[per_area_key]["default"] is not data[per_area_key]["default"]
     assert restored[capacity_key].loc[0, "MinCapacity"] == pytest.approx(minimum * 2)
     assert restored[per_area_key]["default"].loc[0, "MinCapacity"] == pytest.approx(minimum * 2)
+    assert restored[capacity_key].loc[0, "capacity"] == pytest.approx(float(capacity.loc[0, "capacity"]) * 0.8)
+    assert restored[per_area_key]["default"].loc[0, "capacity"] == pytest.approx(float(capacity.loc[0, "capacity"]) * 0.8)
     assert restored["load_data"] is data["load_data"]
 
 
@@ -61,9 +64,13 @@ def test_vre_system_min_capacity_is_used_by_pyomo_builder():
     data["per_area_pv_plants"]["default"] = capacity.copy()
 
     system = load_system_from_data(data)
+    generator = system.get_component(SDOMSolarGenerator, f"solar:{plant_id}")
+    generator.max_active_power = float(generator.max_active_power) * 0.8
+    generator.min_active_power = float(generator.max_active_power) * 0.3
     model = initialize_model_from_system(system, n_hours=24).create_instance()
 
     assert model.pv.capacity_fraction[plant_id].lb == pytest.approx(0.3)
+    assert float(model.pv.max_capacity[plant_id]) == pytest.approx(float(generator.max_active_power))
 
 
 def test_zonal_vre_system_min_capacity_is_used_by_pyomo_builder():
@@ -94,4 +101,14 @@ def test_vre_system_validation_rejects_minimum_above_maximum():
     generator.min_active_power = float(generator.max_active_power) + 1.0
 
     with pytest.raises(ValueError, match=r"VRE solar generator.*MinCapacity"):
+        validate_sdom_system(system)
+
+
+def test_vre_system_validation_rejects_minimum_without_maximum():
+    """System VRE minimums should require a corresponding maximum capacity."""
+    system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))
+    generator = next(system.get_components(SDOMSolarGenerator))
+    generator.max_active_power = None
+
+    with pytest.raises(ValueError, match=r"VRE solar generator.*capacity"):
         validate_sdom_system(system)

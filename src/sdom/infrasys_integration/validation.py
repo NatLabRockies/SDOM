@@ -231,7 +231,9 @@ def validate_vre_capacity_bounds(system: System) -> None:
             maximum = generator.max_active_power
             minimum = generator.min_active_power
             if maximum is None:
-                continue
+                raise ValueError(
+                    f"VRE {technology} generator '{generator.name}' requires a finite nonnegative capacity."
+                )
             if not math.isfinite(float(maximum)) or float(maximum) < 0:
                 raise ValueError(
                     f"VRE {technology} generator '{generator.name}' requires a finite nonnegative capacity."

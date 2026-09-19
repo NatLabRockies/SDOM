@@ -30,6 +30,7 @@ from ..models import (
     SDOMTransmissionInterface,
     SDOMWindGenerator,
 )
+from ..validation import validate_vre_capacity_bounds
 from .utils import (
     _attach_bus_geographic_info,
     _attach_column_series,
@@ -76,47 +77,57 @@ def _validate_vre_source_data(data: Mapping[str, Any]) -> None:
             )
 
 
-def _project_vre_minimums(data: dict[str, Any], system: System) -> None:
-    """Project VRE component minimums into copied VRE capacity tables only."""
+def _project_vre_capacity_bounds(data: dict[str, Any], system: System) -> None:
+    """Project VRE component capacity bounds into copied VRE tables only."""
     for global_key, per_area_key, component_type in (
         ("cap_solar", "per_area_pv_plants", SDOMSolarGenerator),
         ("cap_wind", "per_area_wind_plants", SDOMWindGenerator),
     ):
         components = list(system.get_components(component_type))
-        minimum_by_plant = {
-            component.name.split(":", 1)[1]: float(component.min_active_power or 0.0)
+        bounds_by_plant = {
+            component.name.split(":", 1)[1]: (
+                float(component.min_active_power or 0.0),
+                float(component.max_active_power),
+            )
             for component in components
         }
-        minimum_by_area_plant = {
-            (component.bus.area.name, component.name.split(":", 1)[1]): float(component.min_active_power or 0.0)
+        bounds_by_area_plant = {
+            (component.bus.area.name, component.name.split(":", 1)[1]): (
+                float(component.min_active_power or 0.0),
+                float(component.max_active_power),
+            )
             for component in components
         }
         frame = data.get(global_key)
-        if isinstance(frame, pd.DataFrame) and minimum_by_plant:
-            data[global_key] = _project_vre_minimums_to_frame(frame, minimum_by_plant)
+        if isinstance(frame, pd.DataFrame) and bounds_by_plant:
+            data[global_key] = _project_vre_capacity_bounds_to_frame(frame, bounds_by_plant)
 
         per_area_frames = data.get(per_area_key)
-        if isinstance(per_area_frames, Mapping) and minimum_by_area_plant:
+        if isinstance(per_area_frames, Mapping) and bounds_by_area_plant:
             projected_frames = dict(per_area_frames)
             for area_id, area_frame in _iter_area_frames(per_area_frames):
-                values = {
-                    plant_id: minimum
-                    for (component_area, plant_id), minimum in minimum_by_area_plant.items()
+                bounds = {
+                    plant_id: values
+                    for (component_area, plant_id), values in bounds_by_area_plant.items()
                     if component_area == area_id
                 }
-                if values:
-                    projected_frames[area_id] = _project_vre_minimums_to_frame(area_frame, values)
+                if bounds:
+                    projected_frames[area_id] = _project_vre_capacity_bounds_to_frame(area_frame, bounds)
             data[per_area_key] = projected_frames
 
 
-def _project_vre_minimums_to_frame(frame: pd.DataFrame, minimum_by_plant: Mapping[str, float]) -> pd.DataFrame:
-    """Copy one VRE capacity table and update matching minimum-capacity rows."""
+def _project_vre_capacity_bounds_to_frame(
+    frame: pd.DataFrame,
+    bounds_by_plant: Mapping[str, tuple[float, float]],
+) -> pd.DataFrame:
+    """Copy one VRE capacity table and update matching capacity-bound rows."""
     projected = frame.copy()
     if "MinCapacity" not in projected.columns:
         projected["MinCapacity"] = 0.0
     plant_ids = projected["sc_gid"].astype(str)
-    for plant_id, minimum in minimum_by_plant.items():
+    for plant_id, (minimum, maximum) in bounds_by_plant.items():
         projected.loc[plant_ids == plant_id, "MinCapacity"] = minimum
+        projected.loc[plant_ids == plant_id, "capacity"] = maximum
     return projected
 
 
@@ -242,9 +253,13 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     Returns
     -------
     dict[str, Any]
-        Shallow copy of the original SDOM data dictionary. DataFrame values are
-        intentionally shared with the source dictionary to avoid unnecessary
-        memory growth during the compatibility phase.
+        Shallow copy of the original SDOM data dictionary. DataFrame values
+        other than VRE capacity tables are intentionally shared with the
+        source dictionary to avoid unnecessary memory growth during the
+        compatibility phase. Global and per-area VRE capacity tables are
+        copied so component ``min_active_power`` and ``max_active_power``
+        values can be projected to their ``MinCapacity`` and ``capacity``
+        columns.
 
     Raises
     ------
@@ -263,8 +278,9 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     data = getattr(system, _SOURCE_DATA_ATTR, None)
     if data is None:
         raise ValueError("system does not include SDOM source data; use load_system() or load_system_from_data().")
+    validate_vre_capacity_bounds(system)
     restored = dict(data)
-    _project_vre_minimums(restored, system)
+    _project_vre_capacity_bounds(restored, system)
     return restored
 
 

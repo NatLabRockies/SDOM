@@ -175,8 +175,8 @@ def _initialize_abstract_model_from_system(
     False
     """
     _validate_n_hours(n_hours)
-    resolved_data = system_to_data_dict(system) if data is None else data
     validate_sdom_system(system)
+    resolved_data = system_to_data_dict(system) if data is None else data
     _validate_system_data_associations(system, resolved_data)
 
     model = AbstractModel(name=model_name)
