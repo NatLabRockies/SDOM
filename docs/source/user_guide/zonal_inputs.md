@@ -108,12 +108,14 @@ Example:
 
 Add `area_id` column.
 
+For `CapSolar.csv` and `CapWind.csv`, `capacity` (lowercase) remains the installed-capacity upper bound in MW. The optional canonical `MinCapacity` column is the installed-capacity lower bound in MW. If the column is omitted or its value is blank or `NaN`, SDOM uses `0` MW. Provided values must be finite and satisfy `0 <= MinCapacity <= capacity`; `capacity = 0` is valid only when `MinCapacity` is omitted, blank, `NaN`, or `0`. In the Infrasys System interface, this lower bound maps to `min_active_power`.
+
 Example:
 
 ```csv
-sc_gid,area_id,capacity,CAPEX_M,trans_cap_cost,FOM_M
-132876,A1,430.68,708.55,5323.33,8.29
-Nordeste,A2,1.0,6209.28,0,94.08
+sc_gid,area_id,capacity,MinCapacity,CAPEX_M,trans_cap_cost,FOM_M
+132876,A1,430.68,100,708.55,5323.33,8.29
+Nordeste,A2,1.0,,6209.28,0,94.08
 ```
 
 ### Wide files with tagged headers

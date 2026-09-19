@@ -68,6 +68,7 @@ COPPERPLATE_FILES: list[tuple[str, str, list[tuple[str, str, str]]]] = [
         [
             ("sc_gid", "string", "Unique identifier for the candidate site."),
             ("capacity", "float", "Upper bound for installed capacity at the site (MW)."),
+            ("MinCapacity", "float, optional", "Lower bound for installed capacity (MW); blank or NaN defaults to 0. Must be finite and satisfy 0 <= MinCapacity <= capacity. If capacity is 0, omit, leave blank, or set MinCapacity to 0."),
             ("latitude", "float", "Latitude of the site (optional)."),
             ("longitude", "float", "Longitude of the site (optional)."),
             ("trans_cap_cost", "float", "Transmission interconnection capex (USD/kW)."),
@@ -89,6 +90,7 @@ COPPERPLATE_FILES: list[tuple[str, str, list[tuple[str, str, str]]]] = [
         [
             ("sc_gid", "string", "Unique identifier for the candidate site."),
             ("capacity", "float", "Upper bound for installed capacity at the site (MW)."),
+            ("MinCapacity", "float, optional", "Lower bound for installed capacity (MW); blank or NaN defaults to 0. Must be finite and satisfy 0 <= MinCapacity <= capacity. If capacity is 0, omit, leave blank, or set MinCapacity to 0."),
             ("latitude", "float", "Latitude of the site (optional)."),
             ("longitude", "float", "Longitude of the site (optional)."),
             ("trans_cap_cost", "float", "Transmission interconnection capex (USD/kW)."),
@@ -283,6 +285,7 @@ ZONAL_FILES: list[tuple[str, str, list[tuple[str, str, str]]]] = [
             ("sc_gid", "string", "Unique candidate site identifier (globally unique across areas)."),
             ("area_id", "string", "Area the site belongs to."),
             ("capacity", "float", "Upper bound for installed capacity at the site (MW)."),
+            ("MinCapacity", "float, optional", "Lower bound for installed capacity (MW); blank or NaN defaults to 0. Must be finite and satisfy 0 <= MinCapacity <= capacity. If capacity is 0, omit, leave blank, or set MinCapacity to 0."),
             ("latitude", "float", "Latitude of the site (optional)."),
             ("longitude", "float", "Longitude of the site (optional)."),
             ("trans_cap_cost", "float", "Transmission interconnection capex (USD/kW)."),
@@ -305,6 +308,7 @@ ZONAL_FILES: list[tuple[str, str, list[tuple[str, str, str]]]] = [
             ("sc_gid", "string", "Unique candidate site identifier (globally unique across areas)."),
             ("area_id", "string", "Area the site belongs to."),
             ("capacity", "float", "Upper bound for installed capacity at the site (MW)."),
+            ("MinCapacity", "float, optional", "Lower bound for installed capacity (MW); blank or NaN defaults to 0. Must be finite and satisfy 0 <= MinCapacity <= capacity. If capacity is 0, omit, leave blank, or set MinCapacity to 0."),
             ("latitude", "float", "Latitude of the site (optional)."),
             ("longitude", "float", "Longitude of the site (optional)."),
             ("trans_cap_cost", "float", "Transmission interconnection capex (USD/kW)."),

@@ -114,19 +114,22 @@ model = initialize_model(
 ```
 
 ##### **Plant Data**: `CapSolar.csv`
-This file lists all candidate sites for solar PV and wind energy deployment. For each site, it specifies the maximum allowed installed capacity, geographic coordinates, capital expenditure (CAPEX), fixed operation and maintenance (FOM) costs, and transmission interconnection costs. These parameters are used by SDOM to evaluate investment options and optimize resource allocation across the available sites
-- Columns: `sc_gid` (plant ID), `capacity` (MW), `CAPEX_M` ($/kW), `FOM_M` ($/kW-yr), `trans_cap_cost` ($/kW)
+This file lists all candidate sites for solar PV and wind energy deployment. For each site, it specifies installed-capacity bounds, geographic coordinates, capital expenditure (CAPEX), fixed operation and maintenance (FOM) costs, and transmission interconnection costs. These parameters are used by SDOM to evaluate investment options and optimize resource allocation across the available sites.
+- Columns: `sc_gid` (plant ID), `capacity` (MW), optional `MinCapacity` (MW), `CAPEX_M` ($/kW), `FOM_M` ($/kW-yr), `trans_cap_cost` ($/kW)
 
 **CSV file columns:**
 | Field/Column    | Description                                                                                         |Expected type |
 |-----------------|-----------------------------------------------------------------------------------------------------|--------------|
 | sc_gid          | Unique identifier for each PV/Wind site or resource that will be represented by a single profile.   |string        |
 | capacity        | Upper bound for the allowed installed capacity at the site (MW).                                    |float         |
+| MinCapacity     | Optional lower bound for the allowed installed capacity at the site (MW).                           |float         |
 | latitude        | Latitude coordinate of the site (optional for future fetching of VRE files).                        |float         |
 | longitude       | Longitude coordinate of the site (optional for future fetching of VRE profiles).                    |float         |
 | trans_cap_cost  | Transmission Capital expediture costs associated with transmission in USD/kW                        |float         |
 | CAPEX_M         | Capital expenditure in USD/kW.                                                                      |float         |
 | FOM_M           | Fixed operation and maintenance cost in USD/kW.                                                     |float         |
+
+`capacity` (lowercase) is the installed-capacity upper bound. `MinCapacity` is optional and is the installed-capacity lower bound; both values are in MW. When `MinCapacity` is omitted, blank, or `NaN`, SDOM uses `0` MW. Otherwise, it must be finite and satisfy `0 <= MinCapacity <= capacity`. A `capacity` value of `0` is valid only when `MinCapacity` is omitted, blank, `NaN`, or `0`. These bounds apply in both copperplate and zonal runs. In the Infrasys System interface, `MinCapacity` maps to `min_active_power`.
 
 #### Wind
 
