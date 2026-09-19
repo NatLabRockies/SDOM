@@ -4,6 +4,13 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Optional VRE Minimum Capacity (#91, 2026-09-18)
+
+- `MinCapacity` is optional on `CapSolar` and `CapWind`; missing, blank, and NaN normalize to `0.0`, while retained rows require finite numeric `capacity` and `0 <= MinCapacity <= capacity`.
+- `initialize_vre_sets` owns normalization through `validate_vre_capacity_data`, saving both `filtered_cap_*_dict` and `filtered_min_cap_*_dict`; `formulations_vre` converts the latter to a direct `capacity_fraction` lower bound only when maximum capacity is positive.
+- Infrasys VRE components map `MinCapacity` to `min_active_power`; `system_to_data_dict` shallow-copies the root data dictionary and copies only global/per-area VRE capacity tables to project component minimums back. Other source frames remain shared.
+- `validate_sdom_system` now validates finite, nonnegative, ordered VRE min/max component bounds. Focused #91 tests plus legacy data, zonal model, make-system, and Pyomo-builder regressions pass.
+
 ## Zonal Export/Plot Fixture Feasibility (2026-09-18)
 
 - `tests/test_zonal_results_export_plotting.py` has a test-local copied zonal fixture that intentionally removes every optional A1 asset while retaining A1 demand and the A1/A2 line.
