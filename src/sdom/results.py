@@ -21,6 +21,57 @@ _RESULT_ATTRIBUTE_UNITS = {
     "cost_breakdown": "USD",
 }
 
+_GENERATION_ADDITIVE_COLUMNS = (
+    "Solar PV Generation (MW)",
+    "Solar PV Curtailment (MW)",
+    "Wind Generation (MW)",
+    "Wind Curtailment (MW)",
+    "All Thermal Generation (MW)",
+    "Hydro Generation (MW)",
+    "Nuclear Generation (MW)",
+    "Other Renewables Generation (MW)",
+    "Imports (MW)",
+    "Storage Charge/Discharge (MW)",
+    "Exports (MW)",
+    "Load (MW)",
+)
+
+
+def _aggregate_zonal_generation_by_hour(generation_df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate per-area generation rows into one system row per hour.
+
+    Missing dispatch columns and missing values represent zero dispatch. Net
+    load follows ``formulations_system.net_load_rule``: load less available
+    solar and wind (generation plus curtailment), nuclear, other renewables,
+    and hydro generation.
+    """
+    if generation_df.empty or "Hour" not in generation_df.columns:
+        return pd.DataFrame()
+
+    values = generation_df.reindex(columns=_GENERATION_ADDITIVE_COLUMNS).apply(
+        pd.to_numeric, errors="coerce"
+    ).fillna(0.0)
+    values.insert(0, "Hour", generation_df["Hour"].to_numpy())
+    system_df = values.groupby("Hour", as_index=False, sort=True).sum()
+
+    if "Scenario" in generation_df.columns:
+        scenarios = generation_df.groupby("Hour", sort=True)["Scenario"].first()
+        system_df.insert(0, "Scenario", system_df["Hour"].map(scenarios))
+    else:
+        system_df.insert(0, "Scenario", "run")
+
+    system_df["Net Load (MW)"] = (
+        system_df["Load (MW)"]
+        - system_df["Solar PV Generation (MW)"]
+        - system_df["Solar PV Curtailment (MW)"]
+        - system_df["Wind Generation (MW)"]
+        - system_df["Wind Curtailment (MW)"]
+        - system_df["Nuclear Generation (MW)"]
+        - system_df["Other Renewables Generation (MW)"]
+        - system_df["Hydro Generation (MW)"]
+    )
+    return system_df
+
 
 def _value_or_nan(obj) -> float:
     """Return a float value or NaN when not initialized/available."""
@@ -134,6 +185,7 @@ class OptimizationResults:
     attribute_units: dict[str, str] = field(default_factory=dict)
     marginal_prices_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     line_congestion_duals_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    system_generation_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     # ----------------------------------------------------------------------------------
     # Convenience properties for backward compatibility and easy access
@@ -225,6 +277,23 @@ class OptimizationResults:
             Exports (MW), Load (MW).
         """
         return self.generation_df.copy()
+
+    def get_system_generation_dataframe(self) -> pd.DataFrame:
+        """Return hourly generation dispatch aggregated to the system level.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per hour for zonal results, or the copperplate generation
+            DataFrame unchanged. Zonal net load is derived from aggregate
+            fixed-generation quantities rather than summed across areas.
+        """
+        if not self.is_zonal:
+            return self.generation_df.copy()
+        system_generation_df = getattr(self, "system_generation_df", None)
+        if system_generation_df is not None and not system_generation_df.empty:
+            return system_generation_df.copy()
+        return _aggregate_zonal_generation_by_hour(self.generation_df)
 
     def get_storage_dataframe(self) -> pd.DataFrame:
         """Get the hourly storage operation DataFrame.
@@ -1820,6 +1889,9 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     # Top-level concatenated DataFrames ------------------------------------
     if gen_pieces:
         results.generation_df = pd.concat(gen_pieces, ignore_index=True)
+        results.system_generation_df = _aggregate_zonal_generation_by_hour(
+            results.generation_df
+        )
     if storage_pieces:
         results.storage_df = pd.concat(storage_pieces, ignore_index=True)
     if thermal_pieces:

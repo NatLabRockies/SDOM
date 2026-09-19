@@ -225,6 +225,61 @@ def test_zonal_path_per_area_dataframes_have_correct_shape(zonal_model_and_resul
         assert set(top_plants["Area"].unique()) <= {"A1", "A2"}
 
 
+def test_zonal_system_generation_aggregates_sparse_area_rows_by_hour():
+    """System generation sums dispatch columns and derives net load per hour."""
+    results = OptimizationResults(
+        is_zonal=True,
+        generation_df=pd.DataFrame(
+            {
+                "Area": ["A1", "A2", "A1", "A2"],
+                "Scenario": ["zonal", "zonal", "zonal", "zonal"],
+                "Hour": [1, 1, 2, 2],
+                "Load (MW)": [100.0, 50.0, 80.0, 40.0],
+                "Solar PV Generation (MW)": [20.0, None, 10.0, None],
+                "Solar PV Curtailment (MW)": [5.0, None, 0.0, None],
+                "Wind Generation (MW)": [None, 5.0, None, 10.0],
+                "Wind Curtailment (MW)": [None, 2.0, None, 0.0],
+                "Hydro Generation (MW)": [10.0, 0.0, 10.0, 0.0],
+                "Nuclear Generation (MW)": [0.0, 5.0, 0.0, 5.0],
+                "Other Renewables Generation (MW)": [0.0, 0.0, 0.0, 0.0],
+                "All Thermal Generation (MW)": [70.0, 40.0, 60.0, 25.0],
+            }
+        ),
+    )
+
+    system_df = results.get_system_generation_dataframe()
+
+    assert list(system_df["Hour"]) == [1, 2]
+    assert list(system_df["Solar PV Generation (MW)"]) == [20.0, 10.0]
+    assert list(system_df["Wind Generation (MW)"]) == [5.0, 10.0]
+    assert list(system_df["All Thermal Generation (MW)"]) == [110.0, 85.0]
+    assert list(system_df["Net Load (MW)"]) == [103.0, 85.0]
+
+
+def test_zonal_system_generation_falls_back_for_legacy_pickle():
+    """Legacy zonal results should aggregate when the cached field is absent."""
+    result = OptimizationResults(
+        is_zonal=True,
+        generation_df=pd.DataFrame(
+            {
+                "Area": ["A1", "A2"],
+                "Hour": [1, 1],
+                "Load (MW)": [100.0, 50.0],
+                "Solar PV Generation (MW)": [20.0, 10.0],
+            }
+        ),
+    )
+    expected = result.get_system_generation_dataframe()
+    del result.system_generation_df
+
+    legacy_result = pickle.loads(pickle.dumps(result))
+
+    assert not hasattr(legacy_result, "system_generation_df")
+    pd.testing.assert_frame_equal(
+        legacy_result.get_system_generation_dataframe(), expected
+    )
+
+
 # ---------------------------------------------------------------------------
 # Interregional exchanges: PRD §2.4 schema
 # ---------------------------------------------------------------------------

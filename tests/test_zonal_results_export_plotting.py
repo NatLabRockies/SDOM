@@ -17,6 +17,7 @@ from sdom import export_results, initialize_model, load_data
 from sdom.analytic_tools import plot_parametric_results, plot_results
 from sdom.optimization_main import get_default_solver_config_dict, run_solver
 from sdom.parametric import ParametricStudy
+from sdom.results import OptimizationResults
 
 
 REL_ZONAL_FIXTURE = "Data/zonal_test"
@@ -88,6 +89,97 @@ def _load_zonal_data_without_optional_assets(tmp_path) -> dict:
 pytestmark = pytest.mark.skipif(
     not _highs_available(), reason="HiGHS solver not available"
 )
+
+
+def test_zonal_system_export_and_standard_heatmap_use_hourly_aggregate(
+    tmp_path, monkeypatch
+):
+    """Standard zonal outputs aggregate by hour while retaining area detail."""
+    result = OptimizationResults(
+        termination_condition="optimal",
+        is_zonal=True,
+        generation_df=pd.DataFrame(
+            {
+                "Area": ["A1", "A2", "A1", "A2"],
+                "Scenario": ["run"] * 4,
+                "Hour": [2, 2, 1, 1],
+                "Load (MW)": [40.0, 60.0, 50.0, 50.0],
+                "Solar PV Generation (MW)": [5.0, 10.0, 0.0, 20.0],
+            }
+        ),
+    )
+    captured_heatmap_frames = []
+
+    from sdom.analytic_tools import _single
+
+    monkeypatch.setattr(_single, "_plot_capacity_donut", lambda *_args: None)
+    monkeypatch.setattr(
+        _single, "_plot_capacity_generation_donuts", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        _single,
+        "_plot_heatmaps",
+        lambda frame, _plots_dir: captured_heatmap_frames.append(frame.copy()),
+    )
+
+    export_results(result, "zonal_system", output_dir=str(tmp_path))
+    plot_results(result, plots_dir=str(tmp_path / "plots"))
+
+    system_export = pd.read_csv(tmp_path / "OutputGeneration_zonal_system.csv")
+    per_area_export = pd.read_csv(
+        tmp_path / "OutputGenerationPerArea_zonal_system.csv"
+    )
+    assert list(system_export["Hour"]) == [1, 2]
+    assert list(system_export["Load (MW)"]) == [100.0, 100.0]
+    assert list(system_export["Solar PV Generation (MW)"]) == [20.0, 15.0]
+    assert len(per_area_export) == 4
+    assert "Area" in per_area_export.columns
+    assert len(captured_heatmap_frames) == 1
+    assert list(captured_heatmap_frames[0]["Hour"]) == [1, 2]
+    assert "Area" not in captured_heatmap_frames[0].columns
+
+
+def test_zonal_full_year_heatmap_receives_365_day_system_chronology(
+    tmp_path, monkeypatch
+):
+    """Standard heatmaps receive one 8,760-hour system series, not area blocks."""
+    hours = list(range(1, 8761))
+    generation_df = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "Area": area,
+                    "Hour": hours,
+                    "Load (MW)": 100.0,
+                    "Solar PV Generation (MW)": solar_generation,
+                }
+            )
+            for area, solar_generation in (("A1", 20.0), ("A2", 10.0))
+        ],
+        ignore_index=True,
+    )
+    result = OptimizationResults(
+        termination_condition="optimal",
+        is_zonal=True,
+        generation_df=generation_df,
+    )
+
+    from sdom.analytic_tools import _single
+
+    monkeypatch.setattr(_single, "_plot_capacity_donut", lambda *_args: None)
+    monkeypatch.setattr(
+        _single, "_plot_capacity_generation_donuts", lambda *_args: None
+    )
+    captured_day_counts = []
+    monkeypatch.setattr(
+        _single,
+        "_plot_heatmaps",
+        lambda frame, _plots_dir: captured_day_counts.append(len(frame) // 24),
+    )
+
+    plot_results(result, plots_dir=str(tmp_path / "plots"))
+
+    assert captured_day_counts == [365]
 
 
 def test_zonal_no_optional_assets_exports_summary_and_standard_plots(tmp_path):

@@ -88,7 +88,13 @@ def plot_results(
 
     _plot_capacity_donut(result, resolved_plots_dir)
     _plot_capacity_generation_donuts(result, resolved_plots_dir)
-    _plot_heatmaps(result.generation_df, resolved_plots_dir)
+    get_system_generation = getattr(result, "get_system_generation_dataframe", None)
+    generation_df = (
+        get_system_generation()
+        if callable(get_system_generation)
+        else result.generation_df
+    )
+    _plot_heatmaps(generation_df, resolved_plots_dir)
 
     logger.info("plot_results: all plots saved to '%s'.", resolved_plots_dir)
 

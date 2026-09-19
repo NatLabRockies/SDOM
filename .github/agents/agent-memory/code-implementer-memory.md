@@ -4,6 +4,19 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal System-Hourly Generation Exports (#92, 2026-09-19)
+
+- `OptimizationResults.generation_df` remains the detailed zonal frame with one row per `(Area, Hour)`. `system_generation_df` stores the one-row-per-hour aggregate and `get_system_generation_dataframe()` safely recomputes it for older pickles without that field.
+- `_aggregate_zonal_generation_by_hour` is the sole aggregation path. It zero-fills sparse dispatch columns, sums all additive quantities, and derives net load from the model expression: load less solar/wind availability (`generation + curtailment`), nuclear, other renewables, and hydro. Do not sum per-area net load.
+- `OutputGeneration_<case>.csv` and standard `plot_results` consume the system accessor. Zonal detail is exported separately as `OutputGenerationPerArea_<case>.csv`; copperplate behavior remains unchanged. `plot_parametric_results` inherits this via `plot_results`.
+
+## Optional VRE Minimum Capacity (#91, 2026-09-18)
+
+- `MinCapacity` is optional on `CapSolar` and `CapWind`; missing, blank, and NaN normalize to `0.0`, while retained rows require finite numeric `capacity` and `0 <= MinCapacity <= capacity`.
+- `initialize_vre_sets` owns normalization through `validate_vre_capacity_data`, saving both `filtered_cap_*_dict` and `filtered_min_cap_*_dict`; `formulations_vre` converts the latter to a direct `capacity_fraction` lower bound only when maximum capacity is positive.
+- Infrasys VRE components map `MinCapacity` to `min_active_power`; `system_to_data_dict` shallow-copies the root data dictionary and copies only global/per-area VRE capacity tables to project component minimums back. Other source frames remain shared.
+- `validate_sdom_system` now validates finite, nonnegative, ordered VRE min/max component bounds. Focused #91 tests plus legacy data, zonal model, make-system, and Pyomo-builder regressions pass.
+
 ## Zonal Export/Plot Fixture Feasibility (2026-09-18)
 
 - `tests/test_zonal_results_export_plotting.py` has a test-local copied zonal fixture that intentionally removes every optional A1 asset while retaining A1 demand and the A1/A2 line.

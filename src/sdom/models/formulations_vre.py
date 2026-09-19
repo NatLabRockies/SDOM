@@ -11,10 +11,12 @@ def _add_vre_parameters(block,
                       set_hours, 
                       data: dict,
                       key_filt_dict: str,
+                      key_filt_min_dict: str,
                       key_comp_data: str,
                       key_cf_data: str ):
     
     filtered_cap_solar_dict = data[key_filt_dict]
+    filtered_min_cap_solar_dict = data[key_filt_min_dict]
     complete_solar_data = data[key_comp_data]
      # Initialize solar and wind parameters, with default values for missing data
     for property_name in VRE_PROPERTIES_NAMES:#['trans_cap_cost', 'CAPEX_M', 'FOM_M']:
@@ -24,6 +26,7 @@ def _add_vre_parameters(block,
         block.add_component(f"{property_name}", Param(block.plants_set, initialize=filtered_property_dict_solar))
 
     block.max_capacity = Param( block.plants_set, initialize = filtered_cap_solar_dict )
+    block.min_capacity = Param( block.plants_set, initialize = filtered_min_cap_solar_dict )
 
 
     # Capacity-factor initialization in one pass (no melt).
@@ -47,6 +50,7 @@ def add_vre_parameters(host, data: dict):
                       host.h, 
                       data,
                       key_filt_dict = "filtered_cap_solar_dict",
+                      key_filt_min_dict = "filtered_min_cap_solar_dict",
                       key_comp_data = "complete_solar_data",
                       key_cf_data = "cf_solar")
     
@@ -54,6 +58,7 @@ def add_vre_parameters(host, data: dict):
                       host.h, 
                       data,
                       key_filt_dict = "filtered_cap_wind_dict",
+                      key_filt_min_dict = "filtered_min_cap_wind_dict",
                       key_comp_data = "complete_wind_data",
                       key_cf_data = "cf_wind")
     
@@ -70,7 +75,17 @@ def add_vre_parameters(host, data: dict):
 def _add_vre_variables(block, set_hours):
     add_generation_variables(block, set_hours, domain=NonNegativeReals, initialize=0)
     block.curtailment = Var(set_hours, domain=NonNegativeReals, initialize=0) # Curtailment 
-    block.capacity_fraction = Var(block.plants_set, domain=NonNegativeReals, bounds=(0, 1), initialize=1) #fraction of the maximum allowable capacity that will be installed
+    block.capacity_fraction = Var(
+        block.plants_set,
+        domain=NonNegativeReals,
+        bounds=lambda model, plant: (
+            float(model.min_capacity[plant] / model.max_capacity[plant])
+            if model.max_capacity[plant] > 0
+            else 0.0,
+            1.0,
+        ),
+        initialize=1,
+    ) #fraction of the maximum allowable capacity that will be installed
 
 def add_vre_variables(host):
     """
