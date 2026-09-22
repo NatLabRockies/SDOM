@@ -3,7 +3,7 @@
 This guide covers how to run SDOM optimizations and the outputs/results it provides.
 
 ```{important}
-For new work, use the [Infrasys System interface](infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts, including the legacy example below.
+For new work, use the [Infrasys System interface](infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.XX release continues to support existing dict-based scripts, including the legacy example below.
 ```
 
 ## Running an Optimization
@@ -60,7 +60,7 @@ flowchart TD
 ### Legacy interface
 
 This dict-based `load_data` and `initialize_model` workflow remains available
-in SDOM v0.2.7 for existing scripts. It is deprecated beginning with v0.3.0;
+in SDOM v0.2.XX for existing scripts. It is deprecated beginning with v0.3.0;
 use the System-first interface above for new work.
 
 ```python

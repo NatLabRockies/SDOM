@@ -227,7 +227,7 @@ For detailed information about SDOM input files, please refer to the [SDOM Input
 ## SDOM simple script example
 
 > [!IMPORTANT]
-> For new work, use the [Infrasys System interface](docs/source/user_guide/infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts.
+> For new work, use the [Infrasys System interface](docs/source/user_guide/infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.XX release continues to support existing dict-based scripts.
 
 ### System-first quick start
 

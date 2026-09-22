@@ -113,13 +113,13 @@ data source, rather than optimization output.
 
 ## Compatibility policy
 
-In SDOM v0.2.7, the System APIs are opt-in adapters and existing `load_data`,
+In SDOM v0.2.XX, the System APIs are opt-in adapters and existing `load_data`,
 `initialize_model`, `run_solver`, and legacy `ParametricStudy` dict/CSV
 workflows remain supported. This is a planned migration notice: beginning with
 SDOM v0.3.0, the System/Infrasys interface becomes the primary supported
 interface and the dict-based `load_data`/`initialize_model` workflow is
 deprecated. New scripts should use the System workflows below; this notice does
-not change the runtime behavior of the current v0.2.7 release.
+not change the runtime behavior of the current v0.2.XX release.
 
 ```mermaid
 flowchart TD
