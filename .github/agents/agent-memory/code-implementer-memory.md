@@ -12,6 +12,7 @@ This file stores learnings, patterns, and decisions from code implementation tas
 - Zonal generation duration curves use `get_system_generation_dataframe()` via the existing single-plot route. Line-flow and price figures independently rank each `line_id`/`area_id`; signed flows are intentionally unmodified. Separate `cycle` objects for colors and linestyles prevent accidental coupling when the cycles have unequal lengths.
 - `plot_results()` now detects `is_zonal` and additionally writes `area_generation_stacks.png`, `area_capacity_stacks_power.png`, and `line_flow_heatmap.png`; copperplate results and legacy result-like objects without `is_zonal` remain on the standard path.
 - Focused analytic and zonal plotting tests, the 60-case parametric integration suite, and documentation build tests pass.
+- Empty system-generation frames emit one warning and skip only generation duration curves; independent marginal-price and zonal-flow figures remain eligible. Zonal annual generation sums MW dispatch across SDOM's fixed one-hour model periods, producing MWh, and uses a width that scales with area count.
 
 ## Zonal System-Hourly Generation Exports (#92, 2026-09-19)
 

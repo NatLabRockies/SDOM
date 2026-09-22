@@ -146,6 +146,11 @@ def plot_area_generation_stacks(
     matplotlib.figure.Figure
         The figure containing the annual generation stacked bars.
 
+    Notes
+    -----
+    SDOM models one-hour dispatch periods, so summing hourly generation in MW
+    produces energy in MWh.
+
     Raises
     ------
     ValueError
@@ -163,7 +168,7 @@ def plot_area_generation_stacks(
     tech_order = get_technology_order(storage_techs)
 
     if ax is None:
-        fig, ax = plt.subplots(figsize=(12, 7))
+        fig, ax = plt.subplots(figsize=(max(6, 1.5 * len(areas_list) + 4), 7))
     else:
         fig = ax.figure
 

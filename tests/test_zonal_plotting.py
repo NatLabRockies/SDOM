@@ -90,7 +90,11 @@ def test_plot_area_generation_stacks_runs(zonal_results):
     ax = fig.axes[0]
 
     assert len(fig.axes) == 1
-    assert {tick.get_text() for tick in ax.get_xticklabels()} == set(zonal_results.areas)
+    fig.canvas.draw()
+    assert {
+        tick.get_text() for tick in ax.get_xticklabels() if tick.get_text()
+    } == set(zonal_results.areas)
+    assert fig.get_size_inches()[0] == max(6, 1.5 * len(zonal_results.areas) + 4)
     assert ax.get_ylabel() == "Annual generation (MWh)"
 
     leg = ax.get_legend()

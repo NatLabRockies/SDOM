@@ -227,34 +227,41 @@ def _plot_copperplate_duration_curves(
     plots_dir: str,
 ) -> None:
     """Save copperplate duration curves and optional marginal-price figures."""
-    _plot_generation_duration_curve(
-        generation_df,
-        column="All Thermal Generation (MW)",
-        title="Total thermal generation duration curve",
-        filename="duration_curve_total_thermal_generation.png",
-        plots_dir=plots_dir,
-    )
-    _plot_generation_duration_curve(
-        generation_df,
-        column="Load (MW)",
-        title="Load duration curve",
-        filename="duration_curve_load.png",
-        plots_dir=plots_dir,
-    )
-    _plot_generation_duration_curve(
-        generation_df,
-        column="Net Load (MW)",
-        title="Net load duration curve",
-        filename="duration_curve_net_load.png",
-        plots_dir=plots_dir,
-    )
-    for column, title, filename in (
-        ("Imports (MW)", "Imports duration curve", "duration_curve_imports.png"),
-        ("Exports (MW)", "Exports duration curve", "duration_curve_exports.png"),
-    ):
+    if generation_df.empty:
+        logger.warning("duration curves: generation data are empty; skipping generation curves.")
+    else:
         _plot_generation_duration_curve(
-            generation_df, column=column, title=title, filename=filename, plots_dir=plots_dir
+            generation_df,
+            column="All Thermal Generation (MW)",
+            title="Total thermal generation duration curve",
+            filename="duration_curve_total_thermal_generation.png",
+            plots_dir=plots_dir,
         )
+        _plot_generation_duration_curve(
+            generation_df,
+            column="Load (MW)",
+            title="Load duration curve",
+            filename="duration_curve_load.png",
+            plots_dir=plots_dir,
+        )
+        _plot_generation_duration_curve(
+            generation_df,
+            column="Net Load (MW)",
+            title="Net load duration curve",
+            filename="duration_curve_net_load.png",
+            plots_dir=plots_dir,
+        )
+        for column, title, filename in (
+            ("Imports (MW)", "Imports duration curve", "duration_curve_imports.png"),
+            ("Exports (MW)", "Exports duration curve", "duration_curve_exports.png"),
+        ):
+            _plot_generation_duration_curve(
+                generation_df,
+                column=column,
+                title=title,
+                filename=filename,
+                plots_dir=plots_dir,
+            )
 
     prices = _available_prices(getattr(result, "marginal_prices_df", pd.DataFrame()), area_id="copperplate")
     price_series = (
@@ -284,27 +291,30 @@ def _plot_zonal_duration_curves(
     plots_dir: str,
 ) -> None:
     """Save system and grouped zonal duration curves."""
-    _plot_generation_duration_curve(
-        generation_df,
-        column="All Thermal Generation (MW)",
-        title="System total thermal generation duration curve",
-        filename="duration_curve_system_total_thermal_generation.png",
-        plots_dir=plots_dir,
-    )
-    _plot_generation_duration_curve(
-        generation_df,
-        column="Load (MW)",
-        title="System load duration curve",
-        filename="duration_curve_system_load.png",
-        plots_dir=plots_dir,
-    )
-    _plot_generation_duration_curve(
-        generation_df,
-        column="Net Load (MW)",
-        title="System net load duration curve",
-        filename="duration_curve_system_net_load.png",
-        plots_dir=plots_dir,
-    )
+    if generation_df.empty:
+        logger.warning("duration curves: generation data are empty; skipping generation curves.")
+    else:
+        _plot_generation_duration_curve(
+            generation_df,
+            column="All Thermal Generation (MW)",
+            title="System total thermal generation duration curve",
+            filename="duration_curve_system_total_thermal_generation.png",
+            plots_dir=plots_dir,
+        )
+        _plot_generation_duration_curve(
+            generation_df,
+            column="Load (MW)",
+            title="System load duration curve",
+            filename="duration_curve_system_load.png",
+            plots_dir=plots_dir,
+        )
+        _plot_generation_duration_curve(
+            generation_df,
+            column="Net Load (MW)",
+            title="System net load duration curve",
+            filename="duration_curve_system_net_load.png",
+            plots_dir=plots_dir,
+        )
     _plot_grouped_duration_curves(
         getattr(result, "interregional_exchanges_df", pd.DataFrame()),
         group_column="line_id",

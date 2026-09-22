@@ -288,6 +288,38 @@ class TestDurationCurves:
         }
         assert "skipping" in caplog.text.lower()
 
+    def test_plot_duration_curves_skips_empty_generation_once_and_keeps_prices(
+        self, tmp_path, caplog
+    ):
+        result = _FakeResult()
+        result.generation_df = pd.DataFrame()
+        result.marginal_prices_df = pd.DataFrame(
+            {
+                "area_id": ["copperplate"] * 24,
+                "pricing_status": ["available"] * 24,
+                "hour": range(1, 25),
+                "marginal_price_USD_per_MWh": range(20, 44),
+            }
+        )
+
+        plot_duration_curves(
+            result,
+            generation_df=result.generation_df,
+            plots_dir=str(tmp_path),
+        )
+
+        warnings = [
+            record.message
+            for record in caplog.records
+            if record.name == "sdom.analytic_tools._duration_curves"
+            and record.levelname == "WARNING"
+        ]
+        assert warnings == [
+            "duration curves: generation data are empty; skipping generation curves."
+        ]
+        assert (tmp_path / "duration_curve_marginal_price.png").is_file()
+        assert (tmp_path / "heatmap_marginal_price.png").is_file()
+
     def test_plot_results_includes_duration_curves(self, tmp_path):
         result = _FakeResult()
         result.generation_df["Load (MW)"] = [120.0] * len(result.generation_df)
