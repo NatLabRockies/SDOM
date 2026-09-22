@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pyomo.environ as pyo  # noqa: E402
 import pytest  # noqa: E402
+import pandas as pd  # noqa: E402
 
 from sdom import initialize_model, load_data  # noqa: E402
 from sdom.optimization_main import (  # noqa: E402
@@ -81,22 +82,56 @@ def _close_figures():
 # 1. Per-area generation stacks
 # ---------------------------------------------------------------------------
 def test_plot_area_generation_stacks_runs(zonal_results):
+    from matplotlib.container import BarContainer
+
     from sdom.analytic_tools import plot_area_generation_stacks
 
     fig = plot_area_generation_stacks(zonal_results)
+    ax = fig.axes[0]
 
-    # N areas -> N subplots.
-    assert len(fig.axes) == len(zonal_results.areas)
+    assert len(fig.axes) == 1
+    fig.canvas.draw()
+    assert {
+        tick.get_text() for tick in ax.get_xticklabels() if tick.get_text()
+    } == set(zonal_results.areas)
+    assert fig.get_size_inches()[0] == max(6, 1.5 * len(zonal_results.areas) + 4)
+    assert ax.get_ylabel() == "Annual generation (MWh)"
 
-    # Every subplot legend carries at least the canonical generation techs that
-    # have data (Hydro is the only non-zero one in the RoR fixture, but the
-    # legend includes whatever was stacked).
-    for ax in fig.axes:
-        leg = ax.get_legend()
-        assert leg is not None, "expected a legend on each generation subplot"
-        labels = [t.get_text() for t in leg.get_texts()]
-        # Hydro must appear (RoR fixture has nonzero hydro).
-        assert "Hydro" in labels
+    leg = ax.get_legend()
+    assert leg is not None, "expected a technology legend"
+    labels = [t.get_text() for t in leg.get_texts()]
+    assert "Hydro" in labels
+
+    bar_containers = [
+        container for container in ax.containers if isinstance(container, BarContainer)
+    ]
+    actual_totals = sum(
+        np.array([bar.get_height() for bar in container.patches])
+        for container in bar_containers
+    )
+    expected_totals = []
+    generation_columns = (
+        "All Thermal Generation (MW)",
+        "Solar PV Generation (MW)",
+        "Wind Generation (MW)",
+        "Hydro Generation (MW)",
+        "Nuclear Generation (MW)",
+        "Other Renewables Generation (MW)",
+    )
+    for area in zonal_results.areas:
+        generation_df = zonal_results.area_generation_df[area]
+        generation_total = sum(
+            pd.to_numeric(generation_df[column], errors="coerce").fillna(0.0).sum()
+            for column in generation_columns
+            if column in generation_df
+        )
+        storage_df = zonal_results.area_storage_df[area]
+        storage_total = pd.to_numeric(
+            storage_df.get("Discharging power (MW)", pd.Series(dtype=float)),
+            errors="coerce",
+        ).fillna(0.0).sum()
+        expected_totals.append(generation_total + storage_total)
+    np.testing.assert_allclose(actual_totals, expected_totals, rtol=1e-6, atol=1e-6)
 
 
 def test_plot_area_generation_stacks_save_path_works(zonal_results, tmp_path):
@@ -206,6 +241,20 @@ def test_plot_line_flow_heatmap_save_path_works(zonal_results, tmp_path):
     assert out.stat().st_size > 0
 
 
+def test_plot_results_creates_default_zonal_specific_plots(zonal_results, tmp_path):
+    """The default workflow includes the zonal per-area and flow plots."""
+    from sdom.analytic_tools import plot_results
+
+    plot_results(zonal_results, plots_dir=str(tmp_path))
+
+    expected = {
+        "area_generation_stacks.png",
+        "area_capacity_stacks_power.png",
+        "line_flow_heatmap.png",
+    }
+    assert expected <= {path.name for path in tmp_path.iterdir()}
+
+
 # ---------------------------------------------------------------------------
 # Validation: all three reject non-zonal results.
 # ---------------------------------------------------------------------------
@@ -225,3 +274,46 @@ def test_helpers_reject_non_zonal_results():
     ):
         with pytest.raises(ValueError, match="zonal"):
             fn(r)
+
+
+def test_duration_curves_create_zonal_outputs_with_signed_flows_and_prices(tmp_path):
+    """Zonal duration curves retain signed flows and one series per area."""
+    from sdom.analytic_tools._duration_curves import plot_duration_curves
+
+    class Result:
+        is_zonal = True
+        marginal_prices_df = pd.DataFrame(
+            {
+                "area_id": ["A1", "A2", "A1", "A2"],
+                "pricing_status": ["available"] * 4,
+                "hour": [1, 1, 2, 2],
+                "marginal_price_USD_per_MWh": [30.0, 20.0, 25.0, 22.0],
+            }
+        )
+        interregional_exchanges_df = pd.DataFrame(
+            {
+                "line_id": ["L1", "L1", "L2", "L2"],
+                "hour": [1, 2, 1, 2],
+                "flow_signed_MW": [-5.0, 4.0, -2.0, 1.0],
+            }
+        )
+
+    generation_df = pd.DataFrame(
+        {
+            "Hour": [1, 2],
+            "All Thermal Generation (MW)": [10.0, 20.0],
+            "Load (MW)": [35.0, 30.0],
+            "Net Load (MW)": [30.0, 25.0],
+        }
+    )
+
+    plot_duration_curves(Result(), generation_df=generation_df, plots_dir=str(tmp_path))
+
+    expected = {
+        "duration_curve_system_total_thermal_generation.png",
+        "duration_curve_system_load.png",
+        "duration_curve_system_net_load.png",
+        "duration_curve_interregional_signed_flows.png",
+        "duration_curve_zonal_marginal_prices.png",
+    }
+    assert expected <= {path.name for path in tmp_path.iterdir()}

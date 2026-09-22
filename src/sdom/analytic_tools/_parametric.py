@@ -88,9 +88,10 @@ def plot_parametric_results(
 ) -> None:
     """Generate sensitivity-analysis plots from a completed :class:`~sdom.parametric.study.ParametricStudy` run.
 
-    Per-case plots (capacity donut, generation donut, heatmaps) are saved under
-    ``<output_dir>/<case_name>/plots/``.  Cross-case comparison plots are saved
-    under ``<output_dir>/sensitivity_plots/``.
+    Per-case plots (capacity donut, generation donut, heatmaps, and applicable
+    duration curves) are saved under ``<output_dir>/<case_name>/plots/``.
+    Cross-case comparison plots are saved under
+    ``<output_dir>/sensitivity_plots/``.
 
     Parameters
     ----------
@@ -119,7 +120,8 @@ def plot_parametric_results(
         max-case plotting constant.
     plot_per_case:
         If ``True`` (default), also generate individual single-case plots
-        (capacity donut, generation donut, heatmaps) for every optimal case.
+        (capacity donut, generation donut, heatmaps, and duration curves) for
+        every optimal case.
 
     Raises
     ------

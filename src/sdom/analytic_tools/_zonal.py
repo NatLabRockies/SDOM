@@ -2,8 +2,8 @@
 
 Public API (per :file:`dev_guidelines/zonal_model/plots_followup.md` MVP):
 
-- :func:`plot_area_generation_stacks` -- per-area stacked generation profile
-  (one subplot per area).
+- :func:`plot_area_generation_stacks` -- annual generation by area as stacked
+    bars.
 - :func:`plot_area_capacity_stacks` -- per-area total installed capacity as a
   stacked bar (one bar per area).
 - :func:`plot_line_flow_heatmap` -- ``lines x hours`` heatmap of signed
@@ -124,7 +124,7 @@ def plot_area_generation_stacks(
     ax: Optional[plt.Axes] = None,
     save_path: Optional[str] = None,
 ) -> plt.Figure:
-    """Plot per-area stacked generation (one subplot per area).
+    """Plot annual generation by area as a stacked bar chart.
 
     Parameters
     ----------
@@ -134,11 +134,9 @@ def plot_area_generation_stacks(
         Subset of areas to plot, in the order provided. Defaults to
         ``results.areas``.
     hours : iterable of int, optional
-        Subset of hours to plot. Defaults to all hours in
-        ``area_generation_df``.
+        Subset of hours to aggregate. Defaults to all simulated hours.
     ax : matplotlib.axes.Axes, optional
-        Existing axis to plot into. Ignored (with a warning) when more than
-        one area is being plotted, since this helper requires a 2D figure.
+        Existing axis to plot into. A new figure is created otherwise.
     save_path : str or os.PathLike, optional
         If provided, the figure is saved with
         :func:`sdom.analytic_tools._utils.save_figure` (which closes it).
@@ -146,7 +144,12 @@ def plot_area_generation_stacks(
     Returns
     -------
     matplotlib.figure.Figure
-        The figure containing the per-area subplots.
+        The figure containing the annual generation stacked bars.
+
+    Notes
+    -----
+    SDOM models one-hour dispatch periods, so summing hourly generation in MW
+    produces energy in MWh.
 
     Raises
     ------
@@ -164,78 +167,63 @@ def plot_area_generation_stacks(
     color_map = get_technology_color_map(storage_techs)
     tech_order = get_technology_order(storage_techs)
 
-    if ax is not None and len(areas_list) > 1:
-        logger.warning(
-            "plot_area_generation_stacks: 'ax' is ignored when len(areas) > 1; "
-            "creating a fresh figure with %d subplots.",
-            len(areas_list),
-        )
-        ax = None
-
     if ax is None:
-        fig, axes_arr = plt.subplots(
-            len(areas_list),
-            1,
-            figsize=(12, max(2.5, 2.5 * len(areas_list))),
-            sharex=True,
-            squeeze=False,
-        )
-        axes_list = list(axes_arr.flatten())
+        fig, ax = plt.subplots(figsize=(max(6, 1.5 * len(areas_list) + 4), 7))
     else:
         fig = ax.figure
-        axes_list = [ax]
 
-    for i, a in enumerate(areas_list):
-        ax_a = axes_list[i]
-        gdf = results.area_generation_df.get(a, pd.DataFrame())
-        sdf = results.area_storage_df.get(a, pd.DataFrame())
+    annual_generation: dict[str, dict[str, float]] = {}
+    for area in areas_list:
+        gdf = results.area_generation_df.get(area, pd.DataFrame())
+        sdf = results.area_storage_df.get(area, pd.DataFrame())
+        annual_generation[area] = {}
 
         if gdf.empty:
-            ax_a.set_title(f"Area {a} (no generation data)")
             continue
 
-        all_hours = list(gdf["Hour"])
-        plot_hours = list(hours) if hours is not None else all_hours
+        plot_hours = list(hours) if hours is not None else list(gdf["Hour"])
         gdf_h = gdf[gdf["Hour"].isin(plot_hours)]
-        x = list(gdf_h["Hour"])
 
-        tech_series: dict = {}
         for tech, col in _GEN_TECH_COLUMNS.items():
             if col in gdf_h.columns:
-                vals = pd.to_numeric(gdf_h[col], errors="coerce").fillna(0.0).values
-                if np.any(vals != 0):
-                    tech_series[tech] = vals
+                value = pd.to_numeric(gdf_h[col], errors="coerce").fillna(0.0).sum()
+                if value != 0:
+                    annual_generation[area][tech] = value
 
         if not sdf.empty and "Technology" in sdf.columns:
-            for t in storage_techs:
+            for tech in storage_techs:
                 rows = sdf[
-                    (sdf["Technology"] == t) & sdf["Hour"].isin(plot_hours)
+                    (sdf["Technology"] == tech) & sdf["Hour"].isin(plot_hours)
                 ]
                 if rows.empty:
                     continue
-                series = (
-                    rows.set_index("Hour")["Discharging power (MW)"]
-                    .reindex(x)
-                    .fillna(0.0)
-                    .values
-                )
-                if np.any(series != 0):
-                    tech_series[t] = series
+                value = pd.to_numeric(
+                    rows["Discharging power (MW)"], errors="coerce"
+                ).fillna(0.0).sum()
+                if value != 0:
+                    annual_generation[area][tech] = value
 
-        labels = [t for t in tech_order if t in tech_series]
-        if not labels:
-            ax_a.set_title(f"Area {a} (no generation in selected window)")
+    bottoms = np.zeros(len(areas_list))
+    for tech in tech_order:
+        values = np.array(
+            [annual_generation[area].get(tech, 0.0) for area in areas_list]
+        )
+        if not np.any(values != 0):
             continue
+        ax.bar(
+            areas_list,
+            values,
+            bottom=bottoms,
+            label=tech,
+            color=color_map.get(tech, "#CCCCCC"),
+        )
+        bottoms += values
 
-        ys = [tech_series[t] for t in labels]
-        colors = [color_map.get(t, "#CCCCCC") for t in labels]
-        ax_a.stackplot(x, ys, labels=labels, colors=colors)
-        ax_a.set_title(f"Area {a}")
-        ax_a.set_ylabel("Generation (MW)")
-        ax_a.legend(loc="upper right", fontsize=8, ncol=2)
-        ax_a.margins(x=0)
-
-    axes_list[-1].set_xlabel("Hour")
+    ax.set_xlabel("Area")
+    ax.set_ylabel("Annual generation (MWh)")
+    ax.set_title("Annual Generation by Area")
+    if np.any(bottoms != 0):
+        ax.legend(title="Technology")
     fig.tight_layout()
 
     if save_path is not None:

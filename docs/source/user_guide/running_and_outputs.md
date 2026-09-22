@@ -3,7 +3,7 @@
 This guide covers how to run SDOM optimizations and the outputs/results it provides.
 
 ```{important}
-For new work, use the [Infrasys System interface](infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts, including the legacy example below.
+For new work, use the [Infrasys System interface](infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.XX release continues to support existing dict-based scripts, including the legacy example below.
 ```
 
 ## Running an Optimization
@@ -60,7 +60,7 @@ flowchart TD
 ### Legacy interface
 
 This dict-based `load_data` and `initialize_model` workflow remains available
-in SDOM v0.2.7 for existing scripts. It is deprecated beginning with v0.3.0;
+in SDOM v0.2.XX for existing scripts. It is deprecated beginning with v0.3.0;
 use the System-first interface above for new work.
 
 ```python
@@ -304,6 +304,23 @@ figures in one call.
 | `capacity_donut.png` | Installed capacity by technology (donut chart) |
 | `capacity_generation_donuts.png` | Side-by-side capacity and total generation donuts |
 | `heatmap_<column>.png` | One 365×24 hourly dispatch heatmap per generation technology |
+| `duration_curve_total_thermal_generation.png` | Descending hourly total thermal generation (copperplate) |
+| `duration_curve_load.png` | Descending hourly load (copperplate) |
+| `duration_curve_net_load.png` | Descending hourly net load (copperplate) |
+| `duration_curve_imports.png`, `duration_curve_exports.png` | Descending imports or exports when the corresponding generation column is available |
+| `duration_curve_marginal_price.png` | Descending available copperplate marginal prices; omitted when pricing is unavailable |
+| `heatmap_marginal_price.png` | Available copperplate marginal prices by actual hour; omitted for fewer than 24 priced hours |
+| `duration_curve_system_total_thermal_generation.png`, `duration_curve_system_load.png`, `duration_curve_system_net_load.png` | Descending system-level thermal generation, load, and net load for zonal results |
+| `duration_curve_interregional_signed_flows.png` | Independently ranked signed flows for each interregional line when zonal exchange data is available |
+| `duration_curve_zonal_marginal_prices.png` | Independently ranked available marginal prices for each zone |
+| `area_generation_stacks.png` | Annual generation by area, stacked by technology, in zonal results |
+| `area_capacity_stacks_power.png` | Installed power capacity by area in zonal results |
+| `line_flow_heatmap.png` | Signed interregional line flow by hour when zonal exchange data is available |
+
+Duration curves use descending numeric observations with ranks starting at 1 on
+the x-axis (`Duration-curve position`). Generation and flow curves use MW;
+marginal-price curves use USD/MWh. Missing, empty, or non-numeric optional
+data produces a warning and omits only the affected figure.
 
 ### Basic usage
 

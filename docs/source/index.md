@@ -88,7 +88,7 @@ If either command prints `INFO: Could not find files for the given pattern(s).`,
 ## Quick Start
 
 ```{important}
-For new work, use the [Infrasys System interface](user_guide/infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.7 release continues to support existing dict-based scripts.
+For new work, use the [Infrasys System interface](user_guide/infrasys_integration.md). In SDOM v0.3.0 it becomes the only supported workflow; the dict-based `load_data` and `initialize_model` interface is deprecated. The current v0.2.xx release continues to support existing dict-based scripts.
 ```
 
 ### System-first quick start
@@ -111,7 +111,7 @@ if results.is_optimal:
   plot_system_results(system, run_id="copperplate-24h", output_dir="results/copperplate")
 ```
 
-The System-first copperplate and zonal examples are in the [Infrasys System workflows guide](user_guide/infrasys_integration.md). The legacy example below remains available for existing v0.2.7 scripts.
+The System-first copperplate and zonal examples are in the [Infrasys System workflows guide](user_guide/infrasys_integration.md). The legacy example below remains available for existing v0.2.XX scripts.
 
 ```python
 from sdom import (

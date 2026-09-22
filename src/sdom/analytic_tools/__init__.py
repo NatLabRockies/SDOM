@@ -30,7 +30,7 @@ Zonal results::
         plot_area_capacity_stacks,
         plot_line_flow_heatmap,
     )
-    plot_area_generation_stacks(zonal_result, save_path="gen_stacks.png")
+    plot_area_generation_stacks(zonal_result, save_path="annual_generation.png")
     plot_area_capacity_stacks(zonal_result, mode="power")
     plot_line_flow_heatmap(zonal_result)
 """

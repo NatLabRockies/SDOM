@@ -4,6 +4,16 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Duration Curves and Marginal Price Plots (#94, 2026-09-22)
+
+- `analytic_tools._duration_curves` is deliberately a result-DataFrame consumer: it does not change solver formulation, pricing, result collection, or CSV exports. `plot_results` obtains the system generation frame once, then passes it to both dispatch heatmaps and duration curves; `plot_parametric_results(..., plot_per_case=True)` inherits this automatically.
+- `_prepare_duration_series` performs numeric coercion, drops non-numeric values, sorts descending, and gives every valid observation a one-based `Duration-curve position` rank. Invalid optional data logs a warning and skips only its figure.
+- Copperplate price plots accept only `area_id == "copperplate"` and `pricing_status == "available"`. The price heatmap uses numeric actual hours; duplicate hours are averaged, hour gaps remain blank, incomplete trailing days are excluded, and horizons shorter than 24 hours are skipped consistently with dispatch heatmaps.
+- Zonal generation duration curves use `get_system_generation_dataframe()` via the existing single-plot route. Line-flow and price figures independently rank each `line_id`/`area_id`; signed flows are intentionally unmodified. Separate `cycle` objects for colors and linestyles prevent accidental coupling when the cycles have unequal lengths.
+- `plot_results()` now detects `is_zonal` and additionally writes `area_generation_stacks.png`, `area_capacity_stacks_power.png`, and `line_flow_heatmap.png`; copperplate results and legacy result-like objects without `is_zonal` remain on the standard path.
+- Focused analytic and zonal plotting tests, the 60-case parametric integration suite, and documentation build tests pass.
+- Empty system-generation frames emit one warning and skip only generation duration curves; independent marginal-price and zonal-flow figures remain eligible. Zonal annual generation sums MW dispatch across SDOM's fixed one-hour model periods, producing MWh, and uses a width that scales with area count.
+
 ## Zonal System-Hourly Generation Exports (#92, 2026-09-19)
 
 - `OptimizationResults.generation_df` remains the detailed zonal frame with one row per `(Area, Hour)`. `system_generation_df` stores the one-row-per-hour aggregate and `get_system_generation_dataframe()` safely recomputes it for older pickles without that field.

@@ -22,7 +22,13 @@ from ._colors import (
     get_technology_color_map,
     infer_storage_technologies,
 )
+from ._duration_curves import plot_duration_curves
 from ._utils import save_figure
+from ._zonal import (
+    plot_area_capacity_stacks,
+    plot_area_generation_stacks,
+    plot_line_flow_heatmap,
+)
 
 if TYPE_CHECKING:
     from ..results import OptimizationResults
@@ -56,6 +62,13 @@ def plot_results(
     - ``capacity_generation_donuts.png`` — side-by-side capacity + generation donuts
     - ``heatmap_{col}.png``        — hourly dispatch heatmaps for all generation
       columns in the generation DataFrame
+        - ``duration_curve_*.png``     — applicable curves for thermal generation,
+            load, net load, imports, exports, flows, and available marginal prices
+        - ``heatmap_marginal_price.png`` — available copperplate marginal prices
+        - ``area_generation_stacks.png`` — annual generation by area for zonal results
+        - ``area_capacity_stacks_power.png`` — installed power capacity by area for
+            zonal results
+        - ``line_flow_heatmap.png``    — signed interregional flows for zonal results
 
     Parameters
     ----------
@@ -95,6 +108,35 @@ def plot_results(
         else result.generation_df
     )
     _plot_heatmaps(generation_df, resolved_plots_dir)
+    plot_duration_curves(
+        result,
+        generation_df=generation_df,
+        plots_dir=resolved_plots_dir,
+    )
+    if getattr(result, "is_zonal", False):
+        plot_area_generation_stacks(
+            result,
+            save_path=os.path.join(resolved_plots_dir, "area_generation_stacks.png"),
+        )
+        plot_area_capacity_stacks(
+            result,
+            mode="power",
+            save_path=os.path.join(
+                resolved_plots_dir, "area_capacity_stacks_power.png"
+            ),
+        )
+        exchanges_df = getattr(result, "interregional_exchanges_df", None)
+        if exchanges_df is None or exchanges_df.empty:
+            logger.warning(
+                "plot_results: no interregional exchange data; skipping line-flow heatmap."
+            )
+        else:
+            plot_line_flow_heatmap(
+                result,
+                save_path=os.path.join(
+                    resolved_plots_dir, "line_flow_heatmap.png"
+                ),
+            )
 
     logger.info("plot_results: all plots saved to '%s'.", resolved_plots_dir)
 
