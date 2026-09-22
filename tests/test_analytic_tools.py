@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -77,6 +78,14 @@ class TestColors:
 # _single.py tests
 # ---------------------------------------------------------------------------
 from sdom.analytic_tools._single import plot_results, _resolve_plots_dir
+from sdom.analytic_tools._duration_curves import (
+    _DURATION_CURVE_FONT_SIZE_INCREASE,
+    _plot_duration_curve,
+    _plot_grouped_duration_curves,
+    _plot_marginal_price_heatmap,
+    _prepare_duration_series,
+    plot_duration_curves,
+)
 
 
 def _make_minimal_summary_df() -> pd.DataFrame:
@@ -187,6 +196,169 @@ class TestSinglePlots:
             assert len(heatmaps) > 0, "At least one heatmap should be saved"
 
 
+class TestDurationCurves:
+    def test_duration_curve_increases_axis_label_and_tick_font_sizes(
+        self, tmp_path, monkeypatch
+    ):
+        import matplotlib.pyplot as plt
+
+        captured = {}
+
+        def fake_save(fig, output_path):
+            captured["fig"] = fig
+
+        monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", fake_save)
+        _plot_duration_curve(
+            pd.Series([5.0, 3.0], index=[1, 2]),
+            title="Duration curve",
+            y_label="MW",
+            output_path=str(tmp_path / "duration_curve.png"),
+        )
+
+        ax = captured["fig"].axes[0]
+        expected_size = plt.rcParams["font.size"] + _DURATION_CURVE_FONT_SIZE_INCREASE
+        assert ax.xaxis.label.get_size() == expected_size
+        assert ax.yaxis.label.get_size() == expected_size
+        assert ax.get_xticklabels()[0].get_size() == expected_size
+        assert ax.get_yticklabels()[0].get_size() == expected_size
+        plt.close(captured["fig"])
+
+    def test_prepare_duration_series_sorts_values_and_creates_one_based_ranks(self):
+        series = _prepare_duration_series(pd.Series([2, "bad", 5, 3]))
+
+        assert series is not None
+        assert series.tolist() == [5.0, 3.0, 2.0]
+        assert series.index.tolist() == [1, 2, 3]
+        assert series.index.name == "Duration-curve position"
+
+    def test_prepare_duration_series_returns_none_for_empty_or_non_numeric_data(self):
+        assert _prepare_duration_series(pd.Series([], dtype=object)) is None
+        assert _prepare_duration_series(pd.Series(["bad", None])) is None
+
+    def test_plot_duration_curves_creates_copperplate_outputs_and_skips_unavailable_prices(
+        self, tmp_path
+    ):
+        result = _FakeResult()
+        result.generation_df["Load (MW)"] = [120.0] * len(result.generation_df)
+        result.generation_df["Net Load (MW)"] = [100.0] * len(result.generation_df)
+        result.generation_df["Imports (MW)"] = [2.0] * len(result.generation_df)
+        result.generation_df["Exports (MW)"] = [3.0] * len(result.generation_df)
+        result.marginal_prices_df = pd.DataFrame(
+            {
+                "area_id": ["copperplate"] * 24,
+                "pricing_status": ["available"] * 24,
+                "hour": list(range(24, 0, -1)),
+                "marginal_price_USD_per_MWh": list(range(20, 44)),
+            }
+        )
+
+        plot_duration_curves(
+            result,
+            generation_df=result.generation_df,
+            plots_dir=str(tmp_path),
+        )
+
+        expected = {
+            "duration_curve_total_thermal_generation.png",
+            "duration_curve_load.png",
+            "duration_curve_net_load.png",
+            "duration_curve_imports.png",
+            "duration_curve_exports.png",
+            "duration_curve_marginal_price.png",
+            "heatmap_marginal_price.png",
+        }
+        assert expected <= {path.name for path in tmp_path.iterdir()}
+
+    def test_plot_duration_curves_skips_invalid_optional_data(self, tmp_path, caplog):
+        result = _FakeResult()
+        result.generation_df["Net Load (MW)"] = "not numeric"
+        result.marginal_prices_df = pd.DataFrame()
+
+        plot_duration_curves(
+            result,
+            generation_df=result.generation_df,
+            plots_dir=str(tmp_path),
+        )
+
+        assert "duration_curve_total_thermal_generation.png" in {
+            path.name for path in tmp_path.iterdir()
+        }
+        assert "duration_curve_net_load.png" not in {
+            path.name for path in tmp_path.iterdir()
+        }
+        assert "skipping" in caplog.text.lower()
+
+    def test_plot_results_includes_duration_curves(self, tmp_path):
+        result = _FakeResult()
+        result.generation_df["Load (MW)"] = [120.0] * len(result.generation_df)
+        result.generation_df["Net Load (MW)"] = [100.0] * len(result.generation_df)
+
+        plot_results(result, plots_dir=str(tmp_path))
+
+        assert (tmp_path / "duration_curve_total_thermal_generation.png").is_file()
+        assert (tmp_path / "duration_curve_load.png").is_file()
+        assert (tmp_path / "duration_curve_net_load.png").is_file()
+
+    def test_marginal_price_heatmap_uses_hour_grid_and_price_labels(self, tmp_path, monkeypatch):
+        import matplotlib.pyplot as plt
+
+        captured = {}
+
+        def fake_save(fig, output_path):
+            captured["fig"] = fig
+            captured["output_path"] = output_path
+
+        monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", fake_save)
+        prices = pd.DataFrame(
+            {
+                "hour": [24, 1, 1],
+                "marginal_price_USD_per_MWh": [30.0, 10.0, 20.0],
+            }
+        )
+
+        assert _plot_marginal_price_heatmap(
+            prices, output_path=str(tmp_path / "price_heatmap.png")
+        )
+        ax, colorbar_ax = captured["fig"].axes
+        assert ax.get_title() == "Marginal price (USD/MWh)"
+        assert colorbar_ax.get_ylabel() == "Marginal price (USD/MWh)"
+        assert ax.collections[0].get_array()[0] == pytest.approx(15.0)
+        plt.close(captured["fig"])
+
+    def test_grouped_duration_curves_use_independent_color_and_linestyle_cycles(
+        self, tmp_path, monkeypatch
+    ):
+        import matplotlib.pyplot as plt
+
+        captured = {}
+
+        def fake_save(fig, output_path):
+            captured["fig"] = fig
+
+        monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", fake_save)
+        data = pd.DataFrame(
+            {
+                "area_id": [f"A{index}" for index in range(5)],
+                "price": [float(index) for index in range(5)],
+            }
+        )
+
+        assert _plot_grouped_duration_curves(
+            data,
+            group_column="area_id",
+            value_column="price",
+            title="Prices",
+            y_label="USD/MWh",
+            output_path=str(tmp_path / "prices.png"),
+        )
+        lines = captured["fig"].axes[0].get_lines()
+        assert len(lines) == 5
+        assert captured["fig"].axes[0].get_legend() is not None
+        assert len({line.get_color() for line in lines}) > 1
+        assert len({line.get_linestyle() for line in lines}) > 1
+        plt.close(captured["fig"])
+
+
 # ---------------------------------------------------------------------------
 # _parametric.py tests
 # ---------------------------------------------------------------------------
@@ -196,6 +368,7 @@ from sdom.analytic_tools._parametric import (
     _plot_grouped_stacked_bars,
     _save_parametric_figure,
     _split_into_chunks,
+    plot_parametric_results,
 )
 
 
@@ -252,6 +425,34 @@ def _make_parametric_cost_df(hues=None) -> pd.DataFrame:
 
 
 class TestParametricLegends:
+    def test_plot_per_case_false_skips_duration_curve_generation(self, tmp_path, monkeypatch):
+        """Per-case plotting opt-out suppresses all plot_results artifacts."""
+        study = SimpleNamespace(
+            case_metadata=[{"case_name": "case_1", "case_index": 0, "sweep": 1.0}],
+            output_dir=str(tmp_path),
+        )
+        result = _FakeResult()
+        called = []
+
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric.plot_results",
+            lambda *args, **kwargs: called.append((args, kwargs)),
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._extract_cost_series",
+            lambda summary_df: ({"Thermal": 1.0}, {"Thermal": 1.0}),
+        )
+
+        plot_parametric_results(
+            study,
+            [result],
+            group_by="sweep",
+            plot_per_case=False,
+        )
+
+        assert called == []
+        assert not (tmp_path / "case_1" / "plots").exists()
+
     def test_save_parametric_figure_writes_png_with_extra_artists(self, tmp_path):
         """The parametric save helper should write figures with outside legends."""
         import matplotlib.pyplot as plt
@@ -455,6 +656,65 @@ class TestParametricStudyCaseMetadata:
     def test_output_dir_none_by_default(self):
         study = _make_stub_study()
         assert study.output_dir is None
+
+    @pytest.mark.parametrize("plot_per_case, expected_calls", [(True, 1), (False, 0)])
+    def test_plot_per_case_controls_single_result_plot_dispatch(
+        self, tmp_path, monkeypatch, plot_per_case, expected_calls
+    ):
+        """Parametric plotting delegates per-case artifacts only when enabled."""
+        from sdom.analytic_tools._parametric import plot_parametric_results
+
+        study = _make_stub_study(output_dir=str(tmp_path))
+        study._case_metadata = [
+            {"case_name": "case_1", "case_index": 0, "GenMix_Target": 0.8}
+        ]
+        calls = []
+
+        def fake_plot_results(result, output_dir=None, plots_dir=None):
+            calls.append((result, output_dir, plots_dir))
+
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric.plot_results", fake_plot_results
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._plot_grouped_stacked_bars",
+            lambda **kwargs: None,
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._plot_curtailment_bars",
+            lambda **kwargs: None,
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._plot_cost_comparison_bars",
+            lambda **kwargs: None,
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._extract_capacity_series",
+            lambda summary_df: {"Thermal": 1.0},
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._extract_generation_series",
+            lambda summary_df: {"Thermal": 1.0},
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._extract_curtailment",
+            lambda summary_df: (0.0, 0.0),
+        )
+        monkeypatch.setattr(
+            "sdom.analytic_tools._parametric._extract_cost_series",
+            lambda summary_df: ({"Thermal": 1.0}, {"Thermal": 1.0}),
+        )
+
+        plot_parametric_results(
+            study,
+            [_FakeResult()],
+            group_by="GenMix_Target",
+            plot_per_case=plot_per_case,
+        )
+
+        assert len(calls) == expected_calls
+        if calls:
+            assert calls[0][2] == os.path.join(str(tmp_path), "case_1", "plots")
 
 
 # ---------------------------------------------------------------------------

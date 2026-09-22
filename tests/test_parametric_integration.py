@@ -60,6 +60,9 @@ _EXPECTED_CSV_PREFIXES = [
 _EXPECTED_PER_CASE_PLOTS = [
     "capacity_donut.png",
     "capacity_generation_donuts.png",
+    "duration_curve_total_thermal_generation.png",
+    "duration_curve_load.png",
+    "duration_curve_net_load.png",
 ]
 # At least one heatmap must also be present (column names are dynamic)
 
