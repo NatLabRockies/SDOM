@@ -180,6 +180,7 @@ def test_zonal_full_year_heatmap_receives_365_day_system_chronology(
     plot_results(result, plots_dir=str(tmp_path / "plots"))
 
     assert captured_day_counts == [365]
+    assert not (tmp_path / "plots" / "line_flow_heatmap.png").exists()
 
 
 def test_zonal_no_optional_assets_exports_summary_and_standard_plots(tmp_path):

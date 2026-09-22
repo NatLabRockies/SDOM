@@ -174,10 +174,10 @@ also produce the copperplate marginal-price heatmap when at least 24 priced
 hours are available. Zonal cases produce system thermal-generation, load, and
 net-load curves; interregional signed-flow and zonal marginal-price curves;
 annual generation and installed-capacity stacks by area; and a signed
-line-flow heatmap. These are individual case artifacts only; they are not
-cross-case comparison curves. Set ``plot_per_case=False`` to suppress all
-per-case plots, including duration curves, copperplate price heatmaps, and
-zonal per-area figures.
+line-flow heatmap when exchange data is available. These are individual case
+artifacts only; they are not cross-case comparison curves. Set
+``plot_per_case=False`` to suppress all per-case plots, including duration
+curves, copperplate price heatmaps, and zonal per-area figures.
 
 ---
 

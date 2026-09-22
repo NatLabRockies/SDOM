@@ -311,11 +311,11 @@ figures in one call.
 | `duration_curve_marginal_price.png` | Descending available copperplate marginal prices; omitted when pricing is unavailable |
 | `heatmap_marginal_price.png` | Available copperplate marginal prices by actual hour; omitted for fewer than 24 priced hours |
 | `duration_curve_system_total_thermal_generation.png`, `duration_curve_system_load.png`, `duration_curve_system_net_load.png` | Descending system-level thermal generation, load, and net load for zonal results |
-| `duration_curve_interregional_signed_flows.png` | Independently ranked signed flows for each interregional line in zonal results |
+| `duration_curve_interregional_signed_flows.png` | Independently ranked signed flows for each interregional line when zonal exchange data is available |
 | `duration_curve_zonal_marginal_prices.png` | Independently ranked available marginal prices for each zone |
 | `area_generation_stacks.png` | Annual generation by area, stacked by technology, in zonal results |
 | `area_capacity_stacks_power.png` | Installed power capacity by area in zonal results |
-| `line_flow_heatmap.png` | Signed interregional line flow by hour in zonal results |
+| `line_flow_heatmap.png` | Signed interregional line flow by hour when zonal exchange data is available |
 
 Duration curves use descending numeric observations with ranks starting at 1 on
 the x-axis (`Duration-curve position`). Generation and flow curves use MW;

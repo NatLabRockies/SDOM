@@ -125,10 +125,18 @@ def plot_results(
                 resolved_plots_dir, "area_capacity_stacks_power.png"
             ),
         )
-        plot_line_flow_heatmap(
-            result,
-            save_path=os.path.join(resolved_plots_dir, "line_flow_heatmap.png"),
-        )
+        exchanges_df = getattr(result, "interregional_exchanges_df", None)
+        if exchanges_df is None or exchanges_df.empty:
+            logger.warning(
+                "plot_results: no interregional exchange data; skipping line-flow heatmap."
+            )
+        else:
+            plot_line_flow_heatmap(
+                result,
+                save_path=os.path.join(
+                    resolved_plots_dir, "line_flow_heatmap.png"
+                ),
+            )
 
     logger.info("plot_results: all plots saved to '%s'.", resolved_plots_dir)
 
