@@ -167,6 +167,18 @@ The sample below is from case `GenMix_Target=1.0 | P_Capex×1.0 | load×1.0`.
 
 ![Heatmap — net load](../_static/parametric_example/case_plots/heatmap_net_load.png)
 
+Each optimal per-case plot directory also includes the applicable duration
+curves. Copperplate cases produce thermal-generation, load, and net-load
+curves, plus conditional imports, exports, and marginal-price curves. They
+also produce the copperplate marginal-price heatmap when at least 24 priced
+hours are available. Zonal cases produce system thermal-generation, load, and
+net-load curves; interregional signed-flow and zonal marginal-price curves;
+annual generation and installed-capacity stacks by area; and a signed
+line-flow heatmap. These are individual case artifacts only; they are not
+cross-case comparison curves. Set ``plot_per_case=False`` to suppress all
+per-case plots, including duration curves, copperplate price heatmaps, and
+zonal per-area figures.
+
 ---
 
 ## Sweep types
@@ -261,6 +273,11 @@ Data/no_exchange_run_of_river/results/
 │       ├── heatmap_Storage_Charge_Discharge_(MW).png
 │       ├── heatmap_Load_(MW).png
 │       └── heatmap_Net_Load_(MW).png
+│       ├── duration_curve_total_thermal_generation.png
+│       ├── duration_curve_load.png
+│       ├── duration_curve_net_load.png
+│       ├── duration_curve_marginal_price.png
+│       └── heatmap_marginal_price.png
 ├── GenMix_Target=0.0_P_Capexx0.7_load_datax1.4/
 │   └── ...                                        # same structure, 11 more cases
 ├── ...
@@ -319,7 +336,7 @@ After calling `study.run()`, use `plot_parametric_results()` from the
 `analytic_tools` sub-package to automatically produce:
 
 - **Per-case plots** — capacity donut, capacity + generation donuts, and
-  hourly dispatch heatmaps for every optimal case, saved under
+  hourly dispatch heatmaps and applicable duration curves for every optimal case, saved under
   `<output_dir>/<case_name>/plots/`.
 - **Cross-case comparison plots** — grouped stacked-bar charts for installed
   capacity, total generation, VRE curtailment, and CAPEX + OPEX costs by
@@ -372,6 +389,9 @@ after a run.
 ```python
 plot_parametric_results(study, results, group_by="GenMix_Target", plot_per_case=False)
 ```
+
+Setting `plot_per_case=False` also suppresses duration curves because they are
+generated only by the single-case plotting route.
 
 **Override the output directory**:
 
