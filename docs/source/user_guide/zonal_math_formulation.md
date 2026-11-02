@@ -62,6 +62,50 @@ Sign convention:
 - Positive $f_{l,h}$ means flow in `from -> to` direction.
 - Net inflow to area $a$ is subtracted from the left-hand side in the implementation.
 
+## Optional Local Capability Margin
+
+When `Reserves = CapacityMarginFormulation`, apply the same global scalar
+$m=$ `capacity_marging_fraction` independently to every area and modeled hour:
+
+$$
+\begin{aligned}
+&\sum_{k\in\mathcal{K}_a}P^{bal}_{a,k}
++\sum_{j\in\mathcal{J}_a}q^{act}_{a,jh}\\
+&\quad+\sum_{p\in\mathcal{P}_a}\sigma_{a,ph}\bar p^{pv}_{a,p}F^{pv}_{a,p}
++\sum_{w\in\mathcal{W}_a}\zeta_{a,wh}\bar p^{wind}_{a,w}F^{wind}_{a,w}\\
+&\quad+G^{hyd}_{a,h}+\alpha^{nuc}\nu_{a,h}+\alpha^{oth}\omega_{a,h}
+\ge(1+m)d_{a,h}.
+\end{aligned}
+$$
+
+Here $a\in\mathcal{A}$ extends the
+[base capability notation and assumptions](sdom_math_formulation.md#optional-hourly-capability-margin).
+The area storage expression and bounds are
+
+$$
+q^{act}_{a,jh}:=D^{dis}_{a,jh}-D^{ch}_{a,jh}+r^{up}_{a,jh},\qquad
+r^{up}_{a,jh}\ge0,\qquad q^{act}_{a,jh}\le P^{dis}_{a,j},
+$$
+
+$$
+T^{adequacy}q^{act}_{a,jh}\le\sqrt{\eta_{a,j}}S_{a,j,h^{-}},
+\qquad T^{adequacy}=1\ \mathrm{hour}.
+$$
+
+Each area's `reserves.storage_activated_net_output[h,j]` is a named Pyomo
+Expression reused in capability and both storage limits, not a second output
+variable or defining equality. Beginning SOC is cyclic; same-hour charging
+cannot fund activation. Charge interruption and within-hour switching are
+allowed without gating on baseline mode.
+
+Capability is **local**: imports, signed interregional flow, and spare capacity
+in other areas are excluded, even when transmission is uncongested.
+The baseline supply balances and network constraints above remain unchanged.
+A demand-only area still receives a capability constraint and is infeasible
+for positive demand even at enabled zero margin, although it can import energy
+when reserves are disabled. No per-area margin file is introduced. Missing or
+nonmatching reserve selections default locally to `notModel` and add no equations.
+
 ## System-Wide Clean Share Constraint
 
 The carbon-free target remains system-wide (not per area). It is built as top-level `model.GenMix_Share`.

@@ -56,6 +56,13 @@ Documentation for model formulation modules.
    :show-inheritance:
 ```
 
+## Capacity-Margin Formulation
+
+```{eval-rst}
+.. automodule:: sdom.models.formulations_reserves
+   :members:
+```
+
 ## Network (Zonal) Formulations
 
 ```{eval-rst}

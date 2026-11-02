@@ -379,6 +379,80 @@ $$
 | $M_h$          | Variable  | Imports (MW)                            |
 | $X_h$          | Variable  | Exports (MW)                            |
 
+### Optional hourly capability margin
+
+Select `Reserves,CapacityMarginFormulation` in `formulations.csv` to enable
+this deterministic one-hour capability proxy. Otherwise reserves default to
+`notModel` and add no variables or constraints. The optional global scalar
+`capacity_marging_fraction` is $m$, a dimensionless nonnegative fraction
+(default zero); see [Inputs](inputs.md#7-system-scalars).
+
+| Symbol | Meaning | Units |
+|---|---|---|
+| $h\in\mathcal{H}$, $h^{-}$ | Modeled hour and cyclic predecessor | Index |
+| $k\in\mathcal{K},j\in\mathcal{J},p\in\mathcal{P},w\in\mathcal{W}$ | Existing balancing, storage, PV, wind indices | Index |
+| $m$ | Global `capacity_marging_fraction` | Dimensionless |
+| $r^{up}_{jh}$ | New nonnegative upward capability relative to scheduled net storage injection | MW |
+| $q^{act}_{jh}$ | Activated signed net output; named expression, not a variable | MW |
+| $T^{adequacy}$ | Fixed `adequacy_duration_hours = 1` | Hours |
+| $S_{j,h^{-}}$ | Beginning energy from predecessor end-SOC | MWh |
+| $\eta_j$ | Existing roundtrip efficiency; discharge efficiency $\sqrt{\eta_j}$ | Dimensionless |
+
+Using the existing capacity, generation, and demand notation, define
+`reserves.storage_activated_net_output[h,j]`:
+
+$$
+q^{act}_{jh}:=D^{dis}_{jh}-D^{ch}_{jh}+r^{up}_{jh}.
+$$
+
+At **every** modeled hour, including non-peak low-VRE hours, require
+
+$$
+\begin{aligned}
+&\sum_{k\in\mathcal{K}}P^{bal}_k+\sum_{j\in\mathcal{J}}q^{act}_{jh}\\
+&\quad+\sum_{p\in\mathcal{P}}\sigma_{ph}\bar p^{pv}_pF^{pv}_p
++\sum_{w\in\mathcal{W}}\zeta_{wh}\bar p^{wind}_wF^{wind}_w\\
+&\quad+G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h
+\ge(1+m)d_h.
+\end{aligned}
+$$
+
+The same named expression is reused in both storage bounds:
+
+$$
+r^{up}_{jh}\ge0,\qquad q^{act}_{jh}\le P^{dis}_j,\qquad
+T^{adequacy}q^{act}_{jh}\le\sqrt{\eta_j}S_{j,h^{-}},\qquad T^{adequacy}=1.
+$$
+
+Only $r^{up}$ is a new decision variable. No defining equality, activated-output
+variable, binary, big-M, reserve cost, or shortfall slack is added.
+Insufficient capability makes the model infeasible. A zero enabled margin
+still installs all constraints; it is not the disabled formulation.
+
+Balancing units contribute installed MW under full deterministic availability,
+not installed MW plus dispatch. VRE contributes contemporaneous available output,
+not availability plus dispatch. Hydro contributes only scheduled generation,
+under its unchanged scaling, hourly bounds, and energy budgets. Nuclear and other
+renewables contribute existing scaled injections once; $d_h$ remains **gross**
+customer demand. Imports and network transfers do not contribute capability.
+Missing optional assets contribute zero.
+
+Activation replaces baseline storage operation and assumes charge interruption
+and charge-to-discharge switching within the hourly snapshot, regardless of the
+baseline mode binary $U_{jh}$. That binary and baseline physics remain unchanged.
+Negative $q^{act}$ means reduced charging and needs no discharge energy. Positive
+$q^{act}$ must be sustained from beginning SOC, not energy charged that hour.
+The first hour uses last-hour SOC cyclically. Do not subtract baseline discharge
+energy again: activation is an alternative trajectory.
+
+With unit efficiency, 100 MW discharge power, and 50 MW scheduled charge,
+beginning energies of 100, 20, and 0 MWh permit upward swings of 150, 70, and
+50 MW, respectively, but activated outputs of only 100, 20, and 0 MW.
+Baseline discharge of 40 MW with enough energy permits 60 MW additional upward
+capability. This proxy is neither probabilistic adequacy nor synchronized
+operating reserves and does not prove repeated activation or recovery feasibility.
+Duration is fixed at one hour, not a user option.
+
 ### VRE balance constraints
 
 Generation plus curtailment equals total available resource. Per-technology equality:

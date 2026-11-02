@@ -37,6 +37,28 @@ Valid values:
 
 If `Network` is missing, SDOM defaults to `CopperPlateNetwork`.
 
+## Optional Local Capability Margin
+
+Add `Reserves,CapacityMarginFormulation` to `formulations.csv` and optionally
+`capacity_marging_fraction,0.04` to the existing `scalars.csv` under its
+`Parameter,Value` header. The exact spelling is intentional. This is one
+global dimensionless fraction (4% in this example), applied independently
+to every area's gross demand at every hour, not a per-area input.
+
+The default fraction is `0.0`; enabled blank, nonnumeric, nonfinite, and negative
+values fail model construction. Values are fractions, never implicitly divided
+by 100. Only the exact enabled selection adds equations. A missing row,
+`notModel`, or any other nonmatching selection leaves reserves disabled and
+does not require or consume this scalar; a scalar row alone cannot enable them.
+See [scalar validation and examples](inputs.md#optional-capacity-margin-scalar).
+
+No new files are required. The adequacy duration is fixed at one hour and
+cannot be configured. Imports and inter-area transfers do **not** count as
+local capability. In particular, a demand-only area that can import baseline
+energy becomes infeasible under enabled local capability constraints, even
+at zero margin. Existing baseline network and energy-balance equations are
+unchanged. See [local capability equations](zonal_math_formulation.md#optional-local-capability-margin).
+
 ## New Zonal Files
 
 ### areas.csv
