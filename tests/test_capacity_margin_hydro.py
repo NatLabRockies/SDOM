@@ -1,5 +1,6 @@
-"""Reserve-enabled counterparts of the unchanged hydro regression cases."""
+"""Reserve-enabled hydro regressions with a bound-based zonal MIP objective check."""
 
+from math import isfinite
 from pathlib import Path
 
 import pytest
@@ -52,14 +53,8 @@ EXPECTED = {
         0.0,
     ),
     "exchange_hydro_daily_budget_multiple_balancing_p95": (-77686751.8882038, 1.0, 1.0, 0.0, 0.0),
-    "zonal": (
-        8231806786.052223,
-        49227.36258708384,
-        4047.8935031493993,
-        1343.6108653816261,
-        10861.252403005956,
-    ),
 }
+ZONAL_OBJECTIVE_LOWER_BOUND = 8227095540.7725115
 
 
 def assert_enabled_solution(results, expected):
@@ -70,6 +65,67 @@ def assert_enabled_solution(results, expected):
         assert solution[key] == pytest.approx(target, abs=10 if key == "Total_Cost" else 0.01, rel=0)
     for technology in ("PHS", "H2"):
         assert solution[f"Total_CapScha_{technology}"] == pytest.approx(0, abs=0.01)
+
+
+def _assert_zonal_objective(cost: float, *, mip_gap: float) -> None:
+    """Check zonal solution quality against a recorded dual bound.
+
+    Parameters
+    ----------
+    cost : float
+        Objective of the feasible zonal incumbent.
+    mip_gap : float
+        Configured relative MIP optimality gap.
+
+    Notes
+    -----
+    HiGHS 1.15.1 supplied the lower bound for this unchanged 168-hour, 4%
+    daily-budget case. It is not an exact optimum. Require C >= L and
+    C - L <= mip_gap * abs(C), retaining 10 cost units for solver roundoff.
+    Capacity decisions can differ between equally acceptable incumbents.
+    """
+    assert isfinite(cost)
+    assert cost >= ZONAL_OBJECTIVE_LOWER_BOUND - 10
+    assert cost - ZONAL_OBJECTIVE_LOWER_BOUND <= mip_gap * abs(cost) + 10
+
+
+@pytest.mark.parametrize(
+    "cost",
+    [8231806786.052223, 8236975423.957031, 8240782598.617803],
+    ids=["windows", "different-seed", "macos"],
+)
+def test_zonal_objective_accepts_certified_near_optimal_incumbents(cost):
+    _assert_zonal_objective(cost, mip_gap=0.002)
+
+
+@pytest.mark.parametrize("offset", [-10.0, 0.0, 10.0])
+def test_zonal_objective_accepts_roundoff_at_zero_gap(offset):
+    _assert_zonal_objective(8227095540.7725115 + offset, mip_gap=0.0)
+
+
+@pytest.mark.parametrize(
+    "cost",
+    [8227095529.7725115, 8250000000.0, 0.0, -1.0, float("nan"), float("inf"), -float("inf")],
+    ids=["below-bound", "excess-gap", "zero", "negative", "nan", "positive-inf", "negative-inf"],
+)
+def test_zonal_objective_rejects_invalid_cost_or_excess_gap(cost):
+    with pytest.raises(AssertionError):
+        _assert_zonal_objective(cost, mip_gap=0.002)
+
+
+def test_zonal_objective_uses_requested_gap():
+    with pytest.raises(AssertionError):
+        _assert_zonal_objective(8231806786.052223, mip_gap=0.0)
+
+
+@pytest.mark.parametrize("offset", [-1.0, 0.0, 100.0])
+def test_zonal_objective_enforces_relative_gap_boundary(offset):
+    cost = ZONAL_OBJECTIVE_LOWER_BOUND / (1 - 0.002) + offset
+    if offset > 10:
+        with pytest.raises(AssertionError):
+            _assert_zonal_objective(cost, mip_gap=0.002)
+    else:
+        _assert_zonal_objective(cost, mip_gap=0.002)
 
 
 def assert_hourly_physics(host, *, margin=0.04, relative_tolerance=0):
@@ -175,9 +231,16 @@ def test_four_percent_zonal_daily_budget_builds_and_solves(tmp_path):
     assert not hasattr(model, "reserves")
     assert all(len(model.area[a].reserves.Capability) == 168 for a in model.A)
     assert get_n_eq_ineq_constraints(model) == {"equality": 2370, "inequality": 13313}
-    results = run_solver(model, _highs_config())
+    config = _highs_config()
+    results = run_solver(model, config)
     assert results.termination_condition == "optimal"
-    assert_enabled_solution(results, EXPECTED["zonal"])
+    _assert_zonal_objective(results.total_cost, mip_gap=config["options"]["mip_rel_gap"])
+    assert results.total_cap_wind > 0
+    assert results.total_cap_pv > 0
+    for technology in ("Li-Ion", "CAES"):
+        assert results.total_cap_storage_charge[technology] > 0
+    for technology in ("PHS", "H2"):
+        assert results.total_cap_storage_charge[technology] == pytest.approx(0, abs=0.01)
     assert check_supply_balance_constraint(results)["is_satisfied"]
     for a in model.A:
         assert_hourly_physics(model.area[a])
