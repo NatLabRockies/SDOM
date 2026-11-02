@@ -316,7 +316,10 @@ are required. `adequacy_duration_hours = 1` is fixed in the formulation module;
 it is not a scalar or configurable API option. Existing scalar sweeps and
 CSV-to-System-to-model adapters retain the scalar and selection.
 See the [mathematical contract](sdom_math_formulation.md#optional-hourly-capacity-margin)
-for local resource accounting, switching, and beginning-SOC assumptions.
+for resource accounting and beginning-SOC assumptions. Storage contributes
+nonnegative deliverable capacity bounded by installed discharge MW and
+beginning SOC, independent of baseline charge/discharge. No extra scalar,
+upward-award input, or configurable duration is needed.
 
 ### 8. Import/Export Data (Optional)
 

@@ -77,6 +77,11 @@ For the full notation and formulation overview, see
 In zonal models, construct the network flows before adding the per-area
 capacity-margin constraints. These constraints reuse scheduled signed flows
 to credit imports and deduct exports; they add no reserve-transfer variables.
+Storage uses the nonnegative `reserves.storage_capacity_contribution[h,j]`
+variable, bounded by discharge power and beginning SOC. This replaces
+`storage_upward_capability` and `storage_activated_net_output`; scripts that
+inspect those model internals should use the contribution variable instead.
+Public runner signatures and result/export schemas are unchanged.
 
 ```{eval-rst}
 .. automodule:: sdom.models.formulations_reserves

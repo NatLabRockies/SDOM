@@ -63,6 +63,11 @@ additional reserve transfers. External imports/exports remain unsupported in
 zonal mode. Existing network and energy-balance equations are unchanged.
 See [capability equations](zonal_math_formulation.md#optional-local-capacity-margin).
 
+Storage contributes credited supply MW bounded by installed discharge power
+and beginning-of-hour SOC. This is not an upward reserve award and does not
+depend on scheduled charging/discharging or add another charging obligation.
+No new storage input columns are required.
+
 ## New Zonal Files
 
 ### areas.csv
