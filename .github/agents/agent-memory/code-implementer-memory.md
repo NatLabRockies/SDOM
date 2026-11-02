@@ -4,6 +4,14 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Model Docstring Equation Audit (2026-11-02)
+
+- Audited all 13 modules under `src/sdom/models`: 94 functions (including two nested rules), of which 55 initially lacked docstrings. All now have NumPy-style parameter documentation; equation-bearing rules have 63 display-math blocks with symbol definitions, units, and boundary/selection details. Use raw docstrings for LaTeX to preserve commands such as `\nu`, `\alpha`, and `\begin`.
+- Document actual behavior rather than idealizing it: generic CAPEX is unannualized until its caller applies FCR; hydro budget equalities do not apply alpha; storage cycle allowances are not prorated for short horizons; baseline SOC wraps cyclically; storage VOM applies only to discharge; external trade sign gating uses gross demand/export capacity, not net-load magnitude; network reporting expressions are signed, not clipped. The legacy `GenCC` thermal helper and aggregate resiliency constraints are distinct from current thermal expression construction and the outage evaluator.
+- Expanded the generated model API reference to include all 13 modules and private helpers where their equations are defined. Verified all 92 top-level functions appear in the generated API page. The two nested rules are documented in source and covered by their public builders.
+- Validation: 14 existing documentation tests plus the model utility doctest passed (15 total, including both documentation builds). An isolated strict Sphinx build parsed all 94 function docstrings and emitted all 63 display-math blocks as HTML with zero warnings. Ruff `D,W605` and `git diff --check` pass. Stripping only docstrings produces an identical executable AST to the pre-audit commit for every model module; no runtime behavior, signatures, or model equations changed. The pytest run reports an unrelated installed anyio/pytest deprecation warning.
+- Publication was subsequently requested as sequential logical slices: shared math helpers; resource investment/dispatch; system/network/adequacy; then generated-reference wiring and these audit notes. Stage only this memory section, preserving the concurrent PR-description note and untracked plans.
+
 ## Scheduled Zonal Exchanges in Capacity Margins (2026-11-02)
 
 - User-facing documentation uses "capacity margin", not "capability margin"; keep heading anchors and their links aligned. The terminology-only update passed all 14 documentation checks.
