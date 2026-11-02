@@ -20,6 +20,7 @@ from .models.formulations_storage import add_storage_variables, add_storage_expr
 from .models.formulations_system import objective_rule, add_system_expressions, add_system_constraints
 from .models.formulations_imports_exports import add_imports_variables, add_exports_variables, add_imports_exports_cost_expressions, add_imports_constraints, add_exports_constraints
 from .models.formulations_hydro import add_hydro_variables, add_hydro_run_of_river_constraints, add_hydro_budget_constraints
+from .models.formulations_reserves import add_capacity_margin_constraints
 
 from .constants import (
     MW_TO_KW,
@@ -374,6 +375,8 @@ def _initialize_model_copperplate(data, *, n_hours=8760, with_resilience_constra
         logging.debug("-- Adding Exports constraints...")
         profiler.measure_step("Add exports constraints", add_exports_constraints, model, data)
 
+    profiler.measure_step("Add capacity margin constraints", add_capacity_margin_constraints, model, data)
+
     # Finalize profiling
     profiler.stop()
     profiler.print_summary_table(logging.getLogger())
@@ -603,6 +606,8 @@ def _build_one_area(area_block, data_slice, *, n_hours, with_resilience_constrai
         add_hydro_run_of_river_constraints(area_block, data_slice)
     else:
         add_hydro_budget_constraints(area_block, data_slice)
+
+    add_capacity_margin_constraints(area_block, data_slice)
 
     if with_resilience_constraints:
         logging.debug(f"[area={a}] -- Adding resiliency constraints...")
