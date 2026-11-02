@@ -37,7 +37,7 @@ Valid values:
 
 If `Network` is missing, SDOM defaults to `CopperPlateNetwork`.
 
-## Optional Local Capability Margin
+## Optional Local Capacity Margin
 
 Add `Reserves,CapacityMarginFormulation` to `formulations.csv` and optionally
 `capacity_marging_fraction,0.04` to the existing `scalars.csv` under its
@@ -53,11 +53,15 @@ does not require or consume this scalar; a scalar row alone cannot enable them.
 See [scalar validation and examples](inputs.md#optional-capacity-margin-scalar).
 
 No new files are required. The adequacy duration is fixed at one hour and
-cannot be configured. Imports and inter-area transfers do **not** count as
-local capability. In particular, a demand-only area that can import baseline
-energy becomes infeasible under enabled local capability constraints, even
-at zero margin. Existing baseline network and energy-balance equations are
-unchanged. See [local capability equations](zonal_math_formulation.md#optional-local-capability-margin).
+cannot be configured. Existing scheduled inter-area net imports count toward
+the capability requirement: imports are credited and exports deducted using
+the same signed flows as the supply balance. No new inputs or transfer
+variables are needed. A demand-only area can meet an enabled zero margin
+through scheduled imports, but a positive margin still requires local upward
+headroom. Unused remote capability and spare line capacity do not provide
+additional reserve transfers. External imports/exports remain unsupported in
+zonal mode. Existing network and energy-balance equations are unchanged.
+See [capability equations](zonal_math_formulation.md#optional-local-capacity-margin).
 
 ## New Zonal Files
 

@@ -55,7 +55,7 @@ This file the user selects the modeling approach (formulation) for each major sy
 | Network | CopperPlateNetwork | Single-area legacy network model |
 | Network | AreaTransportationModelNetwork | Multi-area transportation network |
 | Reserves | notModel | Disabled default; no reserve components |
-| Reserves | CapacityMarginFormulation | Deterministic hourly local capability margin |
+| Reserves | CapacityMarginFormulation | Deterministic hourly capacity margin |
 
 **Example**:
 ```csv
@@ -284,7 +284,7 @@ To opt in, add this row to `formulations.csv`:
 
 ```csv
 Component,Formulation,Description
-Reserves,CapacityMarginFormulation,Hourly local capability margin
+Reserves,CapacityMarginFormulation,Hourly capacity margin
 ```
 
 Add the optional row to the existing `scalars.csv` (retain its other rows):
@@ -295,8 +295,10 @@ capacity_marging_fraction,0.04
 ```
 
 Preserve the exact spelling **`capacity_marging_fraction`**. This dimensionless
-fraction means local capability must be at least 104% of **gross** demand in
-every modeled hour. If absent, its default is `0.0`. When enabled, supplied
+fraction means capability must be at least 104% of **gross** demand in
+every modeled hour. Zonal capability includes scheduled inter-area imports
+minus exports; it does not include additional reserve transfers.
+If absent, its default is `0.0`. When enabled, supplied
 blank, nonnumeric, NaN, infinite, or negative values raise an error naming the
 scalar during model construction. There is no upper cap or implicit percent
 conversion: `15` means 1500%, not 15%.
@@ -313,7 +315,7 @@ files, capacity-credit inputs, provider tables, or per-area margin settings
 are required. `adequacy_duration_hours = 1` is fixed in the formulation module;
 it is not a scalar or configurable API option. Existing scalar sweeps and
 CSV-to-System-to-model adapters retain the scalar and selection.
-See the [mathematical contract](sdom_math_formulation.md#optional-hourly-capability-margin)
+See the [mathematical contract](sdom_math_formulation.md#optional-hourly-capacity-margin)
 for local resource accounting, switching, and beginning-SOC assumptions.
 
 ### 8. Import/Export Data (Optional)

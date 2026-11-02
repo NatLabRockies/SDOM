@@ -58,6 +58,10 @@ Documentation for model formulation modules.
 
 ## Capacity-Margin Formulation
 
+In zonal models, construct the network flows before adding the per-area
+capacity-margin constraints. These constraints reuse scheduled signed flows
+to credit imports and deduct exports; they add no reserve-transfer variables.
+
 ```{eval-rst}
 .. automodule:: sdom.models.formulations_reserves
    :members:

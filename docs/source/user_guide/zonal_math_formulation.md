@@ -62,7 +62,7 @@ Sign convention:
 - Positive $f_{l,h}$ means flow in `from -> to` direction.
 - Net inflow to area $a$ is subtracted from the left-hand side in the implementation.
 
-## Optional Local Capability Margin
+## Optional Local Capacity Margin
 
 When `Reserves = CapacityMarginFormulation`, apply the same global scalar
 $m=$ `capacity_marging_fraction` independently to every area and modeled hour:
@@ -74,12 +74,27 @@ $$
 &\quad+\sum_{p\in\mathcal{P}_a}\sigma_{a,ph}\bar p^{pv}_{a,p}F^{pv}_{a,p}
 +\sum_{w\in\mathcal{W}_a}\zeta_{a,wh}\bar p^{wind}_{a,w}F^{wind}_{a,w}\\
 &\quad+G^{hyd}_{a,h}+\alpha^{nuc}\nu_{a,h}+\alpha^{oth}\omega_{a,h}
++N^{net}_{a,h}
 \ge(1+m)d_{a,h}.
 \end{aligned}
 $$
 
 Here $a\in\mathcal{A}$ extends the
-[base capability notation and assumptions](sdom_math_formulation.md#optional-hourly-capability-margin).
+[base capability notation and assumptions](sdom_math_formulation.md#optional-hourly-capacity-margin).
+Scheduled net imports use the same signed flows as the supply balance:
+
+$$
+N^{net}_{a,h}:=
+\sum_{l\in\mathcal{L}_{in}(a)}f_{l,h}
+-\sum_{l\in\mathcal{L}_{out}(a)}f_{l,h}.
+$$
+
+| Symbol | Meaning | Units |
+|---|---|---|
+| $N^{net}_{a,h}$ | Scheduled inter-area imports minus exports; shorthand, not a new variable | MW |
+| $f_{l,h}$ | Existing signed scheduled flow on line $l$ | MW |
+| $\mathcal{L}_{in}(a),\mathcal{L}_{out}(a)$ | Lines whose stored destination/origin is area $a$ | Set |
+
 The area storage expression and bounds are
 
 $$
@@ -98,12 +113,21 @@ variable or defining equality. Beginning SOC is cyclic; same-hour charging
 cannot fund activation. Charge interruption and within-hour switching are
 allowed without gating on baseline mode.
 
-Capability is **local**: imports, signed interregional flow, and spare capacity
-in other areas are excluded, even when transmission is uncongested.
-The baseline supply balances and network constraints above remain unchanged.
-A demand-only area still receives a capability constraint and is infeasible
-for positive demand even at enabled zero margin, although it can import energy
-when reserves are disabled. No per-area margin file is introduced. Missing or
+Scheduled imports support demand and scheduled exports reduce available
+capability. Signed flows handle both directions, including reverse flow.
+Exports are deducted in the sending area, so exchanges cancel when summing
+requirements across areas. The margin still applies to gross customer demand.
+The baseline supply balances and directional network limits remain unchanged.
+
+These are **scheduled exchanges, not shared reserves**: activation retains
+the baseline flows, with no new flow variable or transfer headroom award.
+Subtracting baseline supply balance leaves a local upward-headroom requirement
+of $m d_{a,h}$; unused remote capability or line capacity cannot meet it.
+A demand-only area can meet an enabled zero margin using scheduled imports,
+but cannot meet a positive margin without local upward headroom.
+An area without incident lines retains the local-only inequality.
+External imports/exports remain unsupported in zonal mode.
+No per-area margin file is introduced. Missing or
 nonmatching reserve selections default locally to `notModel` and add no equations.
 
 ## System-Wide Clean Share Constraint

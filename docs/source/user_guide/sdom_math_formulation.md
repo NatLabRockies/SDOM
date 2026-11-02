@@ -379,7 +379,7 @@ $$
 | $M_h$          | Variable  | Imports (MW)                            |
 | $X_h$          | Variable  | Exports (MW)                            |
 
-### Optional hourly capability margin
+### Optional hourly capacity margin
 
 Select `Reserves,CapacityMarginFormulation` in `formulations.csv` to enable
 this deterministic one-hour capability proxy. Otherwise reserves default to
@@ -434,7 +434,9 @@ not installed MW plus dispatch. VRE contributes contemporaneous available output
 not availability plus dispatch. Hydro contributes only scheduled generation,
 under its unchanged scaling, hourly bounds, and energy budgets. Nuclear and other
 renewables contribute existing scaled injections once; $d_h$ remains **gross**
-customer demand. Imports and network transfers do not contribute capability.
+customer demand. External imports do not contribute to this copperplate
+capability check. Zonal models additionally credit scheduled net inter-area
+inflow; see the [zonal capability equation](zonal_math_formulation.md#optional-local-capacity-margin).
 Missing optional assets contribute zero.
 
 Activation replaces baseline storage operation and assumes charge interruption
