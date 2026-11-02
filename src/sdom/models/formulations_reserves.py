@@ -125,7 +125,37 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     )
 
     def capability_rule(b, h):
-        """Return capability including scheduled net imports in MW."""
+        r"""Return the hourly capability bound with scheduled net inflow.
+
+        Parameters
+        ----------
+        b : pyomo.core.base.block.BlockData
+            Reserves block containing activated storage expressions.
+        h : int
+            Modeled hour.
+
+        Returns
+        -------
+        tuple
+            ``(required_MW, available_MW_expression, None)`` for Pyomo's
+            lower-bound constraint representation.
+
+        Notes
+        -----
+        Using the resource symbols defined in the enclosing builder,
+
+        .. math::
+
+           (1+m)d_h\le
+           \sum_kP^{bal}_k+\sum_jq^{act}_{jh}
+           +\sum_p\sigma_{ph}\bar p^{pv}_pF^{pv}_p
+           +\sum_w\zeta_{wh}\bar p^{wind}_wF^{wind}_w
+           +G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h+N_h.
+
+        All terms are MW. :math:`N_h` is signed scheduled zonal net inflow,
+        or zero for the root copperplate host. Flows are not increased for
+        activation, and no external import variable is credited.
+        """
         available = (
             host.thermal.total_installed_capacity
             + quicksum(b.storage_activated_net_output[h, j] for j in storage.j)
