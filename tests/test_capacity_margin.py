@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from pyomo.core.base.expression import ExpressionData
-from pyomo.core.expr.visitor import identify_components
+from pyomo.core.expr.visitor import identify_variables
 from pyomo.environ import (
     Block,
     ConcreteModel,
@@ -32,7 +31,7 @@ def enable_reserves(data, *, margin=0.04):
     data["formulations"].loc[len(data["formulations"])] = [
         "Reserves",
         "CapacityMarginFormulation",
-        "Hourly capability margin",
+        "Hourly capacity margin",
     ]
     if isinstance(margin, str):
         data["scalars"]["Value"] = data["scalars"]["Value"].astype(object)
@@ -40,14 +39,18 @@ def enable_reserves(data, *, margin=0.04):
     return data
 
 
-def test_capacity_margin_builds_with_named_storage_expression():
+def test_capacity_margin_builds_with_direct_nonnegative_storage_capacity():
     data = enable_reserves(load_data(str(ROOT / "Data" / "no_exchange_run_of_river")))
     model = initialize_model(data, n_hours=24)
 
     assert len(model.reserves.Capability) == 24
-    expression = model.reserves.storage_activated_net_output
-    assert isinstance(expression, Expression)
-    assert expression.is_indexed()
+    contribution = model.reserves.storage_capacity_contribution
+    assert isinstance(contribution, Var)
+    assert contribution.is_indexed()
+    assert all(variable.lb == 0 for variable in contribution.values())
+    assert not hasattr(model.reserves, "storage_upward_capability")
+    assert not hasattr(model.reserves, "storage_activated_net_output")
+    assert not list(model.reserves.component_objects(Expression))
     assert value(model.reserves.capacity_marging_fraction) == 0.04
 
 
@@ -130,17 +133,19 @@ def capability_snapshot(*, efficiency=1.0, with_storage=True):
 
 
 @pytest.mark.parametrize(
-    ("charge", "discharge", "beginning_soc", "efficiency", "expected_up"),
+    ("charge", "discharge", "beginning_soc", "efficiency", "expected_capacity"),
     [
-        (50, 0, 100, 1, 150),
-        (50, 0, 0, 1, 50),
-        (50, 0, 20, 1, 70),
-        (0, 40, 100, 1, 60),
-        (50, 0, 100, 0.81, 140),
+        (50, 0, 100, 1, 100),
+        (50, 0, 0, 1, 0),
+        (50, 0, 20, 1, 20),
+        (0, 40, 100, 1, 100),
+        (50, 0, 100, 0.81, 90),
+        (0, 0, 20, 1, 20),
+        (0, 10, 20, 1, 20),
     ],
 )
-def test_storage_upward_capability_uses_beginning_energy_and_allows_switching(
-    charge, discharge, *, beginning_soc, efficiency, expected_up
+def test_storage_capacity_uses_power_and_beginning_soc_not_baseline_operation(
+    charge, discharge, *, beginning_soc, efficiency, expected_capacity
 ):
     model = capability_snapshot(efficiency=efficiency)
     storage = model.storage
@@ -149,32 +154,29 @@ def test_storage_upward_capability_uses_beginning_energy_and_allows_switching(
         storage.PD[h, "battery"].fix(discharge)
         storage.SOC[h, "battery"].fix(beginning_soc if h == 2 else 1000)
     storage.Pdis["battery"].fix(100)
-    model.objective = Objective(expr=model.reserves.storage_upward_capability[1, "battery"], sense=maximize)
+    model.objective = Objective(expr=model.reserves.storage_capacity_contribution[1, "battery"], sense=maximize)
     result = SolverFactory("highs").solve(model)
     assert str(result.solver.termination_condition) == "optimal"
-    assert value(model.objective) == pytest.approx(expected_up)
-    assert value(model.reserves.storage_activated_net_output[1, "battery"]) == pytest.approx(
-        discharge - charge + expected_up
-    )
+    assert value(model.objective) == pytest.approx(expected_capacity)
     assert len(list(model.component_data_objects(Var))) == 10
+    assert len(list(model.reserves.component_data_objects(Constraint))) == 6
     assert all(not c.equality for c in model.component_data_objects(Constraint))
 
 
-@pytest.mark.parametrize("upward", [0, 50, 70])
-def test_named_expression_is_reused_and_supports_signed_output(upward):
+def test_storage_capacity_formulation_is_linear_and_has_no_dispatch_terms():
     model = capability_snapshot()
     storage = model.storage
-    storage.PC[1, "battery"].set_value(50)
-    storage.PD[1, "battery"].set_value(0)
-    model.reserves.storage_upward_capability[1, "battery"].set_value(upward)
-    expression = model.reserves.storage_activated_net_output[1, "battery"]
-    assert value(expression) == upward - 50
+    contribution = model.reserves.storage_capacity_contribution[1, "battery"]
+    dispatch = {id(v) for component in (storage.PC, storage.PD) for v in component.values()}
     for constraint in (
         model.reserves.Capability[1],
         model.reserves.StoragePower[1, "battery"],
         model.reserves.StorageEnergy[1, "battery"],
     ):
-        assert any(node is expression for node in identify_components(constraint.body, {ExpressionData}))
+        variables = list(identify_variables(constraint.body))
+        assert any(variable is contribution for variable in variables)
+        assert not any(id(variable) in dispatch for variable in variables)
+        assert constraint.body.polynomial_degree() == 1
 
 
 def test_capability_counts_resources_once_in_every_hour_without_storage():

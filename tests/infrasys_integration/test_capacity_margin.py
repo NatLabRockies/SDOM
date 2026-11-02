@@ -34,6 +34,8 @@ def test_capacity_margin_system_roundtrip_and_scalar_mutation(folder):
     for host in hosts:
         assert value(host.reserves.capacity_marging_fraction) == 0.1
         assert len(host.reserves.Capability) == 24
+        assert len(host.reserves.storage_capacity_contribution) == 24 * len(host.storage.j)
+        assert not hasattr(host.reserves, "storage_upward_capability")
 
 
 @pytest.mark.parametrize("margin", [float("nan"), -0.01])

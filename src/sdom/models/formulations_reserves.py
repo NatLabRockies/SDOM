@@ -1,9 +1,9 @@
-"""Model optional hourly capability margins with scheduled zonal exchanges."""
+"""Model hourly capacity margins with deliverable storage and zonal exchanges."""
 
 import math
 
 from pyomo.core.base.block import ScalarBlock
-from pyomo.environ import Constraint, Expression, NonNegativeReals, Param, Var, quicksum, sqrt
+from pyomo.environ import Constraint, NonNegativeReals, Param, Var, quicksum, sqrt
 
 from ..io_manager import get_formulation
 
@@ -33,32 +33,28 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     Notes
     -----
     For hour :math:`h`, storage :math:`j`, and cyclic predecessor :math:`h^{-}`,
-    define the named expression (MW), not a new output variable:
+    credit nonnegative deliverable storage capacity :math:`C^{stor}_{jh}`
+    (MW), represented by ``storage_capacity_contribution[h,j]``:
 
     .. math::
 
-       q^{act}_{jh} := D^{dis}_{jh}-D^{ch}_{jh}+r^{up}_{jh}.
-
-    Only :math:`r^{up}_{jh}\ge0` is a new decision variable. Its bounds are
-
-    .. math::
-
-       q^{act}_{jh}\le P^{dis}_j,\qquad
-       T^{adequacy}q^{act}_{jh}\le\sqrt{\eta_j}S_{j,h^{-}},
+       0\le C^{stor}_{jh}\le P^{dis}_j,\qquad
+       T^{adequacy}C^{stor}_{jh}\le\sqrt{\eta_j}S_{j,h^{-}},
        \qquad T^{adequacy}=1\ \mathrm{hour}.
 
     :math:`S` is predecessor end-SOC (MWh), including last-hour SOC for the
-    first hour; :math:`\eta` is roundtrip efficiency. Activation replaces
-    baseline dispatch, permits charge interruption and within-hour switching,
-    and is not gated by the baseline mode binary. Negative activated output
-    denotes reduced charging; concurrent charging cannot fund discharge.
+    first hour; :math:`\eta` is roundtrip efficiency. Installed energy capacity
+    does not replace available SOC. Scheduled charge/discharge and the baseline
+    mode binary do not enter these capacity bounds; same-hour charging cannot
+    fund the contribution. This is credited supply capacity, not an upward
+    dispatch award. No activated-output expression or defining equality is used.
 
     The hourly capability requirement, in MW, is
 
     .. math::
 
        \begin{aligned}
-       &\sum_k P^{bal}_k+\sum_j q^{act}_{jh}
+       &\sum_k P^{bal}_k+\sum_j C^{stor}_{jh}
        +\sum_p\sigma_{ph}\bar p^{pv}_p F^{pv}_p
        +\sum_w\zeta_{wh}\bar p^{wind}_w F^{wind}_w\\
        &\quad+G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h+N_h
@@ -67,7 +63,8 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
 
     Here :math:`m` is the margin, :math:`d` gross demand, :math:`P^{bal}`
     installed balancing MW (full deterministic availability), and the VRE
-    terms are contemporaneous capacity factors times installed MW. Hydro is
+    terms are contemporaneous capacity factors times installed MW. Charging is
+    not added to gross demand or credited separately for interruption. Hydro is
     scheduled dispatch; nuclear and other renewables are scaled injections.
     :math:`N_h=0` in copperplate mode. In zonal blocks it is scheduled net
     inflow :math:`N_h=\sum_{\ell\in\mathcal L_{in}(a)}f_{\ell h}
@@ -95,21 +92,13 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     host.add_component("reserves", block)
     block.add_component("capacity_marging_fraction", Param(initialize=margin, within=NonNegativeReals))
     storage = host.storage
-    block.add_component("storage_upward_capability", Var(host.h, storage.j, domain=NonNegativeReals))
-    block.add_component(
-        "storage_activated_net_output",
-        Expression(
-            host.h,
-            storage.j,
-            rule=lambda b, h, j: storage.PD[h, j] - storage.PC[h, j] + b.storage_upward_capability[h, j],
-        ),
-    )
+    block.add_component("storage_capacity_contribution", Var(host.h, storage.j, domain=NonNegativeReals))
     block.add_component(
         "StoragePower",
         Constraint(
             host.h,
             storage.j,
-            rule=lambda b, h, j: b.storage_activated_net_output[h, j] <= storage.Pdis[j],
+            rule=lambda b, h, j: b.storage_capacity_contribution[h, j] <= storage.Pdis[j],
         ),
     )
     block.add_component(
@@ -118,7 +107,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
             host.h,
             storage.j,
             rule=lambda b, h, j: (
-                adequacy_duration_hours * b.storage_activated_net_output[h, j]
+                adequacy_duration_hours * b.storage_capacity_contribution[h, j]
                 <= sqrt(storage.data["Eff", j]) * storage.SOC[host.h.prevw(h), j]
             ),
         ),
@@ -130,7 +119,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
         Parameters
         ----------
         b : pyomo.core.base.block.BlockData
-            Reserves block containing activated storage expressions.
+            Reserves block containing credited storage-capacity variables.
         h : int
             Modeled hour.
 
@@ -147,7 +136,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
         .. math::
 
            (1+m)d_h\le
-           \sum_kP^{bal}_k+\sum_jq^{act}_{jh}
+           \sum_kP^{bal}_k+\sum_jC^{stor}_{jh}
            +\sum_p\sigma_{ph}\bar p^{pv}_pF^{pv}_p
            +\sum_w\zeta_{wh}\bar p^{wind}_wF^{wind}_w
            +G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h+N_h.
@@ -158,7 +147,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
         """
         available = (
             host.thermal.total_installed_capacity
-            + quicksum(b.storage_activated_net_output[h, j] for j in storage.j)
+            + quicksum(b.storage_capacity_contribution[h, j] for j in storage.j)
             + quicksum(
                 vre.capacity_factor[h, plant] * vre.plant_installed_capacity[plant]
                 for vre in (host.pv, host.wind)

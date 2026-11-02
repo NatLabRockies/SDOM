@@ -133,13 +133,10 @@ def assert_hourly_physics(host, *, margin=0.04, relative_tolerance=0):
     """Check capability independently and all baseline/new constraint residuals."""
     for h in host.h:
         storage = host.storage
-        activated = sum(
-            value(storage.PD[h, j] - storage.PC[h, j] + host.reserves.storage_upward_capability[h, j])
-            for j in storage.j
-        )
+        contribution = sum(value(host.reserves.storage_capacity_contribution[h, j]) for j in storage.j)
         available = (
             sum(value(host.thermal.plant_installed_capacity[k]) for k in host.thermal.plants_set)
-            + activated
+            + contribution
             + sum(
                 value(vre.capacity_factor[h, p] * vre.max_capacity[p] * vre.capacity_fraction[p])
                 for vre in (host.pv, host.wind)
@@ -159,9 +156,15 @@ def assert_hourly_physics(host, *, margin=0.04, relative_tolerance=0):
             )
         assert available >= (1 + margin) * value(host.demand.ts_parameter[h]) - 1e-5
         for j in storage.j:
-            output = value(host.reserves.storage_activated_net_output[h, j])
+            output = value(host.reserves.storage_capacity_contribution[h, j])
+            assert output >= -1e-5
             assert output <= value(storage.Pdis[j]) + 1e-5
             assert output <= (
+                value(storage.data["Eff", j]) ** 0.5 * value(storage.SOC[host.h.prevw(h), j]) + 1e-5
+            )
+            equivalent_output = max(output, value(storage.PD[h, j] - storage.PC[h, j]))
+            assert equivalent_output <= value(storage.Pdis[j]) + 1e-5
+            assert equivalent_output <= (
                 value(storage.data["Eff", j]) ** 0.5 * value(storage.SOC[host.h.prevw(h), j]) + 1e-5
             )
     for constraint in host.component_data_objects(Constraint, active=True):
@@ -179,7 +182,7 @@ def test_four_percent_hydro_construction(folder, hours, *, equalities, inequalit
     data = enable_reserves(load_data(str(ROOT / "Data" / folder)))
     model = initialize_model(data, n_hours=hours)
     assert get_n_eq_ineq_constraints(model) == {"equality": equalities, "inequality": inequalities}
-    assert len(model.reserves.storage_upward_capability) == hours * len(model.storage.j)
+    assert len(model.reserves.storage_capacity_contribution) == hours * len(model.storage.j)
 
 
 @pytest.mark.parametrize(
@@ -209,8 +212,8 @@ def test_four_percent_hydro_solves(folder, hours, *, equalities, inequalities, b
     results = run_solver(model, config)
     assert results.termination_condition == "optimal"
     assert_enabled_solution(results, EXPECTED[folder])
-    # CBC's text solution stores eight significant digits; summed MWh inherit that rounding.
-    relative_tolerance = 2e-8 if solver == "cbc" else 0
+    # Eight significant digits have a worst-case relative rounding error of 0.5 * 10**-7.
+    relative_tolerance = 5e-8 if solver == "cbc" else 0
     assert_hourly_physics(model, relative_tolerance=relative_tolerance)
     balance = check_supply_balance_constraint(results)
     assert balance["is_satisfied"], balance
