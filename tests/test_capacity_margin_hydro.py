@@ -79,8 +79,9 @@ def _assert_zonal_objective(cost: float, *, mip_gap: float) -> None:
 
     Notes
     -----
-    HiGHS 1.15.1 supplied the lower bound for this unchanged 168-hour, 4%
-    daily-budget case. It is not an exact optimum. Require C >= L and
+    HiGHS 1.15.1 supplied the lower bound for this 168-hour, 4%
+    daily-budget case, including scheduled zonal exchanges. It is not an
+    exact optimum. Require C >= L and
     C - L <= mip_gap * abs(C), retaining 10 cost units for solver roundoff.
     Capacity decisions can differ between equally acceptable incumbents.
     """
@@ -150,6 +151,12 @@ def assert_hourly_physics(host, *, margin=0.04, relative_tolerance=0):
                 + host.other_renewables.alpha * host.other_renewables.ts_parameter[h]
             )
         )
+        network = host.model()
+        if host is not network:
+            area = host.index()
+            available += sum(value(network.f[line, h]) for line in network.L_in[area]) - sum(
+                value(network.f[line, h]) for line in network.L_out[area]
+            )
         assert available >= (1 + margin) * value(host.demand.ts_parameter[h]) - 1e-5
         for j in storage.j:
             output = value(host.reserves.storage_activated_net_output[h, j])

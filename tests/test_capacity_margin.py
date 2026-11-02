@@ -32,7 +32,7 @@ def enable_reserves(data, *, margin=0.04):
     data["formulations"].loc[len(data["formulations"])] = [
         "Reserves",
         "CapacityMarginFormulation",
-        "Hourly local capability margin",
+        "Hourly capability margin",
     ]
     if isinstance(margin, str):
         data["scalars"]["Value"] = data["scalars"]["Value"].astype(object)
@@ -194,7 +194,45 @@ def test_low_vre_nonpeak_hour_is_infeasible_despite_sufficient_peak_capability()
     assert str(result.solver.termination_condition) == "infeasible"
 
 
-def test_demand_only_zonal_area_cannot_use_imported_capability():
+@pytest.mark.parametrize("flow", [-100.0, 0.0, 100.0], ids=["reverse", "zero", "forward"])
+def test_zonal_capability_credits_imports_and_debits_exports(flow):
+    data = enable_reserves(load_data(str(ROOT / "Data" / "zonal_test")))
+    model = initialize_model(data, n_hours=2)
+    for variable in model.component_data_objects(Var):
+        variable.set_value(0, skip_validation=True)
+    before = {a: value(model.area[a].reserves.Capability[1].body) for a in model.A}
+    line = next(iter(model.L))
+    origin, destination = value(model.line_from[line]), value(model.line_to[line])
+    model.f[line, 1].set_value(flow)
+    after = {a: value(model.area[a].reserves.Capability[1].body) for a in model.A}
+    assert after[origin] - before[origin] == pytest.approx(-flow)
+    assert after[destination] - before[destination] == pytest.approx(flow)
+    assert sum(after.values()) == pytest.approx(sum(before.values()))
+    for a in model.A:
+        assert value(model.area[a].reserves.Capability[1].lower) == pytest.approx(
+            1.04 * value(model.area[a].demand.ts_parameter[1])
+        )
+
+
+def test_zonal_capability_without_lines_retains_local_resource_accounting():
+    data = enable_reserves(load_data(str(ROOT / "Data" / "zonal_test")))
+    data["lines"] = []
+    model = initialize_model(data, n_hours=2)
+    assert len(model.L) == 0
+    for variable in model.component_data_objects(Var):
+        variable.set_value(0, skip_validation=True)
+    for a in model.A:
+        host = model.area[a]
+        fixed_injections = value(
+            host.hydro.generation[1]
+            + host.nuclear.alpha * host.nuclear.ts_parameter[1]
+            + host.other_renewables.alpha * host.other_renewables.ts_parameter[1]
+        )
+        assert value(host.reserves.Capability[1].body) == pytest.approx(fixed_injections)
+
+
+@pytest.mark.parametrize("margin", [0.0, 0.04])
+def test_demand_only_zonal_area_can_use_scheduled_imports_but_not_reserve_transfers(margin):
     data = load_data(str(ROOT / "Data" / "zonal_test"))
     for key in (
         "per_area_pv_plants",
@@ -213,12 +251,26 @@ def test_demand_only_zonal_area_cannot_use_imported_capability():
     result = SolverFactory("highs").solve(baseline)
     assert str(result.solver.termination_condition) == "optimal"
     assert any(value(baseline.f[line, h]) != 0 for line in baseline.L for h in baseline.h)
+    assert all(
+        -value(baseline.LineCap_TF[line, h])
+        < value(baseline.f[line, h])
+        < value(baseline.LineCap_FT[line, h])
+        for line in baseline.L
+        for h in baseline.h
+    )
 
-    model = initialize_model(enable_reserves(data, margin=0.0), n_hours=24)
+    model = initialize_model(enable_reserves(data, margin=margin), n_hours=24)
     assert len(model.area["A2"].reserves.Capability) == 24
     assert len(model.area["A2"].storage.j) == 0
-    result = SolverFactory("highs").solve(model, load_solutions=False)
-    assert str(result.solver.termination_condition) == "infeasible"
+    result = SolverFactory("highs").solve(model, load_solutions=margin == 0)
+    assert str(result.solver.termination_condition) == ("optimal" if margin == 0 else "infeasible")
+    if margin == 0:
+        for h in model.h:
+            net_imports = sum(value(model.f[line, h]) for line in model.L_in["A2"]) - sum(
+                value(model.f[line, h]) for line in model.L_out["A2"]
+            )
+            assert net_imports == pytest.approx(10)
+            assert value(model.area["A2"].reserves.Capability[h].body) == pytest.approx(10)
 
 
 @pytest.mark.parametrize("folder", ["no_exchange_run_of_river", "zonal_test"])

@@ -607,8 +607,6 @@ def _build_one_area(area_block, data_slice, *, n_hours, with_resilience_constrai
     else:
         add_hydro_budget_constraints(area_block, data_slice)
 
-    add_capacity_margin_constraints(area_block, data_slice)
-
     if with_resilience_constraints:
         logging.debug(f"[area={a}] -- Adding resiliency constraints...")
         add_resiliency_constraints(area_block)
@@ -908,6 +906,9 @@ def _initialize_model_zonal(
     profiler.measure_step(
         "Add network expressions", add_network_expressions, model
     )
+
+    for area_id, data_slice in area_slices:
+        add_capacity_margin_constraints(model.area[area_id], data_slice)
 
     # ---------- System-wide constraints + objective ----------------------
     profiler.measure_step(

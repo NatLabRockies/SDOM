@@ -1,4 +1,4 @@
-"""Model optional deterministic hourly local capability margins."""
+"""Model optional hourly capability margins with scheduled zonal exchanges."""
 
 import math
 
@@ -17,6 +17,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     ----------
     host : pyomo.core.base.block.BlockData
         Owning system or area with initialized hourly resource components.
+        For zonal areas, the parent model's network flows must already exist.
     data : dict
         Loaded inputs. Only the exact Reserves selection
         ``CapacityMarginFormulation`` enables this builder; otherwise it adds
@@ -60,7 +61,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
        &\sum_k P^{bal}_k+\sum_j q^{act}_{jh}
        +\sum_p\sigma_{ph}\bar p^{pv}_p F^{pv}_p
        +\sum_w\zeta_{wh}\bar p^{wind}_w F^{wind}_w\\
-       &\quad+G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h
+       &\quad+G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h+N_h
        \ge(1+m)d_h.
        \end{aligned}
 
@@ -68,8 +69,12 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     installed balancing MW (full deterministic availability), and the VRE
     terms are contemporaneous capacity factors times installed MW. Hydro is
     scheduled dispatch; nuclear and other renewables are scaled injections.
-    Zonal blocks apply the same global margin locally, excluding imports and
-    network transfers. Optional absent resources contribute zero. This is a
+    :math:`N_h=0` in copperplate mode. In zonal blocks it is scheduled net
+    inflow :math:`N_h=\sum_{\ell\in\mathcal L_{in}(a)}f_{\ell h}
+    -\sum_{\ell\in\mathcal L_{out}(a)}f_{\ell h}`.
+    Existing signed flows credit imports and deduct exports; they cannot
+    increase during activation. No additional reserve transfers or external
+    imports are credited. Optional absent resources contribute zero. This is a
     one-hour capability proxy, not operating reserves or repeated-activation
     feasibility; no costs, shortfall slack, or baseline physics are changed.
     """
@@ -120,7 +125,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     )
 
     def capability_rule(b, h):
-        """Return the local capability lower bound in MW."""
+        """Return capability including scheduled net imports in MW."""
         available = (
             host.thermal.total_installed_capacity
             + quicksum(b.storage_activated_net_output[h, j] for j in storage.j)
@@ -133,6 +138,12 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
             + host.nuclear.alpha * host.nuclear.ts_parameter[h]
             + host.other_renewables.alpha * host.other_renewables.ts_parameter[h]
         )
+        network = host.model()
+        if host is not network:
+            area = host.index()
+            available += quicksum(network.f[line, h] for line in network.L_in[area]) - quicksum(
+                network.f[line, h] for line in network.L_out[area]
+            )
         return ((1 + margin) * host.demand.ts_parameter[h], available, None)
 
     block.add_component("Capability", Constraint(host.h, rule=capability_rule))
