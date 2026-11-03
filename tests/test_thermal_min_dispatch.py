@@ -388,14 +388,15 @@ def test_supported_parametric_mutations_preserve_profile(data):
     assert PROFILE not in TS_KEY_TO_COLUMN
 
 
-def test_numeric_ids_and_one_hour_parser_preserve_exact_keys(tmp_path):
+@pytest.mark.parametrize("plant_ids", [("000", "001"), ("NA", "NULL"), ("NaN", "N/A")])
+def test_string_ids_and_one_hour_parser_preserve_exact_keys(tmp_path, plant_ids):
     folder = tmp_path / "inputs"
     shutil.copytree(ROOT / "Data" / "no_exchange_run_of_river", folder)
+    data = load_data(str(folder))
     thermal_path = next(folder.glob("Data_BalancingUnits_2030*"))
     thermal = pd.read_csv(thermal_path)
-    thermal["Plant_id"] = [f"{i:03d}" for i in range(len(thermal))]
+    thermal["Plant_id"] = plant_ids
     thermal.to_csv(thermal_path, index=False)
-    data = load_data(str(folder))
     data["thermal_data"] = thermal
     enable(data, hours=1)
     data["formulations"].to_csv(folder / "formulations.csv", index=False)
@@ -403,6 +404,24 @@ def test_numeric_ids_and_one_hour_parser_preserve_exact_keys(tmp_path):
     loaded = load_data(str(folder))
     assert loaded["thermal_data"]["Plant_id"].tolist() == thermal["Plant_id"].tolist()
     assert validate_thermal_min_dispatch(loaded, n_hours=1).shape == (1, len(thermal) + 1)
+
+
+@pytest.mark.parametrize("bound", ["MinCapacity", "MaxCapacity"])
+def test_csv_thermal_ids_preserve_numeric_missing_value_validation(tmp_path, bound):
+    folder = tmp_path / "inputs"
+    shutil.copytree(ROOT / "Data" / "no_exchange_run_of_river", folder)
+    data = load_data(str(folder))
+    thermal = data["thermal_data"].copy()
+    thermal["Plant_id"] = ["NA", "NULL"]
+    thermal[bound] = thermal[bound].astype(float)
+    thermal.loc[0, bound] = np.nan
+    thermal.to_csv(next(folder.glob("Data_BalancingUnits_2030*")), index=False)
+    data["thermal_data"] = thermal
+    enable(data, hours=2)
+    data["formulations"].to_csv(folder / "formulations.csv", index=False)
+    data[PROFILE].to_csv(folder / FILENAME, index=False)
+    with pytest.raises(ValueError, match=rf"{bound}.*finite"):
+        load_data(str(folder))
 
 
 def test_aggregation_preserves_individual_profiles(tmp_path):

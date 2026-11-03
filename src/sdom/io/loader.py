@@ -211,7 +211,7 @@ def load_data(input_data_dir: str = ".\\Data\\") -> dict:
         thermal_mode = get_formulation({"formulations": formulations}, "Thermal")
         thermal_data = pd.read_csv(
             input_file_path,
-            dtype={"Plant_id": str} if thermal_mode == NO_RAMPS_MIN_DISPATCH_FORMULATION else None,
+            converters={"Plant_id": str} if thermal_mode == NO_RAMPS_MIN_DISPATCH_FORMULATION else None,
         )
         rounded_columns = (
             thermal_data.columns.difference(["MinCapacity", "MaxCapacity"])
