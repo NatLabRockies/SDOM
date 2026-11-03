@@ -16,8 +16,8 @@ Locked design decisions (PRD §5.6, 2026-05-08):
   construction of the bounds.
 - ``Z^trans = 0`` placeholder (no transmission investment in this phase).
 
-This module is purely additive: it does not wire itself into
-:func:`sdom.models.optimization_main.initialize_model` (that is commit #9).
+The zonal path in :func:`sdom.optimization_main.initialize_model` calls these
+builders on the root model; area balances consume the resulting signed flows.
 """
 
 from pyomo.environ import (
@@ -31,7 +31,7 @@ from pyomo.environ import (
 
 
 def add_network_sets(model, *, lines, line_from, line_to):
-    """Create line set and per-area in/out indexed line sets.
+    r"""Create line set and per-area in/out indexed line sets.
 
     Parameters
     ----------
@@ -63,6 +63,15 @@ def add_network_sets(model, *, lines, line_from, line_to):
     ``model.L_in`` and ``model.L_out`` are constructed from local Python
     dicts (rather than rules that introspect ``model.line_from`` /
     ``model.line_to``) to avoid Pyomo deferred-construction ordering issues.
+
+    .. math::
+
+       \mathcal L_{in}(a)=\{\ell\in\mathcal L:\operatorname{to}(\ell)=a\},
+       \qquad
+       \mathcal L_{out}(a)=\{\ell\in\mathcal L:\operatorname{from}(\ell)=a\}.
+
+    :math:`\mathcal L` is ``model.L`` and :math:`a` indexes ``model.A``.
+    These sets define line orientation; actual flow may have either sign.
     """
     line_ids = list(lines)
     from_map = dict(line_from)
@@ -111,7 +120,7 @@ def add_network_parameters(model, *, line_cap_ft, line_cap_tf):
 
 
 def add_network_variables(model):
-    """Create the signed flow variable ``model.f[l,h]`` over ``Reals``.
+    r"""Create the signed flow variable ``model.f[l,h]`` over ``Reals``.
 
     Parameters
     ----------
@@ -124,21 +133,80 @@ def add_network_variables(model):
         Same ``model`` with new attribute ``model.f`` — a ``Var`` over
         ``model.L × model.h`` with domain ``Reals`` and **no bounds** set.
         Capacity limits are enforced by :func:`add_network_constraints`.
+
+    Notes
+    -----
+    .. math::
+
+       f_{\ell h}\in\mathbb R\qquad(\ell\in\mathcal L,\ h\in\mathcal H).
+
+    Flow is MW, positive from ``line_from`` to ``line_to`` and negative in
+    reverse. There are no separate directional decision variables or losses.
     """
     model.f = Var(model.L, model.h, domain=Reals)
     return model
 
 
 def _f_upper_rule(model, l, h):
+    r"""Return the forward directional flow-capacity inequality.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Root model with ``f`` and ``LineCap_FT``.
+    l : hashable
+        Line identifier.
+    h : int
+        Modeled hour.
+
+    Returns
+    -------
+    pyomo.core.expr.relational_expr.InequalityExpression
+        Forward flow upper bound.
+
+    Notes
+    -----
+    .. math::
+
+       f_{\ell h}\le\bar f^{FT}_{\ell h}.
+
+    :math:`f_{\ell h}` is ``f[l,h]`` and :math:`\bar f^{FT}_{\ell h}` is
+    ``LineCap_FT[l,h]``, both MW. Positive flow follows line orientation.
+    """
     return model.f[l, h] <= model.LineCap_FT[l, h]
 
 
 def _f_lower_rule(model, l, h):
+    r"""Return the reverse directional flow-capacity inequality.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Root model with ``f`` and ``LineCap_TF``.
+    l : hashable
+        Line identifier.
+    h : int
+        Modeled hour.
+
+    Returns
+    -------
+    pyomo.core.expr.relational_expr.InequalityExpression
+        Reverse flow lower bound.
+
+    Notes
+    -----
+    .. math::
+
+       f_{\ell h}\ge-\bar f^{TF}_{\ell h}.
+
+    :math:`f_{\ell h}` is ``f[l,h]`` and :math:`\bar f^{TF}_{\ell h}` is
+    ``LineCap_TF[l,h]``, both MW. Reverse flow has a negative sign.
+    """
     return model.f[l, h] >= -model.LineCap_TF[l, h]
 
 
 def add_network_constraints(model):
-    """Create directional flow capacity constraints.
+    r"""Create directional flow capacity constraints.
 
     Parameters
     ----------
@@ -158,6 +226,14 @@ def add_network_constraints(model):
     These are explicit ``Constraint`` blocks (rather than bounds on
     ``model.f``) so that congestion shadow prices are accessible per
     direction in the dual solution.
+
+    .. math::
+
+       -\bar f^{TF}_{\ell h}\le f_{\ell h}\le\bar f^{FT}_{\ell h}.
+
+    :math:`f` is ``model.f`` (MW); forward/reverse capacities are
+    ``LineCap_FT`` / ``LineCap_TF`` (MW). Positive flow follows the
+    declared from-to orientation; negative flow reverses it.
     """
     model.f_upper = Constraint(model.L, model.h, rule=_f_upper_rule)
     model.f_lower = Constraint(model.L, model.h, rule=_f_lower_rule)
@@ -165,15 +241,63 @@ def add_network_constraints(model):
 
 
 def _f_FT_rule(model, l, h):
+    r"""Return the forward-oriented signed flow for reporting.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Root model with ``f``.
+    l : hashable
+        Line identifier.
+    h : int
+        Modeled hour.
+
+    Returns
+    -------
+    pyomo.core.base.var.VarData
+        Signed flow variable in MW, without clipping.
+
+    Notes
+    -----
+    .. math::
+
+       \widetilde f^{FT}_{\ell h}=f_{\ell h}.
+
+    :math:`f` is ``model.f``. Negative values denote reverse flow.
+    """
     return model.f[l, h]
 
 
 def _f_TF_rule(model, l, h):
+    r"""Return the reverse-oriented signed flow for reporting.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Root model with ``f``.
+    l : hashable
+        Line identifier.
+    h : int
+        Modeled hour.
+
+    Returns
+    -------
+    pyomo.core.expr.numeric_expr.NumericValue
+        Negated signed flow in MW, without clipping.
+
+    Notes
+    -----
+    .. math::
+
+       \widetilde f^{TF}_{\ell h}=-f_{\ell h}.
+
+    :math:`f` is ``model.f``. Positive values denote reverse flow.
+    """
     return -model.f[l, h]
 
 
 def add_network_expressions(model):
-    """Create reporting-only signed flow expressions.
+    r"""Create reporting-only signed flow expressions.
 
     Parameters
     ----------
@@ -190,18 +314,23 @@ def add_network_expressions(model):
 
     Notes
     -----
-    These expressions are **reporting only**. The strict mathematical
-    definition (PRD §5.6) is
+    These expressions are **reporting only**. The expressions stored here are
 
     .. math::
 
-       f^{FT}_{l,h} = \\max(f_{l,h}, 0), \\qquad
-       f^{TF}_{l,h} = \\max(-f_{l,h}, 0).
+       \widetilde f^{FT}_{\ell h}=f_{\ell h},\qquad
+       \widetilde f^{TF}_{\ell h}=-f_{\ell h}.
 
-    The ``max`` is non-linear and cannot appear in a Pyomo ``Expression``
-    used inside an LP. Because at the optimum at most one direction carries
-    positive flow (the other side of ``max`` is zero), it suffices to store
-    the **signed** component here and let downstream reporting code clip to
+    Flow is MW. The nonnegative directional reporting quantities are
+
+    .. math::
+
+       f^{FT}_{\ell h}=\max(f_{\ell h},0),\qquad
+       f^{TF}_{\ell h}=\max(-f_{\ell h},0).
+
+    Clipping is nonlinear and is performed after evaluating the signed
+    expressions, not inside the LP. A single signed variable represents
+    only one physical direction at a time. Downstream reporting clips to
     zero, e.g.::
 
         from pyomo.environ import value
@@ -217,7 +346,7 @@ def add_network_expressions(model):
 
 
 def network_transmission_cost_rule(model):
-    """Return the transmission cost term ``Z^trans``.
+    r"""Return the transmission cost term ``Z^trans``.
 
     Parameters
     ----------
@@ -229,5 +358,13 @@ def network_transmission_cost_rule(model):
     int
         Always ``0`` in this phase — transmission investment is out of scope
         (PRD §5.6).
+
+    Notes
+    -----
+    .. math::
+
+       Z^{trans}=0.
+
+    This placeholder adds no line-investment or flow-dependent cost.
     """
     return 0

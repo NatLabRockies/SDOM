@@ -379,6 +379,93 @@ $$
 | $M_h$          | Variable  | Imports (MW)                            |
 | $X_h$          | Variable  | Exports (MW)                            |
 
+### Optional hourly capacity margin
+
+Select `Reserves,CapacityMarginFormulation` in `formulations.csv` to enable
+this deterministic one-hour capability proxy. Otherwise reserves default to
+`notModel` and add no variables or constraints. The optional global scalar
+`capacity_marging_fraction` is $m$, a dimensionless nonnegative fraction
+(default zero); see [Inputs](inputs.md#7-system-scalars).
+
+| Symbol | Meaning | Units |
+|---|---|---|
+| $h\in\mathcal{H}$, $h^{-}$ | Modeled hour and cyclic predecessor | Index |
+| $k\in\mathcal{K},j\in\mathcal{J},p\in\mathcal{P},w\in\mathcal{W}$ | Existing balancing, storage, PV, wind indices | Index |
+| $m$ | Global `capacity_marging_fraction` | Dimensionless |
+| $C^{stor}_{jh}$ | Nonnegative credited storage supply capacity | MW |
+| $T^{adequacy}$ | Fixed `adequacy_duration_hours = 1` | Hours |
+| $S_{j,h^{-}}$ | Beginning energy from predecessor end-SOC | MWh |
+| $\eta_j$ | Existing roundtrip efficiency; discharge efficiency $\sqrt{\eta_j}$ | Dimensionless |
+
+`reserves.storage_capacity_contribution[h,j]` represents deliverable storage
+capacity, like installed thermal capacity but additionally limited by hourly
+energy availability. It is not scheduled discharge or an upward reserve award.
+
+At **every** modeled hour, including non-peak low-VRE hours, require
+
+$$
+\begin{aligned}
+&\sum_{k\in\mathcal{K}}P^{bal}_k+\sum_{j\in\mathcal{J}}C^{stor}_{jh}\\
+&\quad+\sum_{p\in\mathcal{P}}\sigma_{ph}\bar p^{pv}_pF^{pv}_p
++\sum_{w\in\mathcal{W}}\zeta_{wh}\bar p^{wind}_wF^{wind}_w\\
+&\quad+G^{hyd}_h+\alpha^{nuc}\nu_h+\alpha^{oth}\omega_h
+\ge(1+m)d_h.
+\end{aligned}
+$$
+
+Bound each credited storage contribution by installed discharge power and
+beginning-of-hour energy:
+
+$$
+0\le C^{stor}_{jh}\le P^{dis}_j,\qquad
+T^{adequacy}C^{stor}_{jh}\le\sqrt{\eta_j}S_{j,h^{-}},\qquad T^{adequacy}=1.
+$$
+
+There is one continuous contribution variable per storage technology and hour.
+No upward-award variable, activated-output Expression, defining equality,
+binary, big-M, reserve cost, or shortfall slack is added. All constraints are linear.
+Insufficient capability makes the model infeasible. A zero enabled margin
+still installs all constraints; it is not the disabled formulation.
+
+Balancing units contribute installed MW under full deterministic availability,
+not installed MW plus dispatch. VRE contributes contemporaneous available output,
+not availability plus dispatch. Hydro contributes only scheduled generation,
+under its unchanged scaling, hourly bounds, and energy budgets. Nuclear and other
+renewables contribute existing scaled injections once; $d_h$ remains **gross**
+customer demand. External imports do not contribute to this copperplate
+capability check. Zonal models additionally credit scheduled net inter-area
+inflow; see the [zonal capability equation](zonal_math_formulation.md#optional-local-capacity-margin).
+Missing optional assets contribute zero.
+
+The contribution is independent of scheduled charge/discharge and the baseline
+mode binary. Those dispatch constraints and the SOC balance remain unchanged.
+Do not add charging to gross demand, credit charge interruption separately,
+or subtract baseline discharge again. Same-hour charging cannot fund the
+contribution: use predecessor end-SOC, including final-hour SOC for the cyclic
+first hour, not installed energy capacity.
+
+For 100 MW discharge power, unit efficiency, and the one-hour duration:
+
+| Beginning SOC | Maximum credited capacity $C^{stor}_{jh}$ |
+|---|---:|
+| 0 MWh | 0 MW |
+| 20 MWh | 20 MW |
+| 100 MWh | 100 MW |
+| 200 MWh | 100 MW |
+
+These limits apply whether baseline storage is charging, idle, or discharging.
+The credited contribution need not exceed baseline net discharge: it is a
+credited contribution within this physical envelope, not an upward-only dispatch
+instruction. For feasible baseline operation and the fixed one-hour duration,
+this preserves the previous planning feasibility: a contribution below
+baseline net discharge can always be increased to baseline net discharge
+within both bounds, which only helps the margin inequality. No minimum,
+maximum, or binary selection is needed in the optimization equations.
+
+This proxy is neither probabilistic adequacy nor synchronized operating
+reserves and does not prove repeated activation or recovery feasibility.
+Duration remains fixed at one hour, not a user option.
+
 ### VRE balance constraints
 
 Generation plus curtailment equals total available resource. Per-technology equality:

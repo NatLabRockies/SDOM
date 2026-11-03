@@ -37,6 +37,37 @@ Valid values:
 
 If `Network` is missing, SDOM defaults to `CopperPlateNetwork`.
 
+## Optional Local Capacity Margin
+
+Add `Reserves,CapacityMarginFormulation` to `formulations.csv` and optionally
+`capacity_marging_fraction,0.04` to the existing `scalars.csv` under its
+`Parameter,Value` header. The exact spelling is intentional. This is one
+global dimensionless fraction (4% in this example), applied independently
+to every area's gross demand at every hour, not a per-area input.
+
+The default fraction is `0.0`; enabled blank, nonnumeric, nonfinite, and negative
+values fail model construction. Values are fractions, never implicitly divided
+by 100. Only the exact enabled selection adds equations. A missing row,
+`notModel`, or any other nonmatching selection leaves reserves disabled and
+does not require or consume this scalar; a scalar row alone cannot enable them.
+See [scalar validation and examples](inputs.md#optional-capacity-margin-scalar).
+
+No new files are required. The adequacy duration is fixed at one hour and
+cannot be configured. Existing scheduled inter-area net imports count toward
+the capability requirement: imports are credited and exports deducted using
+the same signed flows as the supply balance. No new inputs or transfer
+variables are needed. A demand-only area can meet an enabled zero margin
+through scheduled imports, but a positive margin still requires local upward
+headroom. Unused remote capability and spare line capacity do not provide
+additional reserve transfers. External imports/exports remain unsupported in
+zonal mode. Existing network and energy-balance equations are unchanged.
+See [capability equations](zonal_math_formulation.md#optional-local-capacity-margin).
+
+Storage contributes credited supply MW bounded by installed discharge power
+and beginning-of-hour SOC. This is not an upward reserve award and does not
+depend on scheduled charging/discharging or add another charging obligation.
+No new storage input columns are required.
+
 ## New Zonal Files
 
 ### areas.csv
