@@ -38,7 +38,7 @@ from .constants import (
 )
 from .initializations import check_n_hours, initialize_params, initialize_sets
 from .io.formulations import get_formulation, get_network_formulation
-from .io.validation import validate_thermal_min_dispatch
+from .io.validation import validate_thermal_min_dispatch, validate_thermal_ownership
 from .models.formulations_hydro import (
     add_hydro_budget_constraints,
     add_hydro_run_of_river_constraints,
@@ -780,6 +780,9 @@ def _initialize_model_zonal(
 
     Raises
     ------
+    ValueError
+        If enabled thermal ownership or capacity bounds disagree across the
+        global and per-area views, including a single declared area.
     NotImplementedError
         When ``with_resilience_constraints=True`` (PRD §5.8) or when
         Imports / Exports formulations are not ``NotModel`` (deferred to a
@@ -811,6 +814,9 @@ def _initialize_model_zonal(
             f"Exports rows in formulations.csv to '{IMPORTS_EXPORTS_NOT_MODEL}' "
             "or use a CopperPlateNetwork run."
         )
+
+    if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        validate_thermal_ownership(data)
 
     logging.info(
         "Instantiating zonal SDOM model with %d areas and %d lines.",

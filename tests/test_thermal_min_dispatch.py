@@ -477,6 +477,65 @@ def test_zonal_thermal_ownership_views_must_agree():
         initialize_model(data, n_hours=2)
 
 
+@pytest.mark.parametrize("change", ["identity", "capacity", "duplicate"])
+def test_single_area_zonal_thermal_views_must_agree(data, change):
+    data["formulations"].loc[len(data["formulations"]), ["Component", "Formulation"]] = (
+        "Network", "AreaTransportationModelNetwork"
+    )
+    area = data["areas"][0]["area_id"]
+    table = data["per_area_balancing_units"][area].copy()
+    if change == "identity":
+        table.loc[0, "Plant_id"] = "unknown"
+    elif change == "capacity":
+        table.loc[0, "MaxCapacity"] += 1
+    else:
+        table = pd.concat([table, table.iloc[:1]], ignore_index=True)
+    data["per_area_balancing_units"][area] = table
+    with pytest.raises(ValueError, match=r"thermal.*ownership"):
+        initialize_model(data, n_hours=2)
+
+
+def test_single_area_zonal_accepts_legacy_thermal_schema(data):
+    data["formulations"].loc[len(data["formulations"]), ["Component", "Formulation"]] = (
+        "Network", "AreaTransportationModelNetwork"
+    )
+    assert "area_id" not in data["thermal_data"]
+    original = data["thermal_data"].copy()
+    model = initialize_model(data, n_hours=2)
+    host = model.area[data["areas"][0]["area_id"]]
+    assert len(host.thermal.min_dispatch_constraint) == 2 * len(original)
+    pd.testing.assert_frame_equal(data["thermal_data"], original)
+
+
+@pytest.mark.parametrize("empty_view", [False, True])
+def test_zonal_thermal_owners_must_be_declared(empty_view):
+    data = enable(load_data(str(ROOT / "Data" / "zonal_test")), hours=2)
+    if empty_view:
+        data["per_area_balancing_units"]["X"] = data["thermal_data"].iloc[:0]
+    else:
+        data["thermal_data"]["area_id"] = "X"
+        data["per_area_balancing_units"] = {"X": data["thermal_data"].copy()}
+    with pytest.raises(ValueError, match=r"undeclared.*X"):
+        initialize_model(data, n_hours=2)
+
+
+@pytest.mark.parametrize("dangling_views", [False, True])
+def test_zonal_empty_fleet_without_area_column(dangling_views):
+    data = enable(load_data(str(ROOT / "Data" / "zonal_test")), hours=2)
+    data["thermal_data"] = data["thermal_data"].iloc[:0].drop(columns="area_id")
+    data[PROFILE] = data[PROFILE][["Hour"]]
+    if dangling_views:
+        with pytest.raises(ValueError, match=r"thermal.*ownership"):
+            initialize_model(data, n_hours=2)
+    else:
+        data["per_area_balancing_units"] = {
+            area["area_id"]: data["thermal_data"].copy() for area in data["areas"]
+        }
+        model = initialize_model(data, n_hours=2)
+        assert all(len(model.area[area].thermal.plants_set) == 0 for area in model.A)
+        assert "area_id" not in data["thermal_data"]
+
+
 @pytest.mark.parametrize("max_power", [0, 10])
 def test_storage_is_a_bounded_sink_for_thermal_surplus(data, max_power):
     storage = data["storage_data"].iloc[:, :1].copy()

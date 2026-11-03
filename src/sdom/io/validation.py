@@ -404,6 +404,55 @@ def validate_storage_technology_names(names: list[str]) -> None:
         )
 
 
+def validate_thermal_ownership(data: dict) -> None:
+    """Validate thermal views before consuming per-area plant tables.
+
+    Parameters
+    ----------
+    data : dict
+        Canonical thermal table, declared areas, and per-area thermal views.
+        Static plant IDs and capacity bounds must already be validated.
+
+    Raises
+    ------
+    ValueError
+        If an owner is undeclared or plant identities/capacities disagree.
+        Nonempty multi-area thermal tables require ``area_id``.
+
+    Notes
+    -----
+    Legacy single-area tables may omit ``area_id``; their sole declared area
+    is inferred without modifying the input. Empty fleets require no owners.
+    Global-table-only copperplate construction does not consume these views.
+    """
+    areas = {str(area["area_id"]) for area in data["areas"]}
+    thermal = data["thermal_data"]
+    per_area = data["per_area_balancing_units"]
+    expected = set()
+    if not thermal.empty:
+        if "area_id" not in thermal:
+            if len(areas) != 1:
+                raise ValueError("thermal_data: area_id is required for multi-area thermal ownership.")
+            thermal = thermal.assign(area_id=next(iter(areas)))
+        expected = {
+            (str(a), str(k), float(lo), float(hi))
+            for a, k, lo, hi in thermal[["area_id", "Plant_id", "MinCapacity", "MaxCapacity"]].itertuples(
+                index=False, name=None
+            )
+        }
+    unknown = ({owner for owner, *_ in expected} | {str(area) for area in per_area}) - areas
+    if unknown:
+        raise ValueError(f"thermal ownership: undeclared areas {sorted(unknown)}; declared areas are {sorted(areas)}.")
+    actual = [
+        (str(area), str(k), float(lo), float(hi))
+        for area, table in per_area.items()
+        if not table.empty
+        for k, lo, hi in table[["Plant_id", "MinCapacity", "MaxCapacity"]].itertuples(index=False, name=None)
+    ]
+    if set(actual) != expected or len(actual) != len(expected):
+        raise ValueError("thermal_data/per_area_balancing_units: thermal ownership and capacity bounds must agree.")
+
+
 def validate_thermal_min_dispatch(data: dict, *, n_hours: int | None = None) -> pd.DataFrame:
     """Validate and canonicalize an enabled hourly thermal fraction table.
 
@@ -462,24 +511,6 @@ def validate_thermal_min_dispatch(data: dict, *, n_hours: int | None = None) -> 
         raise ValueError(
             f"Data_BalancingUnits.csv: Plant_id={ids.iloc[index]!r}: require 0 <= MinCapacity <= MaxCapacity; got {bounds['MinCapacity'][index]}, {bounds['MaxCapacity'][index]}."
         )
-    if len(data.get("areas", [])) > 1:
-        expected = {
-            (str(a), str(k), float(lo), float(hi))
-            for a, k, lo, hi in thermal[["area_id", "Plant_id", "MinCapacity", "MaxCapacity"]].itertuples(
-                index=False, name=None
-            )
-        }
-        actual = [
-            (str(area), str(k), float(lo), float(hi))
-            for area, table in data["per_area_balancing_units"].items()
-            for k, lo, hi in table[["Plant_id", "MinCapacity", "MaxCapacity"]].itertuples(
-                index=False, name=None
-            )
-        ]
-        if set(actual) != expected or len(actual) != len(expected):
-            raise ValueError(
-                "thermal_data/per_area_balancing_units: thermal ownership and capacity bounds must agree."
-            )
     frame = data.get("thermal_min_dispatch_fraction")
     if not isinstance(frame, pd.DataFrame):
         raise ValueError(

@@ -13,7 +13,7 @@ from sdom import load_data as _load_data
 from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
 from sdom.initializations import validate_vre_capacity_data
 from sdom.io.formulations import get_formulation
-from sdom.io.validation import validate_thermal_min_dispatch
+from sdom.io.validation import validate_thermal_min_dispatch, validate_thermal_ownership
 
 from ..models import (
     SDOMArea,
@@ -298,6 +298,7 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     _project_vre_capacity_bounds(restored, system)
     if get_formulation(restored, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
         frame = validate_thermal_min_dispatch(restored)
+        validate_thermal_ownership(restored)
         areas_by_plant = {
             str(plant): str(area)
             for area, table in restored["per_area_balancing_units"].items()
@@ -520,6 +521,12 @@ def _add_thermal_generators(system: System, data: dict[str, Any], buses: Mapping
         hourly ``min_dispatch_fraction`` time series only under
         ``NoRampsMinDispatchFormulation``. Empty fleets add no series.
 
+    Raises
+    ------
+    ValueError
+        If enabled thermal profiles, ownership, or capacity views are invalid,
+        including when the System has only one area.
+
     Examples
     --------
     >>> system = System(name="example")
@@ -534,6 +541,8 @@ def _add_thermal_generators(system: System, data: dict[str, Any], buses: Mapping
         if "formulations" in data and get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION
         else None
     )
+    if fractions is not None:
+        validate_thermal_ownership(data)
     for area_id, frame in _iter_area_frames(data.get("per_area_balancing_units")):
         for row in frame.itertuples(index=False):
             row_data = row._asdict()

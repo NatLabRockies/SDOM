@@ -99,3 +99,45 @@ def test_system_thermal_ownership_edits_cannot_reroute_profiles():
     owner.bus = next(bus for bus in system.get_components(SDOMBus) if bus.area.name != owner.bus.area.name)
     with pytest.raises(ValueError, match=r"min_dispatch_fraction.*ownership"):
         system_to_data_dict(system)
+
+
+@pytest.mark.parametrize("change", ["identity", "capacity", "undeclared"])
+def test_system_rejects_single_area_thermal_view_drift(change):
+    data = enable(load_data(str(ROOT / "Data" / "no_exchange_run_of_river")), hours=2)
+    area = data["areas"][0]["area_id"]
+    table = data["per_area_balancing_units"][area].copy()
+    if change == "identity":
+        table.loc[0, "Plant_id"] = "unknown"
+    elif change == "capacity":
+        table.loc[0, "MaxCapacity"] += 1
+    else:
+        data["per_area_balancing_units"] = {"X": table}
+    if change != "undeclared":
+        data["per_area_balancing_units"][area] = table
+    with pytest.raises(ValueError, match=r"thermal.*ownership|undeclared.*X"):
+        load_system_from_data(data)
+
+
+def test_system_projection_rechecks_retained_thermal_ownership():
+    data = enable(load_data(str(ROOT / "Data" / "no_exchange_run_of_river")), hours=2)
+    system = load_system_from_data(data)
+    data["thermal_data"].loc[0, "MaxCapacity"] += 1
+    with pytest.raises(ValueError, match=r"thermal.*ownership"):
+        system_to_data_dict(system)
+
+
+@pytest.mark.parametrize("scenario", ["no_exchange_run_of_river", "zonal_test"])
+def test_system_empty_thermal_fleet_without_area_column(scenario):
+    data = enable(load_data(str(ROOT / "Data" / scenario)), hours=2)
+    data["thermal_data"] = data["thermal_data"].iloc[:0].drop(columns="area_id", errors="ignore")
+    data["per_area_balancing_units"] = {
+        area["area_id"]: data["thermal_data"].copy() for area in data["areas"]
+    }
+    data[PROFILE] = data[PROFILE][["Hour"]]
+    system = load_system_from_data(data)
+    assert not list(system.get_components(SDOMThermalGenerator))
+    restored = system_to_data_dict(system)
+    pd.testing.assert_frame_equal(restored[PROFILE], data[PROFILE])
+    model = initialize_model_from_system(system, n_hours=2).create_instance()
+    hosts = [model.area[area] for area in model.A] if hasattr(model, "A") else [model]
+    assert all(len(host.thermal.min_dispatch_fraction) == 0 for host in hosts)
