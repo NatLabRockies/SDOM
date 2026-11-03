@@ -259,9 +259,15 @@ contracts:
 | Validator | Required input | Return and ownership |
 |---|---|---|
 | `validate_area_tag` | A string column header | A regex match for a validated tag, or `None` for a legacy untagged header. Area interpretation stays in `areas.py`. |
-| `validate_thermal_min_dispatch` | Static thermal data and an hourly fraction DataFrame; per-area ownership when applicable; optional effective horizon | A new frame sorted by `Hour`, with plant columns in static-table order and full-precision fractions. Does not mutate source tables. |
+| `validate_thermal_min_dispatch` | Static thermal data and an hourly fraction DataFrame; optional effective horizon | A new frame sorted by `Hour`, with plant columns in static-table order and full-precision fractions. Does not mutate source tables. |
 | `validate_interconnections` | A topology DataFrame and declared areas | A string-normalized copy of nonempty topology, preserving row order. An empty valid frame is returned unchanged. |
 | `validate_line_capacities` | An hour-indexed capacity frame, nonempty topology, filename, and required row count | A frame with columns in topology order, without modifying the source frame. |
+
+For enabled zonal and System paths, `validate_thermal_ownership` separately
+checks declared areas and global/per-area plant identity and capacity agreement
+before consuming area views, including single-area inputs. System projection
+rechecks mutable retained inputs. Global-only copper-plate edits do not require
+agreement with unused area views.
 
 File-reading functions decide when absent optional files are acceptable.
 Transformation functions may mutate the canonical dictionary in place; keep
@@ -291,15 +297,14 @@ rules in loaders or adapters. New helper options should be keyword-only.
 
 ### Refactoring Checks
 
-`tests/test_io_module_contracts.py` covers implementation ownership, facade
-aliases, signature compatibility, filesystem-free validation, and centralized
-input rejection. Existing input, thermal, zonal, export, parametric, and adapter
-tests cover behavior through the public entry points.
+Existing input, thermal, zonal, export, parametric, and adapter tests cover
+behavior through the public entry points. Extend the relevant existing suites
+when changing implementation ownership, compatibility, or input validation.
 
 For an I/O change, start with the affected tests:
 
 ```powershell
-uv run pytest tests\test_io_module_contracts.py tests\test_input_data.py tests\test_zonal_io_per_area.py tests\test_zonal_io_lines.py tests\test_zonal_io_validation.py tests\test_zonal_aggregation_fallback.py tests\test_zonal_io_export.py tests\test_output_data.py tests\test_thermal_min_dispatch.py
+uv run pytest tests\test_input_data.py tests\test_zonal_io_per_area.py tests\test_zonal_io_lines.py tests\test_zonal_io_validation.py tests\test_zonal_aggregation_fallback.py tests\test_zonal_io_export.py tests\test_output_data.py tests\test_thermal_min_dispatch.py
 ```
 
 Then run relevant model, adapter, and parametric regressions. Confirm both

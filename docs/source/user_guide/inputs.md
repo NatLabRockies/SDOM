@@ -273,8 +273,8 @@ Hour,GasCC_existing,GasCC_candidate
 
 The first column must be `Hour`; subsequent columns must match **every**
 `Plant_id` in `Data_BalancingUnits.csv`, including candidates and zero-capacity
-rows. IDs are exact strings (leading zeros are preserved); blank or duplicate
-IDs and duplicate CSV headers are errors. Column order may differ from the
+rows. IDs are exact strings (including leading zeros and literal `NA` or `NULL`);
+blank or duplicate IDs and duplicate CSV headers are errors. Column order may differ from the
 static table. No constant-fraction column is added to that table.
 
 Hours must uniquely cover `1..N` for positive `N`; unordered rows are sorted.

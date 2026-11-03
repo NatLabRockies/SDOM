@@ -61,6 +61,10 @@ and Exports remain required; other components retain their lookup behavior.
 The existing Network accessor remains a compatibility wrapper.
 Both CSV and direct-data construction
 use `validate_thermal_min_dispatch` for input validation.
+Enabled zonal and System paths also use `validate_thermal_ownership` before
+consuming per-area tables, even for one area. System projection rechecks
+retained source data; global-only copperplate construction does not consume
+these views.
 
 ```{eval-rst}
 .. automodule:: sdom.models.formulations_thermal
