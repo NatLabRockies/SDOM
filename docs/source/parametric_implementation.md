@@ -141,8 +141,9 @@ valid zero-cost results in the summary CSV.
 
 The `TS_KEY_TO_COLUMN` dict maps every supported `data` dict key to the
 DataFrame column that holds the numeric time-series values. **These keys must
-match the actual keys set by `io_manager.load_data`**, not the CSV file names
-or model parameter names.
+match the actual keys set by `sdom.io.loader.load_data`**, not the CSV file
+names or model parameter names. The historical `sdom.io_manager.load_data`
+import remains a compatibility alias to that implementation.
 
 | `ts_key` | DataFrame column | Set by `load_data` when |
 |---|---|---|
@@ -157,8 +158,10 @@ or model parameter names.
 | `"nuclear_data"` | `"Nuclear"` | If nuclear data is present |
 | `"other_renewables_data"` | `"OtherRenewables"` | If other renewables data is present |
 
-**If you add a new time-series to `io_manager.load_data`**, add a
-corresponding entry to `TS_KEY_TO_COLUMN` in `mutations.py`.
+**If you add a new time-series to `sdom.io.loader.load_data`**, add a
+corresponding entry to `TS_KEY_TO_COLUMN` in `mutations.py`. Put input rules in
+`sdom.io.validation`, and update per-area views and copper-plate aggregation
+when applicable; see {ref}`io-architecture`.
 
 ---
 

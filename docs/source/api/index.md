@@ -55,7 +55,16 @@ sdom/
 ├── constants.py             # Constants and mappings
 ├── optimization_main.py     # Model initialization and solving
 ├── results.py               # Results data structures
-├── io_manager.py            # Data I/O operations
+├── io_manager.py            # Historical I/O compatibility facade
+├── io/
+│   ├── loader.py           # CSV reads and canonical dictionary preparation
+│   ├── validation.py       # Shared input rules, without filesystem access
+│   ├── formulations.py     # Selection and missing-row defaults
+│   ├── areas.py            # Area parsing and per-area views
+│   ├── network.py          # Topology and line-capacity reads
+│   ├── aggregation.py      # Zonal-to-copper-plate transformations
+│   ├── export.py           # OptimizationResults CSV export
+│   └── _legacy_export.py   # Deprecated direct-model export
 ├── initializations.py       # Sets and parameters initialization
 ├── parametric/              # Parametric & sensitivity analysis
 │   ├── __init__.py          # Public surface (ParametricStudy, sweep types)

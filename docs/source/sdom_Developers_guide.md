@@ -142,11 +142,12 @@ start docs\build\html\index.html
 | Path | Responsibility |
 |---|---|
 | `src/sdom/__init__.py` | Public Python API, including data loading, model initialization, solver execution, results export, parametric studies, and resiliency evaluation. |
-| `src/sdom/io_manager.py` | Loads and validates scenario CSV files, selects formulations, and constructs the canonical data dictionary. For zonal inputs, it also creates `per_area_*` views. |
+| `src/sdom/io_manager.py` | Preserves historical I/O imports as a compatibility facade over `src/sdom/io/`. |
+| `src/sdom/io/` | Loads scenario CSVs, validates inputs, prepares per-area views and network data, aggregates copper-plate inputs, and exports result CSVs. |
 | `src/sdom/optimization_main.py` | Owns the top-level model dispatcher and the copper-plate and zonal model builders. |
 | `src/sdom/initializations.py` | Initializes Pyomo sets, parameters, and time-series structures shared by model builders. |
 | `src/sdom/models/` | Defines technology, system, network, import/export, hydro, and resiliency Pyomo formulation blocks. |
-| `src/sdom/results.py` | Collects solved Pyomo values into `OptimizationResults` DataFrames and exports result CSV files. |
+| `src/sdom/results.py` | Collects solved Pyomo values into `OptimizationResults` and exposes result DataFrames; CSV writing belongs to `src/sdom/io/export.py`. |
 | `src/sdom/parametric/` | Builds Cartesian parameter sweeps and runs each case through the standard model and solver workflow. |
 | `src/sdom/resiliency/` | Evaluates outages from a designed system using baseline dispatch and per-outage simulations. |
 | `src/sdom/infrasys_integration/` | Provides a typed Infrasys adapter over the dictionary and Pyomo workflow, plus typed result attributes and queries. |
@@ -183,6 +184,130 @@ flowchart TD
 For zonal data, the canonical dictionary includes normalized `per_area_*` data
 views. These let zonal model construction reuse the established technology
 formulation builders rather than maintaining duplicate implementations.
+
+(io-architecture)=
+## I/O Architecture and Extension Points
+
+The public calls remain `from sdom import load_data, export_results`.
+Historical imports from `sdom.io_manager` also remain supported, including
+formulation accessors and thermal validation. The facade re-exports the same
+function objects rather than introducing a second implementation. New internal
+callers import directly from the module that owns the operation.
+
+### Module Ownership
+
+| Module under `src/sdom/io/` | Responsibility |
+|---|---|
+| `loader.py` | Reads base and formulation-dependent scenario CSVs and coordinates canonical dictionary preparation. Includes conditional thermal-profile loading. |
+| `validation.py` | Owns input-rejection rules for formulations, thermal profiles, area tags and references, identifiers, topology, line capacities, required network files, and storage-name collisions. Performs no filesystem access. |
+| `formulations.py` | Looks up component selections and applies registered or caller-supplied missing-row defaults. Delegates strict supplied-value checks to validation. |
+| `areas.py` | Interprets validated area tags, splits wide and row tables, assigns capacity factors to areas, and constructs `per_area_*` views. |
+| `network.py` | Reads topology and directional line-capacity CSVs and delegates content checks to validation. |
+| `aggregation.py` | Transforms multi-area data into a synthetic copper-plate area, including summed profiles and capacity-weighted trade prices. |
+| `export.py` | Writes `OptimizationResults` DataFrames to CSV and dispatches deprecated direct-model exports. |
+| `_legacy_export.py` | Preserves the deprecated direct-Pyomo export implementation and its existing output schema. |
+
+```mermaid
+flowchart TD
+  Public[Public API or historical I/O facade] --> Loader[loader]
+  Public --> Export[export]
+  Loader --> Formulations[formulations]
+  Loader --> Areas[areas]
+  Loader --> Aggregation[aggregation]
+  Loader --> Network[network]
+  Aggregation --> Areas
+  Loader --> Validation[validation]
+  Formulations --> Validation
+  Areas --> Validation
+  Network --> Validation
+  Aggregation --> Validation
+  Validation --> Dependencies[constants and NumPy/pandas]
+  Export --> Results[OptimizationResults DataFrames]
+  Export --> Legacy[deprecated model export]
+```
+
+Implementation modules must not import `io_manager`, model builders, or adapters.
+In particular, validation must not import its callers: model builders and the
+Infrasys adapter reuse thermal validation on in-memory dictionaries without
+reading CSVs.
+
+### Loading Sequence and Validation Contracts
+
+1. Read formulations and base tables, preserving existing filename matching,
+   identifier conversion, and rounding behavior.
+2. Read and validate the hourly thermal profile only when its formulation is
+   active. Check raw CSV headers before pandas can rename duplicate headers.
+3. Validate Network and Hydro selections and load conditional hydro bounds and
+   import/export capacity and price tables.
+4. Construct and validate per-area views. Legacy single-area inputs also get
+   these views, through the existing fast path.
+5. If multi-area inputs select `CopperPlateNetwork`, aggregate them, rebuild
+   single-area views, and warn when transmission files are ignored.
+6. Otherwise, load topology and directional capacities and enforce the files
+   required by `AreaTransportationModelNetwork`. Store empty topology/capacity
+   defaults for legacy inputs.
+
+Validation runs when each input becomes available, not as one final pass.
+Validators raise `ValueError` with source-specific context; missing required
+files still use the common file helper's logging and `FileNotFoundError`.
+Missing formulation rows retain the existing default or `IndexError` behavior.
+Parser conversion errors continue to propagate.
+
+Most validators return `None`. The exceptions have explicit normalization
+contracts:
+
+| Validator | Required input | Return and ownership |
+|---|---|---|
+| `validate_area_tag` | A string column header | A regex match for a validated tag, or `None` for a legacy untagged header. Area interpretation stays in `areas.py`. |
+| `validate_thermal_min_dispatch` | Static thermal data and an hourly fraction DataFrame; per-area ownership when applicable; optional effective horizon | A new frame sorted by `Hour`, with plant columns in static-table order and full-precision fractions. Does not mutate source tables. |
+| `validate_interconnections` | A topology DataFrame and declared areas | A string-normalized copy of nonempty topology, preserving row order. An empty valid frame is returned unchanged. |
+| `validate_line_capacities` | An hour-indexed capacity frame, nonempty topology, filename, and required row count | A frame with columns in topology order, without modifying the source frame. |
+
+File-reading functions decide when absent optional files are acceptable.
+Transformation functions may mutate the canonical dictionary in place; keep
+that behavior explicit in their docstrings. Thermal profile bounds and fractions
+must retain their full precision when the hourly formulation is enabled.
+
+### Where to Make Changes
+
+- **New CSV input:** add its filename constant and loading logic in `loader.py`
+  or `network.py`; put its content rules in `validation.py`.
+- **New formulation:** update central choices/defaults, use `formulations.py`
+  for lookup, and extend validation only where strict supplied-value checks
+  are required. Defaults must never replace invalid supplied selections.
+- **New area encoding or per-area view:** update `areas.py`, its validation
+  rules, and the corresponding copper-plate aggregation behavior.
+- **New aggregation rule:** update `aggregation.py`; preserve identifiers,
+  frame schemas, weighted-price fallback warnings, and dictionary ownership.
+- **New result CSV:** update `export.py`; keep model-value collection in
+  `results.py`. Do not extend the deprecated exporter for modern-only outputs.
+- **New sweepable time series:** also update the mapping described in
+  [Parametric implementation](parametric_implementation.md).
+
+Keep the public facade signatures, positional defaults, dictionary keys,
+DataFrame dtypes/indexes/column order, errors, warnings, and CSV filenames and
+schemas compatible. Extend existing validators rather than duplicating their
+rules in loaders or adapters. New helper options should be keyword-only.
+
+### Refactoring Checks
+
+`tests/test_io_module_contracts.py` covers implementation ownership, facade
+aliases, signature compatibility, filesystem-free validation, and centralized
+input rejection. Existing input, thermal, zonal, export, parametric, and adapter
+tests cover behavior through the public entry points.
+
+For an I/O change, start with the affected tests:
+
+```powershell
+uv run pytest tests\test_io_module_contracts.py tests\test_input_data.py tests\test_zonal_io_per_area.py tests\test_zonal_io_lines.py tests\test_zonal_io_validation.py tests\test_zonal_aggregation_fallback.py tests\test_zonal_io_export.py tests\test_output_data.py tests\test_thermal_min_dispatch.py
+```
+
+Then run relevant model, adapter, and parametric regressions. Confirm both
+copper-plate and zonal solves remain optimal, with unchanged objectives,
+capacities, and feasibility checks. For export changes, compare filenames,
+column order, row counts, values, and conditional file presence, including the
+legacy path when touched. Run `uv run pytest tests\test_docs_build.py` after
+updating the architecture or API reference.
 
 ## Network Formulation Selection
 
