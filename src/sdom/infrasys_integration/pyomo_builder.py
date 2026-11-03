@@ -9,7 +9,7 @@ from infrasys import System
 from pyomo.environ import AbstractModel, ConcreteModel
 
 from sdom.constants import COPPER_PLATE_NETWORK, DEFAULT_AREA_ID
-from sdom.io_manager import get_network_formulation
+from sdom.io.formulations import get_network_formulation
 from sdom.optimization_main import initialize_model
 
 from .make_system import drop_system_source_data, system_to_data_dict

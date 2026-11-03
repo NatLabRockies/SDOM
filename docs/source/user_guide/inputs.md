@@ -48,6 +48,8 @@ This file the user selects the modeling approach (formulation) for each major sy
 | hydro | RunOfRiverFormulation | Fixed hourly hydro profile |
 | hydro | MonthlyBudgetFormulation | Monthly energy budget constraint |
 | hydro | DailyBudgetFormulation | Daily energy budget constraint |
+| Thermal | NoRampsDispatchFormulation | Legacy continuous dispatch (default if Thermal is absent) |
+| Thermal | NoRampsMinDispatchFormulation | Hourly must-run fractions of total installed thermal capacity |
 | Imports | NotModel | No imports modeled |
 | Imports | CapacityPriceNetLoadFormulation | Price-based import optimization |
 | Exports | NotModel | No exports modeled |
@@ -56,6 +58,12 @@ This file the user selects the modeling approach (formulation) for each major sy
 | Network | AreaTransportationModelNetwork | Multi-area transportation network |
 | Reserves | notModel | Disabled default; no reserve components |
 | Reserves | CapacityMarginFormulation | Deterministic hourly capacity margin |
+
+`get_formulation` uses centrally registered defaults for missing Thermal,
+Network, and Reserves rows. An explicit API `default=` takes precedence.
+Hydro, Imports, and Exports remain required; no defaults are invented for
+unregistered components. Thermal rejects duplicate, blank, null, and unsupported
+selections. Other components retain their existing lookup/validation behavior.
 
 **Example**:
 ```csv
@@ -249,6 +257,60 @@ This file contains essential data for thermal generation plants or aggregated un
 | FuelCost     | Fuel cost in USD/MMBtu. | float |
 | VOM          | Variable operation and maintenance cost in USD/MWh. | float |
 | FOM          | Fixed operation and maintenance cost in USD/kW. | float |
+
+#### Optional hourly thermal minimum dispatch
+
+Select `Thermal,NoRampsMinDispatchFormulation` in `formulations.csv` and supply
+`Thermal_MinDispatchFraction.csv`:
+
+```csv
+Hour,GasCC_existing,GasCC_candidate
+1,0.40,0.00
+2,0.30,0.20
+3,0.50,0.20
+4,0.60,0.10
+```
+
+The first column must be `Hour`; subsequent columns must match **every**
+`Plant_id` in `Data_BalancingUnits.csv`, including candidates and zero-capacity
+rows. IDs are exact strings (including leading zeros and literal `NA` or `NULL`);
+blank or duplicate IDs and duplicate CSV headers are errors. Column order may differ from the
+static table. No constant-fraction column is added to that table.
+
+Hours must uniquely cover `1..N` for positive `N`; unordered rows are sorted.
+Model construction requires coverage of the **effective** horizon, including
+hydro-budget rounding. Extra rows are validated too. No padding, repetition,
+interpolation, or resampling occurs. An empty thermal fleet requires an
+hour-only file, not an omitted file.
+
+Fractions are finite numeric values in `[0,1]`, not percentages or MW.
+Numeric text is accepted; booleans, blanks, nulls, nonfinite values, and
+out-of-range values fail with source/cell context. Fraction precision is
+preserved without five-decimal rounding. Enabled capacity bounds must be finite
+and satisfy `0 <= MinCapacity <= MaxCapacity`.
+
+The floor applies to **total optimized installed capacity**, including
+expansion, not to either input capacity bound. Zero fractions add no floor
+rows; a fraction of one forces full output. A candidate may remain unbuilt.
+This is a linear must-run obligation, not unit commitment or availability:
+there are no new binaries, ramping constraints, startup costs, or capacity
+credits. Capacity margins still credit full installed thermal MW once.
+Surplus can be infeasible: VRE curtailment cannot dump thermal output, and
+storage, exports (including existing net-load gates), transmission, and the
+clean-share equation remain unchanged.
+
+Thermal component matching is case-insensitive, but formulation values require
+exact spelling. Missing Thermal rows default through `get_formulation` to
+`NoRampsDispatchFormulation`; blank, null, unknown, and duplicate Thermal rows
+are errors. Under legacy selection, a stale profile is ignored without being
+read or validated, with an INFO message. Direct data dictionaries use the same
+validation and optional `thermal_min_dispatch_fraction` key.
+
+See [must-run equations and capacity-factor qualifications](sdom_math_formulation.md#hourly-minimum-dispatch).
+Existing scalar, storage, and supported time-series parametric mutations retain
+the selection/profile. A dedicated thermal-profile sweep is **not** supported;
+prepare independent profile copies or edit System-owned series before building.
+Result columns and zero/one/many-plant thermal reporting remain unchanged.
 
 ### 7. System Scalars
 

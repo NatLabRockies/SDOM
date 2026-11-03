@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from ..io_manager import export_results
+from ..io.export import export_results
 from ..results import OptimizationResults
 from .sweeps import ScalarSweep, StorageFactorSweep, TsSweep
 from .worker import _run_single_case

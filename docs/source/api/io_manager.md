@@ -2,6 +2,12 @@
 
 Functions for loading input data and exporting results.
 
+`sdom.io_manager` is a compatibility facade over the implementation modules in
+`sdom.io`. Existing public imports and call signatures are unchanged; new
+internal callers should use the owning module. See
+{ref}`io-architecture` for module ownership, validation contracts, and extension
+points.
+
 ## Data Loading
 
 ```{eval-rst}
@@ -17,6 +23,17 @@ Functions for loading input data and exporting results.
 
 .. autofunction:: sdom.io_manager.check_formulation
 ```
+
+## Thermal Profile Validation
+
+```{eval-rst}
+.. autofunction:: sdom.io_manager.validate_thermal_min_dispatch
+```
+
+`NoRampsMinDispatchFormulation` conditionally requires
+`Thermal_MinDispatchFraction.csv`. Raw headers are checked before parsing;
+fractions and enabled thermal capacity bounds retain full precision.
+Validation can also be called on an in-memory dictionary without reading files.
 
 ## Results Export
 
@@ -92,10 +109,13 @@ The `load_data()` function returns a dictionary with these keys:
 - `STORAGE_SET_B_TECHS`: List of coupled storage technologies
 - `thermal_data`: Thermal unit parameters
 - `scalars`: System-level parameters
-- `import_cap`, `export_cap` (optional): Trade capacity limits
-- `import_prices`, `export_prices` (optional): Trade prices
+- `large_hydro_max`, `large_hydro_min` (optional): Hydro bounds for budget formulations
+- `thermal_min_dispatch_fraction` (optional): Hourly fractions for `NoRampsMinDispatchFormulation`
+- `cap_imports`, `cap_exports` (optional): Trade capacity limits
+- `price_imports`, `price_exports` (optional): Trade prices
 
-Zonal additions when the input folder uses area-aware encoding:
+Area and network keys are also present for legacy single-area inputs, using
+default-area views and empty topology/capacity tables where appropriate:
 
 - `areas`: list of area descriptors
 - `lines`: list of line descriptors (`line_id`, `from_area`, `to_area`)

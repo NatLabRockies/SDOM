@@ -109,11 +109,10 @@ def test_get_formulation_default_keyword_returns_default():
     )
 
 
-def test_get_formulation_no_default_raises_on_missing():
+def test_get_formulation_registered_default_returns_on_missing():
     df = pd.DataFrame(
         [{"Component": "Hydro", "Formulation": "RunOfRiverFormulation"}]
     )
     data = {"formulations": df}
 
-    with pytest.raises(IndexError):
-        get_formulation(data, component="Network")
+    assert get_formulation(data, component="Network") == DEFAULT_NETWORK_FORMULATION

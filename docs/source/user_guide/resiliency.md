@@ -27,6 +27,23 @@ flowchart TD
 
 ## Two Optimization Problems
 
+### Thermal minimum-dispatch compatibility
+
+`NoRampsMinDispatchFormulation` is **not implemented for resiliency**, regardless
+of fraction values. A small selection-only check in `load_designed_system`
+rejects it before reading thermal profiles or snapshots, including with
+`attach_cem_data=False`. Thus `evaluate_resiliency` fails before baseline
+construction. Direct `build_baseline_dispatch`, `run_resiliency_evaluation`,
+and `build_outage_dispatch` calls enforce the same restriction.
+
+All-zero and missing profiles are rejected too: compatibility is determined by
+the selected formulation, not by inspecting its time series. Canonical CEM
+selections and explicit resiliency formulation overrides are checked; no
+positive-profile provenance field or profile scanning is required. Legacy
+resiliency behavior is unchanged. Planning and System-adapter support for
+minimum dispatch remain available. No availability-scaled thermal outage floor
+is implemented.
+
 The module implements two coupled linear programs:
 
 ### Problem (B) - Baseline annual dispatch

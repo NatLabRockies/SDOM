@@ -1,44 +1,93 @@
 import logging
 import math
 import os
+import warnings
 from datetime import datetime
 from typing import Any
 
 import pandas as pd
+from pyomo.environ import (
+    Block,
+    ConcreteModel,
+    Constraint,
+    Objective,
+    Param,
+    RangeSet,
+    Reals,
+    Set,
+    Suffix,
+    Var,
+    minimize,
+)
+
 #from pympler import muppy, summary
 #from pympler import muppy, summary
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, check_available_solvers
 from pyomo.util.infeasible import log_infeasible_constraints
-from pyomo.environ import ConcreteModel, Objective, Block, Reals, Suffix, Var, minimize
 
-from .initializations import initialize_sets, initialize_params
 from .common.utilities import safe_pyomo_value
-from .models.formulations_vre import add_vre_variables, add_vre_expressions, add_vre_balance_constraints
-from .models.formulations_thermal import add_thermal_variables, add_thermal_expressions, add_thermal_constraints
-from .models.formulations_resiliency import add_resiliency_variables, add_resiliency_constraints
-from .models.formulations_storage import add_storage_variables, add_storage_expressions, add_storage_constraints
-from .models.formulations_system import objective_rule, add_system_expressions, add_system_constraints
-from .models.formulations_imports_exports import add_imports_variables, add_exports_variables, add_imports_exports_cost_expressions, add_imports_constraints, add_exports_constraints
-from .models.formulations_hydro import add_hydro_variables, add_hydro_run_of_river_constraints, add_hydro_budget_constraints
-from .models.formulations_reserves import add_capacity_margin_constraints
-
 from .constants import (
+    AREA_TRANSPORTATION_MODEL_NETWORK,
+    COPPER_PLATE_NETWORK,
+    DEFAULT_AREA_ID,
+    IMPORTS_EXPORTS_NOT_MODEL,
     MW_TO_KW,
+    NO_RAMPS_MIN_DISPATCH_FORMULATION,
     RUN_OF_RIVER_FORMULATION,
     VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
-    IMPORTS_EXPORTS_NOT_MODEL,
-    COPPER_PLATE_NETWORK,
-    AREA_TRANSPORTATION_MODEL_NETWORK,
-    DEFAULT_AREA_ID,
 )
-
-from .io_manager import get_formulation, get_network_formulation
-from .utils_performance_meassure import ModelInitProfiler
+from .initializations import check_n_hours, initialize_params, initialize_sets
+from .io.formulations import get_formulation, get_network_formulation
+from .io.validation import validate_thermal_min_dispatch, validate_thermal_ownership
+from .models.formulations_hydro import (
+    add_hydro_budget_constraints,
+    add_hydro_run_of_river_constraints,
+    add_hydro_variables,
+)
+from .models.formulations_imports_exports import (
+    add_exports_constraints,
+    add_exports_variables,
+    add_imports_constraints,
+    add_imports_exports_cost_expressions,
+    add_imports_variables,
+)
+from .models.formulations_network import (
+    add_network_constraints,
+    add_network_expressions,
+    add_network_parameters,
+    add_network_sets,
+    add_network_variables,
+    network_transmission_cost_rule,
+)
+from .models.formulations_reserves import add_capacity_margin_constraints
+from .models.formulations_resiliency import add_resiliency_constraints, add_resiliency_variables
+from .models.formulations_storage import (
+    add_storage_constraints,
+    add_storage_expressions,
+    add_storage_fixed_costs,
+    add_storage_variable_costs,
+    add_storage_variables,
+)
+from .models.formulations_system import add_system_constraints, add_system_expressions, objective_rule
+from .models.formulations_thermal import (
+    add_thermal_constraints,
+    add_thermal_expressions,
+    add_thermal_fixed_costs,
+    add_thermal_variable_costs,
+    add_thermal_variables,
+)
+from .models.formulations_vre import (
+    add_vre_balance_constraints,
+    add_vre_expressions,
+    add_vre_fixed_costs,
+    add_vre_variables,
+)
 from .results import (
     OptimizationResults,
     collect_marginal_prices_from_model,
     collect_results_from_model,
 )
+from .utils_performance_meassure import ModelInitProfiler
 
 # ---------------------------------------------------------------------------------
 # Model initialization
@@ -79,8 +128,6 @@ def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
         If one or more hydro budget bins lie outside their feasible lower and
         upper bound totals.
     """
-    from .initializations import check_n_hours
-
     formulation = get_formulation(data, component="hydro")
     if formulation == RUN_OF_RIVER_FORMULATION:
         return
@@ -171,6 +218,8 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
     """
     logging.info("[%s] Starting Pyomo model instantiation step.", _timestamp_now())
 
+    if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        validate_thermal_min_dispatch(data)
     network = get_network_formulation(data)
     areas = data.get("areas", [{"area_id": DEFAULT_AREA_ID}])
     n_areas = len(areas)
@@ -510,6 +559,10 @@ def _build_per_area_data_slice(data, area_id):
         "solar_plants": [],
         "wind_plants": [],
     }
+    if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        slice_dict["thermal_min_dispatch_fraction"] = data["thermal_min_dispatch_fraction"].loc[
+            :, ["Hour", *bal["Plant_id"].astype(str)]
+        ]
     return slice_dict
 
 
@@ -627,8 +680,6 @@ def _add_zonal_supply_balance(model):
     reporting tooling that introspects ``area_block.SupplyBalance`` keeps
     working unchanged.
     """
-    from pyomo.environ import Constraint
-
     has_lines = hasattr(model, "L") and len(model.L) > 0
 
     def _supply_balance_rule(area_block, h):
@@ -661,8 +712,6 @@ def _add_zonal_genmix_constraint(model):
     areas (PRD §5.5 / math_model.md). With imports / exports deferred under
     the AT path, only thermal generation appears on the LHS.
     """
-    from pyomo.environ import Constraint
-
     def _rule(m):
         total_thermal = sum(m.area[a].thermal.total_generation for a in m.A)
         adjusted_demand = sum(
@@ -679,17 +728,6 @@ def _add_zonal_genmix_constraint(model):
 
 def _zonal_objective_rule(model):
     """Aggregate cost objective across areas plus ``Z^trans = 0``."""
-    from .models.formulations_vre import add_vre_fixed_costs
-    from .models.formulations_storage import (
-        add_storage_fixed_costs,
-        add_storage_variable_costs,
-    )
-    from .models.formulations_thermal import (
-        add_thermal_fixed_costs,
-        add_thermal_variable_costs,
-    )
-    from .models.formulations_network import network_transmission_cost_rule
-
     fixed = sum(
         add_vre_fixed_costs(model.area[a])
         + add_storage_fixed_costs(model.area[a])
@@ -742,22 +780,15 @@ def _initialize_model_zonal(
 
     Raises
     ------
+    ValueError
+        If enabled thermal ownership or capacity bounds disagree across the
+        global and per-area views, including a single declared area.
     NotImplementedError
         When ``with_resilience_constraints=True`` (PRD §5.8) or when
         Imports / Exports formulations are not ``NotModel`` (deferred to a
         follow-up commit; the canonical ``Data/zonal_test`` fixture uses
         ``NotModel`` for both).
     """
-    from pyomo.environ import Set, Param
-
-    from .models.formulations_network import (
-        add_network_constraints,
-        add_network_expressions,
-        add_network_parameters,
-        add_network_sets,
-        add_network_variables,
-    )
-
     if with_resilience_constraints:
         # Defensive: the dispatcher (initialize_model) already raises
         # NotImplementedError for resiliency + AreaTransportationModelNetwork
@@ -783,6 +814,9 @@ def _initialize_model_zonal(
             f"Exports rows in formulations.csv to '{IMPORTS_EXPORTS_NOT_MODEL}' "
             "or use a CopperPlateNetwork run."
         )
+
+    if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        validate_thermal_ownership(data)
 
     logging.info(
         "Instantiating zonal SDOM model with %d areas and %d lines.",
@@ -840,10 +874,6 @@ def _initialize_model_zonal(
     # same ``check_n_hours`` round-up rule the legacy ``initialize_sets``
     # applies, so budget-formulation hour adjustments stay consistent
     # between the per-area blocks and the top-level model.
-    from pyomo.environ import RangeSet
-    from .constants import VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP
-    from .initializations import check_n_hours
-
     hydro_formulation = get_formulation(data, component="hydro")
     if "Budget" in hydro_formulation:
         n_hours_checked = check_n_hours(
@@ -948,7 +978,6 @@ def collect_results(model):
     .. deprecated::
         Use :func:`sdom.results.collect_results_from_model` instead.
     """
-    import warnings
     warnings.warn(
         "collect_results is deprecated. Use collect_results_from_model from results.py instead.",
         DeprecationWarning,

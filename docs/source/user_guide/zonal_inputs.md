@@ -70,6 +70,18 @@ No new storage input columns are required.
 
 ## New Zonal Files
 
+### Conditional thermal minimum-dispatch profile
+
+The [hourly thermal profile](inputs.md#optional-hourly-thermal-minimum-dispatch)
+uses the same root `Thermal_MinDispatchFraction.csv` in zonal mode.
+Headers are globally unique plant IDs, **not** `plant@area@` columns.
+Ownership comes only from `Data_BalancingUnits.csv`'s existing `area_id`.
+The global profile is validated before selecting each area's plant columns;
+an area without thermal plants receives an hour-only slice. Static global
+and per-area ownership/capacity views must agree for directly supplied data.
+Copperplate aggregation preserves each plant's fractions separately without
+averaging or capacity weighting. No additional per-area profile registry exists.
+
 ### areas.csv
 
 Optional in zonal mode. When present, it declares the allowed `area_id` values.

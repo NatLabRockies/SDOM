@@ -45,6 +45,27 @@ For the full notation and formulation overview, see
 
 ## Thermal Formulations
 
+`add_thermal_constraints(host)` builds the upper bound and calls
+`add_thermal_min_dispatch_constraints(host)` within the same profiled step.
+The floor builder activates only when the validated immutable
+`thermal.min_dispatch_fraction[h,k]` parameter exists, created by
+`_add_thermal_min_dispatch_fraction_parameters(host, data, *, df)` only for
+`NoRampsMinDispatchFormulation`. It uses
+`thermal.min_dispatch_fraction[h,k]` in `[0,1]`. Zero coefficients skip rows:
+there are $H K$ parameters, one inequality per positive modeled cell, and no
+new variables or binaries; legacy mode creates neither new component.
+The generic `sdom.io_manager.get_formulation` uses central component defaults
+and a component-keyed validation policy. Missing Thermal rows default to legacy
+dispatch; invalid/duplicate Thermal selections are rejected. Hydro, Imports,
+and Exports remain required; other components retain their lookup behavior.
+The existing Network accessor remains a compatibility wrapper.
+Both CSV and direct-data construction
+use `validate_thermal_min_dispatch` for input validation.
+Enabled zonal and System paths also use `validate_thermal_ownership` before
+consuming per-area tables, even for one area. System projection rechecks
+retained source data; global-only copperplate construction does not consume
+these views.
+
 ```{eval-rst}
 .. automodule:: sdom.models.formulations_thermal
    :members:

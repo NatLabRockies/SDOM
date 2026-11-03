@@ -28,6 +28,7 @@ INPUT_CSV_NAMES = {
     'cap_solar': 'CapSolar.csv', #'CapSolar_2050.csv',
     'cap_wind': 'CapWind.csv', #'CapWind_2050.csv',
     'thermal_data': 'Data_BalancingUnits.csv', #'Data_BalancingUnits_2030(in).csv',
+    "thermal_min_dispatch_fraction": "Thermal_MinDispatchFraction.csv",
     'storage_data': 'StorageData.csv', #'StorageData_2050.csv',
     "cap_imports": "Import_Cap.csv",
     "cap_exports": "Export_Cap.csv",
@@ -50,6 +51,15 @@ THERMAL_PROPERTIES_NAMES = ['MinCapacity', 'MaxCapacity', 'Lifetime', 'Capex', '
 #TODO this set is the col names of the StorageData_2050.csv file
 #STORAGE_SET_J_TECHS = ['Li-Ion', 'CAES', 'PHS', 'H2'] - THIS WAS REPLACED BY "data["STORAGE_SET_J_TECHS"]" which reads the cols of storage_data
 #STORAGE_SET_B_TECHS = ['Li-Ion', 'PHS'] #THIS WAS REPLACED BY "data["STORAGE_SET_B_TECHS"]"
+
+# Thermal formulation choices.
+NO_RAMPS_DISPATCH_FORMULATION = "NoRampsDispatchFormulation"
+NO_RAMPS_MIN_DISPATCH_FORMULATION = "NoRampsMinDispatchFormulation"
+DEFAULT_THERMAL_FORMULATION = NO_RAMPS_DISPATCH_FORMULATION
+VALID_THERMAL_FORMULATIONS_TO_DESCRIPTION_MAP = {
+    NO_RAMPS_DISPATCH_FORMULATION: "Continuous thermal dispatch without ramping.",
+    NO_RAMPS_MIN_DISPATCH_FORMULATION: "Continuous thermal dispatch with hourly must-run fractions.",
+}
 
 MONTHLY_BUDGET_HOURS_AGGREGATION = 730
 DAILY_BUDGET_HOURS_AGGREGATION = 24
@@ -94,6 +104,18 @@ VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP = {
 # Default Network formulation when 'Network' row is missing from formulations.csv
 # (preserves backward compatibility with all legacy data folders).
 DEFAULT_NETWORK_FORMULATION = COPPER_PLATE_NETWORK
+
+DEFAULT_RESERVES_FORMULATION = "notModel"
+DEFAULT_FORMULATIONS_BY_COMPONENT = {
+    "thermal": DEFAULT_THERMAL_FORMULATION,
+    "network": DEFAULT_NETWORK_FORMULATION,
+    "reserves": DEFAULT_RESERVES_FORMULATION,
+}
+
+# Only registered components enforce unique rows and exact supported choices.
+FORMULATION_VALIDATION_BY_COMPONENT = {
+    "thermal": VALID_THERMAL_FORMULATIONS_TO_DESCRIPTION_MAP,
+}
 
 # Input CSV files required when Network=AreaTransportationModelNetwork is
 # selected. ``load_data`` raises ``ValueError`` if any of these is missing.
