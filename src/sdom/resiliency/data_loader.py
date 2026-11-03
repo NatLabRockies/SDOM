@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from sdom.resiliency.system_state import DesignedSystem
-
+from sdom.common.utilities import get_complete_path
+from sdom.resiliency.system_state import DesignedSystem, validate_thermal_resiliency_formulation
 
 logger = logging.getLogger(__name__)
 
@@ -670,6 +670,11 @@ def load_designed_system(
         When the ``OutputSummary_*`` snapshot is missing.
     ValueError
         When ``scenario_id`` cannot be resolved against the snapshot.
+    NotImplementedError
+        If ``NoRampsMinDispatchFormulation`` is selected in the input CSV or
+        formulation overrides. Resiliency does not support this formulation,
+        even for all-zero profiles. Rejected before reading snapshots/profiles
+        regardless of ``attach_cem_data``.
 
     Examples
     --------
@@ -691,6 +696,13 @@ def load_designed_system(
         year,
         scenario_id,
     )
+
+    config_path = get_complete_path(inputs_dir, "formulations.csv")
+    thermal_source = {
+        "formulations": pd.read_csv(config_path) if config_path
+        else pd.DataFrame(columns=pd.Index(["Component", "Formulation"])),
+    }
+    validate_thermal_resiliency_formulation(thermal_source, formulation_map=formulation_overrides)
 
     logger.debug("Locating OutputSummary snapshot for year=%s.", year)
     summary_path = _find_snapshot_file(snapshot_dir, "OutputSummary", year)

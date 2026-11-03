@@ -75,7 +75,7 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
     one-hour capability proxy, not operating reserves or repeated-activation
     feasibility; no costs, shortfall slack, or baseline physics are changed.
     """
-    selection = get_formulation(data, component="Reserves", default="notModel")
+    selection = get_formulation(data, component="Reserves")
     if not isinstance(selection, str) or selection != "CapacityMarginFormulation":
         return
 

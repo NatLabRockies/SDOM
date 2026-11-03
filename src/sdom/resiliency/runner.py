@@ -34,8 +34,8 @@ from sdom.resiliency.system_state import (
     BaselineDispatchResults,
     DesignedSystem,
     ResiliencyResults,
+    validate_thermal_resiliency_formulation,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -322,7 +322,11 @@ def run_resiliency_evaluation(
     ------
     ValueError
         If ``designed_system`` cannot be resolved from arguments or
-        metadata, or if ``n_workers < 1``.
+        metadata, if ``n_workers < 1``, or canonical Thermal selections
+        are invalid or duplicated.
+    NotImplementedError
+        If ``NoRampsMinDispatchFormulation`` is selected, even for zero profiles.
+        Rejected before worker dispatch, not converted to per-hour errors.
     TypeError
         If ``baseline_results`` is not a :class:`BaselineDispatchResults`
         instance, or ``outage_spec`` is not an :class:`OutageSpec`.
@@ -341,6 +345,7 @@ def run_resiliency_evaluation(
         raise TypeError("outage_spec must be an OutageSpec instance.")
 
     ds = _resolve_designed_system(baseline_results, designed_system)
+    validate_thermal_resiliency_formulation(ds.cem_data, formulation_map=ds.formulation_map)
     n_hours = int(n_hours)
     if n_hours <= 0:
         raise ValueError("n_hours must be a positive integer.")

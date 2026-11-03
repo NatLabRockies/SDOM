@@ -28,7 +28,6 @@ from sdom.resiliency.dispatch_model import (
 )
 from sdom.resiliency.runner import run_resiliency_evaluation
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -123,6 +122,14 @@ def evaluate_resiliency(
         Per-hour records (sorted by anchor hour) plus run metadata
         including ``n_workers_used``, ``n_hours``, ``solver`` and the
         ``outage_spec`` reference.
+
+    Raises
+    ------
+    NotImplementedError
+        If ``NoRampsMinDispatchFormulation`` is selected. Loading rejects
+        this unsupported resiliency formulation before baseline construction.
+    ValueError
+        If the input Thermal selection is invalid or duplicated.
 
     See Also
     --------

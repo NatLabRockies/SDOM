@@ -1,10 +1,21 @@
 """Build thermal balancing-unit capacity, dispatch, and annual cost terms."""
 
-from pyomo.core import Var, Constraint, Expression
-from pyomo.environ import Set, Param, NonNegativeReals, quicksum
 import logging
-from .models_utils import build_annualization_factor_map, generic_fixed_om_cost_expr_rule, different_fcr_capex_cost_expr_rule, sum_installed_capacity_by_plants_set_expr_rule, add_generic_fixed_costs, add_generation_variables
-from ..constants import MW_TO_KW, THERMAL_PROPERTIES_NAMES
+
+from pyomo.core import Constraint, Expression, Var
+from pyomo.environ import NonNegativeReals, Param, Set, UnitInterval, quicksum
+
+from ..constants import NO_RAMPS_MIN_DISPATCH_FORMULATION, THERMAL_PROPERTIES_NAMES
+from ..io_manager import get_formulation, validate_thermal_min_dispatch
+from .models_utils import (
+    add_generation_variables,
+    add_generic_fixed_costs,
+    build_annualization_factor_map,
+    different_fcr_capex_cost_expr_rule,
+    generic_fixed_om_cost_expr_rule,
+    sum_installed_capacity_by_plants_set_expr_rule,
+)
+
 
 def initialize_thermal_sets(block, data):
     """Initialize thermal plant identifiers and property names.
@@ -80,6 +91,42 @@ def _add_thermal_parameters(block, df):
     block.trans_cap_cost = Param(block.plants_set, initialize=0.0)
 
 
+def _add_thermal_min_dispatch_fraction_parameters(host, data, *, df):
+    r"""Validate and add immutable hourly thermal minimum-dispatch fractions.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area with effective hourly and thermal plant sets.
+    data : dict
+        Enabled hourly profile and static thermal properties.
+    df : pandas.DataFrame
+        Thermal properties indexed by Plant_id, normalized in place to string
+        identity and numeric capacity bounds before static parameter creation.
+
+    Raises
+    ------
+    ValueError
+        If profile identity, bounds, hours, fractions, or coverage are invalid.
+        Empty thermal fleets require an hour-only input table.
+
+    Notes
+    -----
+    ``min_dispatch_fraction[h,k]`` is the dimensionless coefficient
+    :math:`q^{bal}_{kh}\in[0,1]`, indexed by effective hour and thermal plant.
+    Full supplied coverage is validated; only modeled hours are initialized.
+    """
+    fractions = validate_thermal_min_dispatch(data, n_hours=len(host.h))
+    df.index = df.index.astype(str)
+    df[["MinCapacity", "MaxCapacity"]] = df[["MinCapacity", "MaxCapacity"]].astype(float)
+    values = fractions.iloc[:len(host.h), 1:].to_numpy()
+    columns = {plant: i for i, plant in enumerate(fractions.columns[1:])}
+    host.thermal.min_dispatch_fraction = Param(
+        host.h, host.thermal.plants_set, within=UnitInterval,
+        initialize=lambda b, h, k: float(values[h - 1, columns[k]]),
+    )
+
+
 def add_thermal_parameters(host, data: dict):
     r"""Add thermal properties and unit-specific annualization factors.
 
@@ -101,8 +148,16 @@ def add_thermal_parameters(host, data: dict):
 
     :math:`a_k` is ``thermal.FCR[k]`` in inverse years. Cost and performance
     units are described by :func:`_add_thermal_parameters`.
+
+    Only ``NoRampsMinDispatchFormulation`` adds immutable dimensionless
+    ``min_dispatch_fraction[h,k]`` (:math:`q^{bal}_{kh}\in[0,1]`), an
+    hour-by-plant table covering the effective ``host.h``. Empty fleets
+    require hour-only input. Invalid identity, bounds, values, or coverage
+    raise ``ValueError`` before parameter construction.
     """
     df = data["thermal_data"].set_index("Plant_id")
+    if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        _add_thermal_min_dispatch_fraction_parameters(host, data, df=df)
     _add_thermal_parameters(host.thermal, df)
     
     r = float(data["scalars"].loc["r"].Value)
@@ -266,11 +321,56 @@ def add_thermal_constraints( host ):
 
     ``generation[h,k]`` and ``plant_installed_capacity[k]`` are MW.
     Nonnegativity is supplied by the variable domains. No commitment,
-    ramping, minimum-output, or outage constraint is added here.
+    ramping, or outage constraint is introduced. Also calls
+    :func:`add_thermal_min_dispatch_constraints` when its validated fraction
+    parameter exists, keeping both dispatch bounds within the same profiled
+    build step. Legacy models have no fraction parameter and add no floor.
     """
     set_hours = host.h
     # Capacity of the backup generation
     host.thermal.capacity_generation_constraint = Constraint( set_hours, host.thermal.plants_set, rule = lambda m,h,bu: m.plant_installed_capacity[bu] >= m.generation[h,bu]  )
+    add_thermal_min_dispatch_constraints(host)
+
+
+def add_thermal_min_dispatch_constraints(host):
+    r"""Add hourly must-run floors only for NoRampsMinDispatchFormulation.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area with thermal parameters, capacity and dispatch variables.
+
+    Notes
+    -----
+    .. math::
+
+       G^{bal}_{kh}\ge q^{bal}_{kh}P^{bal}_k,\quad q^{bal}_{kh}\in[0,1]
+       \qquad(k\in\mathcal K,\ h\in\mathcal H).
+
+    ``generation[h,k]`` is :math:`G^{bal}_{kh}` (MW);
+    ``plant_installed_capacity[k]`` is total optimized :math:`P^{bal}_k`
+    (MW), including expansion. ``min_dispatch_fraction[h,k]`` is the
+    dimensionless input :math:`q^{bal}_{kh}`. These local symbols apply on
+    each area host as well. Constant coefficients keep the constraint linear;
+    no commitment or ramping is introduced. Zero capacity implies zero output;
+    zero coefficients skip redundant rows. Empty fleets add no inequalities.
+    The validated fraction parameter, created only for the enabled formulation,
+    controls activation. Legacy dispatch creates no floor component.
+
+    For a feasible solution with positive capacity, the modeled-horizon
+    capacity factor satisfies
+    :math:`CF^{bal}_k=\sum_hG^{bal}_{kh}/(|\mathcal H|P^{bal}_k)
+    \ge\sum_hq^{bal}_{kh}/|\mathcal H|`.
+    This neither mandates investment nor guarantees an unmodeled annual factor.
+    """
+    if not hasattr(host.thermal, "min_dispatch_fraction"):
+        return
+
+    def floor(b, h, k):
+        q = b.min_dispatch_fraction[h, k]
+        return b.generation[h, k] >= q * b.plant_installed_capacity[k] if q > 0 else Constraint.Skip
+
+    host.thermal.min_dispatch_constraint = Constraint(host.h, host.thermal.plants_set, rule=floor)
 
 
 ####################################################################################|

@@ -15,7 +15,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -131,6 +130,37 @@ class DesignedSystem:
     # in ``sdom.models`` with their native parameter layout. Populated by
     # :func:`load_designed_system` when ``attach_cem_data=True`` (the default).
     cem_data: dict | None = None
+
+
+def validate_thermal_resiliency_formulation(data: dict | None, *, formulation_map: dict | None = None) -> None:
+    """Reject the unsupported thermal formulation without inspecting profiles.
+
+    Parameters
+    ----------
+    data : dict or None
+        Canonical planning inputs, when available, containing ``formulations``.
+    formulation_map : dict, optional
+        Resiliency formulation selections or explicit overrides. Either source
+        selecting the unsupported formulation is sufficient to reject the case.
+
+    Raises
+    ------
+    NotImplementedError
+        If ``NoRampsMinDispatchFormulation`` is selected, including all-zero
+        or missing profiles. Minimum dispatch is not implemented for resiliency.
+    ValueError
+        If canonical inputs contain invalid or duplicate Thermal selections.
+    """
+    from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
+    from sdom.io_manager import get_formulation
+
+    selected = data is not None and get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION
+    override = any(
+        component.lower() == "thermal" and selection == NO_RAMPS_MIN_DISPATCH_FORMULATION
+        for component, selection in (formulation_map or {}).items()
+    )
+    if selected or override:
+        raise NotImplementedError(f"{NO_RAMPS_MIN_DISPATCH_FORMULATION} is not implemented for resiliency.")
 
 
 @dataclass

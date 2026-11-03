@@ -29,9 +29,12 @@ import pandas as pd
 import pyomo.environ as pyo
 
 from sdom.constants import MW_TO_KW
-from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
+from sdom.resiliency.system_state import (
+    BaselineDispatchResults,
+    DesignedSystem,
+    validate_thermal_resiliency_formulation,
+)
 from sdom.utils_performance_meassure import ModelInitProfiler
-
 
 logger = logging.getLogger(__name__)
 
@@ -392,7 +395,11 @@ def build_outage_dispatch(
     ValueError
         If ``designed_system`` is not provided and cannot be recovered from
         ``baseline_results.metadata``, or if validation of ``outage_spec``
-        against ``designed_system`` fails.
+        against ``designed_system`` fails, or canonical Thermal selections
+        are invalid or duplicated.
+    NotImplementedError
+        If ``NoRampsMinDispatchFormulation`` is selected, including all-zero
+        profiles. Minimum dispatch is not implemented for resiliency.
     TypeError
         If ``baseline_results`` or ``designed_system`` is the wrong type.
 
@@ -428,6 +435,9 @@ def build_outage_dispatch(
         )
     if not isinstance(designed_system, DesignedSystem):
         raise TypeError("designed_system must be a DesignedSystem instance.")
+    validate_thermal_resiliency_formulation(
+        designed_system.cem_data, formulation_map=designed_system.formulation_map,
+    )
     if not isinstance(baseline_results, BaselineDispatchResults):
         raise TypeError("baseline_results must be a BaselineDispatchResults instance.")
     if critical_load_MW is not None:

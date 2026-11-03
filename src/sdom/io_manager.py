@@ -1,27 +1,37 @@
-import logging
-import re
-import pandas as pd
-import os
 import csv
+import logging
+import os
+import re
 from datetime import datetime
 
+import numpy as np
+import pandas as pd
 from pyomo.environ import sqrt
 
-from .common.utilities import safe_pyomo_value, check_file_exists, compare_lists, concatenate_dataframes, get_dict_string_void_list_from_keys_in_list, get_complete_path
+from .common.utilities import (
+    check_file_exists,
+    compare_lists,
+    concatenate_dataframes,
+    get_complete_path,
+    get_dict_string_void_list_from_keys_in_list,
+    safe_pyomo_value,
+)
 from .constants import (
+    AREA_TAG_DELIMITER,
+    AREA_TRANSPORTATION_MODEL_NETWORK,
+    AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS,
+    COPPER_PLATE_NETWORK,
+    DEFAULT_AREA_ID,
+    DEFAULT_FORMULATIONS_BY_COMPONENT,
+    FORMULATION_VALIDATION_BY_COMPONENT,
+    IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD,
     INPUT_CSV_NAMES,
     MW_TO_KW,
+    NO_RAMPS_MIN_DISPATCH_FORMULATION,
+    RUN_OF_RIVER_FORMULATION,
     VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
     VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP,
     VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP,
-    DEFAULT_NETWORK_FORMULATION,
-    DEFAULT_AREA_ID,
-    AREA_TAG_DELIMITER,
-    COPPER_PLATE_NETWORK,
-    AREA_TRANSPORTATION_MODEL_NETWORK,
-    AREA_TRANSPORTATION_MODEL_NETWORK_REQUIRED_INPUTS,
-    RUN_OF_RIVER_FORMULATION,
-    IMPORTS_EXPORTS_CAPACITY_PRICE_NET_LOAD,
 )
 
 # Compiled once: matches "<entity>@<area_id>@" with no extra '@' characters.
@@ -78,28 +88,46 @@ def get_formulation(data: dict, component: str = 'hydro', *, default=_GET_FORMUL
     component : str, optional
         Component name to look up (case-insensitive). Examples: ``'hydro'``,
         ``'Imports'``, ``'Exports'``, ``'Network'``. Defaults to ``'hydro'``.
-    default : str, optional
+    default : str or None, optional
         Value returned (and logged at INFO level) when the requested component
-        row is absent from ``formulations.csv``. If omitted, a missing row
-        raises ``IndexError`` (preserves the legacy behaviour).
+        row is absent. Takes precedence over registered component defaults.
+        If omitted, Thermal, Network, and Reserves use their central defaults;
+        other missing components retain the existing ``IndexError`` behavior.
+        Explicit ``None`` remains a valid caller-supplied default.
 
     Returns
     -------
-    str
-        The formulation name for the specified component.
+    str or None
+        The selected formulation or missing-row default.
+
+    Raises
+    ------
+    ValueError
+        If a component registered in
+        ``FORMULATION_VALIDATION_BY_COMPONENT`` has duplicate rows or an
+        unsupported, blank, or null selection. Currently only Thermal is
+        registered; defaults never replace invalid supplied selections.
+    IndexError
+        If no row, explicit default, or registered default exists.
 
     Notes
     -----
     - Performs case-insensitive matching on component name.
-    - Returns the first matching formulation (expects unique component names).
+    - Unregistered components retain first-match lookup behavior.
     - The ``default`` keyword is keyword-only to keep the function's mandatory
       positional surface unchanged.
     """
+    key = component.lower()
     formulations = data["formulations"]
     matches = formulations.loc[
-        formulations["Component"].str.lower() == component.lower()
+        formulations["Component"].str.lower() == key
     ]["Formulation"]
+    choices = FORMULATION_VALIDATION_BY_COMPONENT.get(key)
+    if choices is not None and len(matches) > 1:
+        raise ValueError(f"formulations.csv: {component.capitalize()} has duplicate rows; supported choices are {tuple(choices)}.")
     if matches.empty:
+        if default is _GET_FORMULATION_NO_DEFAULT:
+            default = DEFAULT_FORMULATIONS_BY_COMPONENT.get(key, _GET_FORMULATION_NO_DEFAULT)
         if default is _GET_FORMULATION_NO_DEFAULT:
             return matches.iloc[0]  # original IndexError surface
         logging.info(
@@ -108,7 +136,156 @@ def get_formulation(data: dict, component: str = 'hydro', *, default=_GET_FORMUL
             default,
         )
         return default
-    return matches.iloc[0]
+    selected = matches.iloc[0]
+    if choices is not None and (not isinstance(selected, str) or selected not in choices):
+        raise ValueError(f"formulations.csv: {component.capitalize()} selection {selected!r}; supported choices are {tuple(choices)}.")
+    return selected
+
+
+def validate_thermal_min_dispatch(data: dict, *, n_hours: int | None = None) -> pd.DataFrame:
+    """Validate and canonicalize an enabled hourly thermal fraction table.
+
+    Parameters
+    ----------
+    data : dict
+        Static ``thermal_data`` and ``thermal_min_dispatch_fraction`` inputs.
+        IDs use exact string identity; fractions are dimensionless.
+    n_hours : int, optional
+        Effective modeled horizon, including hydro-budget rounding.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Full-precision fractions sorted by Hour, with columns in thermal
+        plant order. Extra supplied hours are validated and retained.
+
+    Raises
+    ------
+    ValueError
+        If identity, bounds, headers, hours, values, or coverage are invalid.
+        An empty thermal fleet still requires an hour-only profile.
+    """
+    source = INPUT_CSV_NAMES["thermal_min_dispatch_fraction"]
+    thermal = data["thermal_data"]
+    if not {"Plant_id", "MinCapacity", "MaxCapacity"} <= set(thermal.columns):
+        raise ValueError("Data_BalancingUnits.csv: Plant_id, MinCapacity, and MaxCapacity headers are required.")
+    ids = thermal["Plant_id"].astype(str)
+    if thermal["Plant_id"].isna().any() or ids.str.strip().eq("").any() or ids.duplicated().any():
+        raise ValueError("Data_BalancingUnits.csv: Plant_id must be nonblank and unique after string normalization.")
+    bounds = {}
+    for bound in ("MinCapacity", "MaxCapacity"):
+        try:
+            values = pd.to_numeric(thermal[bound], errors="raise").to_numpy(dtype=float)
+        except (ValueError, TypeError) as exc:
+            invalid = pd.to_numeric(thermal[bound], errors="coerce").isna().to_numpy()
+            index = int(np.flatnonzero(invalid)[0])
+            raise ValueError(
+                f"Data_BalancingUnits.csv: Plant_id={ids.iloc[index]!r}: "
+                f"{bound} requires finite numeric MW; got {thermal[bound].iloc[index]!r}."
+            ) from exc
+        bad = ~np.isfinite(values) | (values < 0)
+        if bad.any():
+            index = int(np.flatnonzero(bad)[0])
+            raise ValueError(f"Data_BalancingUnits.csv: Plant_id={ids.iloc[index]!r}: invalid {bound}={thermal[bound].iloc[index]!r}; expected finite nonnegative MW.")
+        bounds[bound] = values
+    bad = bounds["MinCapacity"] > bounds["MaxCapacity"]
+    if bad.any():
+        index = int(np.flatnonzero(bad)[0])
+        raise ValueError(f"Data_BalancingUnits.csv: Plant_id={ids.iloc[index]!r}: require 0 <= MinCapacity <= MaxCapacity; got {bounds['MinCapacity'][index]}, {bounds['MaxCapacity'][index]}.")
+    if len(data.get("areas", [])) > 1:
+        expected = {
+            (str(a), str(k), float(lo), float(hi))
+            for a, k, lo, hi in thermal[["area_id", "Plant_id", "MinCapacity", "MaxCapacity"]].itertuples(index=False, name=None)
+        }
+        actual = [
+            (str(area), str(k), float(lo), float(hi))
+            for area, table in data["per_area_balancing_units"].items()
+            for k, lo, hi in table[["Plant_id", "MinCapacity", "MaxCapacity"]].itertuples(index=False, name=None)
+        ]
+        if set(actual) != expected or len(actual) != len(expected):
+            raise ValueError("thermal_data/per_area_balancing_units: thermal ownership and capacity bounds must agree.")
+    frame = data.get("thermal_min_dispatch_fraction")
+    if not isinstance(frame, pd.DataFrame):
+        raise ValueError(f"{source} (thermal_min_dispatch_fraction): required under {NO_RAMPS_MIN_DISPATCH_FORMULATION}.")
+    if frame.columns.duplicated().any():
+        raise ValueError(f"{source}: duplicate headers are not allowed.")
+    if not len(frame.columns) or frame.columns[0] != "Hour":
+        raise ValueError(f"{source}: first column must be Hour.")
+    missing = set(ids) - set(frame.columns[1:])
+    extra = set(frame.columns[1:]) - set(ids)
+    if missing or extra:
+        raise ValueError(f"{source}: missing Plant_id columns {sorted(missing)}; unexpected columns {sorted(extra, key=str)}.")
+
+    normalized = frame.loc[:, ["Hour", *ids]].copy()
+    for column in normalized:
+        raw = normalized[column]
+        context = "Hour" if column == "Hour" else f"Plant_id={column!r}"
+        boolean = (
+            raw.map(lambda x: isinstance(x, (bool, np.bool_)))
+            if raw.dtype == object or pd.api.types.is_bool_dtype(raw.dtype) else None
+        )
+        try:
+            numeric = pd.to_numeric(raw, errors="raise").to_numpy(dtype=float, na_value=np.nan)
+        except (ValueError, TypeError) as exc:
+            # Conversion failures are rare; locate the offending cell only then.
+            numeric = pd.to_numeric(raw, errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+            bad_index = int(np.flatnonzero(~np.isfinite(numeric))[0])
+            raise ValueError(
+                f"{source}: {context}, Hour={frame['Hour'].iloc[bad_index]}: expected a finite "
+                f"{'positive integer Hour' if column == 'Hour' else 'fraction in [0, 1]'}; got {raw.iloc[bad_index]!r}."
+            ) from exc
+        bad = ~np.isfinite(numeric)
+        bad |= (numeric < 1) | (numeric != np.floor(numeric)) if column == "Hour" else (numeric < 0) | (numeric > 1)
+        if boolean is not None:
+            bad |= boolean.to_numpy()
+        if bad.any():
+            index = int(np.flatnonzero(bad)[0])
+            raise ValueError(
+                f"{source}: {context}, Hour={frame['Hour'].iloc[index]}: expected a finite "
+                f"{'positive integer Hour' if column == 'Hour' else 'fraction in [0, 1]'}; got {raw.iloc[index]!r}."
+            )
+        normalized[column] = numeric
+    normalized = normalized.sort_values("Hour").reset_index(drop=True)
+    if normalized.empty or not np.array_equal(normalized["Hour"].to_numpy(), np.arange(1, len(normalized) + 1)):
+        raise ValueError(f"{source}: Hour labels must uniquely cover exactly 1..N without gaps (N > 0).")
+    normalized["Hour"] = normalized["Hour"].astype(int)
+    if n_hours is not None and len(normalized) < n_hours:
+        raise ValueError(f"{source}: insufficient Hour coverage for effective modeled horizon {n_hours}; got {len(normalized)}.")
+    return normalized
+
+
+def load_thermal_min_dispatch(data: dict, input_data_dir) -> None:
+    """Load the selected thermal profile without reading inactive stale files.
+
+    Parameters
+    ----------
+    data : dict
+        Loaded formulations and static thermal table, updated in place.
+    input_data_dir : str or pathlib.Path
+        Directory containing the conditional hourly CSV.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the enabled profile is absent (logged by the file helper).
+    ValueError
+        If enabled headers, identity, hours, bounds, or fractions are invalid.
+    """
+    selected = get_formulation(data, "Thermal")
+    filename = INPUT_CSV_NAMES["thermal_min_dispatch_fraction"]
+    if selected != NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        if os.path.isfile(os.path.join(input_data_dir, filename)):
+            logging.info("%s ignores %s.", selected, filename)
+        return
+    path = check_file_exists(input_data_dir, filename, "hourly thermal minimum-dispatch fractions")
+    with open(path, newline="", encoding="utf-8-sig") as stream:
+        headers = next(csv.reader(stream), [])
+    if len(headers) != len(set(headers)):
+        raise ValueError(f"{filename}: duplicate CSV headers are not allowed.")
+    if not headers or headers[0] != "Hour":
+        raise ValueError(f"{filename}: first column must be Hour.")
+    data["thermal_min_dispatch_fraction"] = pd.read_csv(path)
+    data["thermal_min_dispatch_fraction"] = validate_thermal_min_dispatch(data)
 
 
 def get_network_formulation(data: dict) -> str:
@@ -134,9 +311,7 @@ def get_network_formulation(data: dict) -> str:
         defaulting to :data:`~sdom.constants.DEFAULT_NETWORK_FORMULATION`
         when the ``Network`` row is absent.
     """
-    return get_formulation(
-        data, component="Network", default=DEFAULT_NETWORK_FORMULATION
-    )
+    return get_formulation(data, component="Network")
 
 
 # ---------------------------------------------------------------------------------
@@ -1350,6 +1525,8 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
             - 'storage_data' (pd.DataFrame): Storage technology characteristics
             - 'STORAGE_SET_J_TECHS', 'STORAGE_SET_B_TECHS' (list): Storage tech identifiers
             - 'thermal_data' (pd.DataFrame): Thermal balancing unit parameters
+            - 'thermal_min_dispatch_fraction' (pd.DataFrame): Full-precision
+              hourly fractions, only for NoRampsMinDispatchFormulation
             - 'scalars' (pd.DataFrame): System-level scalar parameters
             - 'import_cap', 'export_cap', 'import_prices', 'export_prices' (pd.DataFrame):
               Trade data (if import/export formulation active)
@@ -1447,7 +1624,16 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
     logging.debug("- Trying to load thermal generation data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["thermal_data"], "thermal data")
     if input_file_path != "":
-        thermal_data = pd.read_csv(input_file_path).round(5)
+        thermal_mode = get_formulation({"formulations": formulations}, "Thermal")
+        thermal_data = pd.read_csv(
+            input_file_path,
+            dtype={"Plant_id": str} if thermal_mode == NO_RAMPS_MIN_DISPATCH_FORMULATION else None,
+        )
+        rounded_columns = (
+            thermal_data.columns.difference(["MinCapacity", "MaxCapacity"])
+            if thermal_mode == NO_RAMPS_MIN_DISPATCH_FORMULATION else thermal_data.columns
+        )
+        thermal_data[rounded_columns] = thermal_data[rounded_columns].round(5)
 
     logging.debug("- Trying to load scalars data...")
     input_file_path = check_file_exists(input_data_dir, INPUT_CSV_NAMES["scalars"], "scalars")
@@ -1473,6 +1659,8 @@ def load_data( input_data_dir:str = '.\\Data\\' ):
             "thermal_data": thermal_data,
             "scalars": scalars,
         }
+
+    load_thermal_min_dispatch(data_dict, input_data_dir)
 
     # --- Network (zonal) formulation: backward-compatible default ---
     network_formulation = get_network_formulation(data_dict)

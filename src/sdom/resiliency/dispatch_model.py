@@ -28,9 +28,12 @@ from sdom.optimization_main import _initialize_model_copperplate
 from sdom.resiliency.formulations_imports_demand_charges import (
     add_demand_charges_to_existing_imports,
 )
-from sdom.resiliency.system_state import BaselineDispatchResults, DesignedSystem
+from sdom.resiliency.system_state import (
+    BaselineDispatchResults,
+    DesignedSystem,
+    validate_thermal_resiliency_formulation,
+)
 from sdom.utils_performance_meassure import ModelInitProfiler
-
 
 logger = logging.getLogger(__name__)
 
@@ -340,9 +343,15 @@ def build_baseline_dispatch(
     ValueError
         If ``n_hours`` is not positive or if ``designed_system.cem_data``
         is missing.
+    NotImplementedError
+        If ``NoRampsMinDispatchFormulation`` is selected, regardless of profile
+        values. Thermal minimum dispatch is not implemented for resiliency.
     """
     if not isinstance(designed_system, DesignedSystem):
         raise TypeError("designed_system must be a DesignedSystem instance.")
+    validate_thermal_resiliency_formulation(
+        designed_system.cem_data, formulation_map=designed_system.formulation_map,
+    )
 
     n_hours = int(n_hours)
     if n_hours <= 0:

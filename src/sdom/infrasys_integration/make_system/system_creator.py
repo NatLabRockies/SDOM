@@ -10,7 +10,9 @@ import pandas as pd
 from infrasys import System
 
 from sdom import load_data as _load_data
+from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
 from sdom.initializations import validate_vre_capacity_data
+from sdom.io_manager import get_formulation, validate_thermal_min_dispatch
 
 from ..models import (
     SDOMArea,
@@ -32,6 +34,8 @@ from ..models import (
 )
 from ..validation import validate_vre_capacity_bounds
 from .utils import (
+    _DEFAULT_INITIAL_TIMESTAMP,
+    _DEFAULT_RESOLUTION,
     _attach_bus_geographic_info,
     _attach_column_series,
     _attach_first_numeric_series,
@@ -213,7 +217,8 @@ def load_system_from_data(data: dict[str, Any], *, name: str = "SDOM") -> System
     ------
     ValueError
         If required area information is missing or component values fail
-        validation.
+        validation. Enabled thermal profiles require at least two hourly
+        values because Infrasys storage does not represent one-point series.
 
     Examples
     --------
@@ -225,6 +230,10 @@ def load_system_from_data(data: dict[str, Any], *, name: str = "SDOM") -> System
     True
     """
     _validate_vre_source_data(data)
+    if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        fractions = validate_thermal_min_dispatch(data)
+        if len(fractions) < 2:
+            raise ValueError("min_dispatch_fraction System conversion requires at least two hourly values (Infrasys storage).")
     system = System(name=name)
     _, buses = _add_areas_and_buses(system, data)
     _add_loads(system, data, buses)
@@ -254,17 +263,22 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     -------
     dict[str, Any]
         Shallow copy of the original SDOM data dictionary. DataFrame values
-        other than VRE capacity tables are intentionally shared with the
+        other than VRE capacity and thermal fraction tables are shared with the
         source dictionary to avoid unnecessary memory growth during the
         compatibility phase. Global and per-area VRE capacity tables are
         copied so component ``min_active_power`` and ``max_active_power``
         values can be projected to their ``MinCapacity`` and ``capacity``
         columns.
+        Enabled thermal fractions are copied and projected from authoritative
+        generator-owned ``min_dispatch_fraction`` time series. Series must be
+        unique, hourly, start at 2000-01-01, and cover the retained profile.
 
     Raises
     ------
     ValueError
-        If ``system`` was not produced by this compatibility loader.
+        If ``system`` was not produced by this compatibility loader, or an
+        enabled thermal series is missing, ambiguous, misaligned, invalid,
+        short, or owned by a different area than its static thermal input.
 
     Examples
     --------
@@ -281,6 +295,38 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
     validate_vre_capacity_bounds(system)
     restored = dict(data)
     _project_vre_capacity_bounds(restored, system)
+    if get_formulation(restored, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
+        frame = validate_thermal_min_dispatch(restored)
+        areas_by_plant = {
+            str(plant): str(area)
+            for area, table in restored["per_area_balancing_units"].items()
+            for plant in table["Plant_id"]
+        }
+        for plant in frame.columns[1:]:
+            owner = system.get_component(SDOMThermalGenerator, f"thermal:{plant}")
+            if owner.bus.area.name != areas_by_plant.get(plant):
+                raise ValueError(f"min_dispatch_fraction: Plant_id={plant!r} ownership differs from the static thermal table.")
+            keys = system.list_time_series_keys(owner, name="min_dispatch_fraction")
+            if len(keys) != 1:
+                raise ValueError(f"min_dispatch_fraction: Plant_id={plant!r} requires exactly one series; got {len(keys)}.")
+            series = system.get_time_series_by_key(owner, keys[0])
+            if series.resolution != _DEFAULT_RESOLUTION or series.initial_timestamp != _DEFAULT_INITIAL_TIMESTAMP:
+                raise ValueError(f"min_dispatch_fraction: Plant_id={plant!r} requires hourly resolution starting 2000-01-01.")
+            if len(series.data) < len(frame):
+                raise ValueError(f"min_dispatch_fraction: Plant_id={plant!r} has insufficient profile coverage.")
+            # Validate extra series values too, even though only retained hours
+            # can be projected into the canonical compatibility frame.
+            check = {
+                "thermal_data": restored["thermal_data"].loc[
+                    restored["thermal_data"]["Plant_id"].astype(str) == plant
+                ],
+                "thermal_min_dispatch_fraction": pd.DataFrame({
+                    "Hour": range(1, len(series.data) + 1), plant: series.data,
+                }),
+            }
+            validated = validate_thermal_min_dispatch(check)
+            frame[plant] = validated[plant].to_numpy()[:len(frame)]
+        restored["thermal_min_dispatch_fraction"] = frame
     return restored
 
 
@@ -454,14 +500,14 @@ def _add_vre_generators(system: System, data: Mapping[str, Any], buses: Mapping[
             )
 
 
-def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapping[str, SDOMBus]) -> None:
+def _add_thermal_generators(system: System, data: dict[str, Any], buses: Mapping[str, SDOMBus]) -> None:
     """Add thermal generator components from balancing-unit data.
 
     Parameters
     ----------
     system : infrasys.System
         System to mutate.
-    data : mapping of str to Any
+    data : dict of str to Any
         SDOM data dictionary containing ``per_area_balancing_units``.
     buses : mapping of str to SDOMBus
         Bus lookup keyed by area id.
@@ -469,7 +515,9 @@ def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapp
     Returns
     -------
     None
-        Components are added to ``system`` in place.
+        Components are added to ``system`` in place, including validated
+        hourly ``min_dispatch_fraction`` time series only under
+        ``NoRampsMinDispatchFormulation``. Empty fleets add no series.
 
     Examples
     --------
@@ -480,6 +528,11 @@ def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapp
     >>> system.get_component(SDOMThermalGenerator, "thermal:p1").fuel_cost
     2.0
     """
+    fractions = (
+        validate_thermal_min_dispatch(data)
+        if "formulations" in data and get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION
+        else None
+    )
     for area_id, frame in _iter_area_frames(data.get("per_area_balancing_units")):
         for row in frame.itertuples(index=False):
             row_data = row._asdict()
@@ -532,6 +585,11 @@ def _add_thermal_generators(system: System, data: Mapping[str, Any], buses: Mapp
             )
             system.add_component(generator)
             _attach_bus_geographic_info(system, generator, buses[area_id])
+            if fractions is not None:
+                _attach_column_series(
+                    system, generator, fractions, column=plant_id,
+                    name="min_dispatch_fraction", source_key="thermal_min_dispatch_fraction",
+                )
 
 
 def _add_profile_generators(system: System, data: Mapping[str, Any], buses: Mapping[str, SDOMBus]) -> None:
