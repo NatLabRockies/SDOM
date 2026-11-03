@@ -62,6 +62,30 @@ Sign convention:
 - Positive $f_{l,h}$ means flow in `from -> to` direction.
 - Net inflow to area $a$ is subtracted from the left-hand side in the implementation.
 
+## Optional Thermal Minimum Dispatch
+
+Let $\mathcal K_a$ be the balancing units owned by area $a$, with installed
+capacity $P^{bal}_{a,k}$ (MW), dispatch $G^{bal}_{a,kh}$ (MW), and dimensionless
+hourly minimum fraction $q^{bal}_{a,kh}$. Under
+`Thermal = NoRampsMinDispatchFormulation`, each local host imposes:
+
+$$
+\forall a\in\mathcal A,\ k\in\mathcal K_a,\ h\in\mathcal H:\qquad
+\underline p^{bal}_{a,k}\leq P^{bal}_{a,k}\leq\bar p^{bal}_{a,k},
+\qquad 0\leq G^{bal}_{a,kh}\leq P^{bal}_{a,k},
+\qquad G^{bal}_{a,kh}\geq q^{bal}_{a,kh}P^{bal}_{a,k}.
+$$
+
+The bounds $\underline p^{bal}_{a,k},\bar p^{bal}_{a,k}$ are existing input MW.
+For feasible positive installed capacity,
+$CF^{bal}_{a,k}:=\sum_hG^{bal}_{a,kh}/(|\mathcal H|P^{bal}_{a,k})
+\geq\sum_hq^{bal}_{a,kh}/|\mathcal H|$.
+The [same capacity-factor qualifications](sdom_math_formulation.md#hourly-minimum-dispatch)
+apply per area, including any explanatory target $CF^{bal,req}_{a,k}$.
+No new transfer variables or sinks are introduced: scheduled bounded transfers
+can relieve a surplus, while congestion can make the obligations infeasible.
+An area without thermal assets has an empty $\mathcal K_a$ and no floor rows.
+
 ## Optional Local Capacity Margin
 
 When `Reserves = CapacityMarginFormulation`, apply the same global scalar

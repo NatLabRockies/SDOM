@@ -521,6 +521,44 @@ $$
 \underline{p}^{bal}_k \;\leq\; P^{bal}_k \;\leq\; \bar{p}^{bal}_k
 $$
 
+#### Hourly minimum dispatch
+
+Only `Thermal = NoRampsMinDispatchFormulation` adds:
+
+$$
+\forall\, k \in \mathcal{K} \;\; \forall\, h \in \mathcal{H}: \qquad
+G^{bal}_{kh} \geq q^{bal}_{kh}P^{bal}_k,\qquad q^{bal}_{kh}\in[0,1].
+$$
+
+Here $q^{bal}_{kh}$ is the dimensionless hourly input
+`thermal.min_dispatch_fraction[h,k]`; $P^{bal}_k$ is total optimized installed
+MW, including candidate expansion. The existing upper bounds, costs, and
+capacity-margin equations are unchanged. Constant input coefficients keep the
+floor linear. Zero coefficients create no additional inequality; no commitment,
+ramping, startup-cost, or availability modeling is introduced.
+
+```{note}
+**Capacity-factor interpretation.** For a **feasible** solution and $P^{bal}_k>0$,
+define the modeled-horizon
+capacity-factor diagnostic (not a new variable or export):
+
+$$
+CF^{bal}_k :=
+\frac{\sum_{h\in\mathcal H}G^{bal}_{kh}}{|\mathcal H|P^{bal}_k}
+\geq \frac{1}{|\mathcal H|}\sum_{h\in\mathcal H}q^{bal}_{kh}.
+$$
+
+One-hour MW-to-MWh factors cancel. Choosing the mean profile at least a
+modeler-selected target $CF^{bal,req}_k$ guarantees that bound only if the
+plant is installed and the model is feasible. It does not mandate investment,
+guarantee revenue, or imply an unmodeled annual factor. Recompute the mean for
+truncated or budget-adjusted horizons. For example, `[0.40,0.30,0.50,0.60]`
+on an installed 200 MW plant requires `[80,60,100,120]` MW, at least 360 MWh,
+and $CF^{bal}_k\geq0.45$. Actual output may exceed the floors.
+These capacity-factor symbols explain the guarantee; they are not additional
+constraint parameters, model variables, or inputs.
+```
+
 **Symbols used in balancing unit constraints:**
 
 | Symbol                  | Type      | Description                         |
@@ -533,6 +571,7 @@ $$
 | $\bar{p}^{bal}_k$       | Parameter | Max allowed balancing capacity (MW) |
 | $P^{bal}_k$             | Variable  | Installed balancing capacity (MW)   |
 | $G^{bal}_{kh}$          | Variable  | Balancing unit generation (MW)      |
+| $q^{bal}_{kh}$          | Parameter | Hourly minimum-dispatch fraction in $[0,1]$ |
 
 ### Storage constraints
 

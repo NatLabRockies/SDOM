@@ -15,6 +15,28 @@ flowchart LR
     Rebuild --> Plots[Plots]
 ```
 
+## Hourly thermal minimum-dispatch profiles
+
+With `Thermal = NoRampsMinDispatchFormulation`, each `SDOMThermalGenerator`
+owns one `SingleTimeSeries` named `min_dispatch_fraction`, with
+`source_key="thermal_min_dispatch_fraction"` and its plant ID as
+`source_column`. Temporal values are stored in time-series storage, not scalar,
+list, or supplemental-attribute fields.
+
+Use public `System.get_time_series`, `remove_time_series`, and
+`add_time_series` APIs to retrieve/replace a profile. Before construction,
+`system_to_data_dict` projects the current series into a copied canonical frame;
+the original input frame is unchanged. Series must be unique, finite fractions
+in `[0,1]`, hourly, aligned to `2000-01-01 00:00`, and cover the original profile.
+Extra values are validated too. Missing, ambiguous, or malformed edits fail
+explicitly rather than falling back to retained source values.
+
+Infrasys 1.2.1 requires at least two points per `SingleTimeSeries`; a one-hour
+profile therefore raises a clear error at System conversion. One-hour dictionary
+profile parsing remains supported (independent existing singleton storage-model
+limitations still apply). Successful instance construction releases compatibility
+source data as before. Both copperplate and zonal adapters use the shared floors.
+
 ## Data Model
 
 An infrasys `System` owns the typed input components that define an SDOM
