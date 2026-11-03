@@ -12,7 +12,8 @@ from infrasys import System
 from sdom import load_data as _load_data
 from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
 from sdom.initializations import validate_vre_capacity_data
-from sdom.io_manager import get_formulation, validate_thermal_min_dispatch
+from sdom.io.formulations import get_formulation
+from sdom.io.validation import validate_thermal_min_dispatch
 
 from ..models import (
     SDOMArea,

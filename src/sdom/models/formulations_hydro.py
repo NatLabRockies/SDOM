@@ -1,13 +1,24 @@
 """Build hourly hydropower dispatch with profile or energy-budget constraints."""
 
 from pyexpat import model
-from pyomo.environ import Set, Param, value, NonNegativeReals
-from .models_utils import add_generation_variables, add_alpha_and_ts_parameters, add_budget_parameter, add_upper_bound_paramenters, add_lower_bound_paramenters, generic_budget_rule
-from pyomo.core import Var, Constraint, Expression
 
-from ..constants import VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP, MONTHLY_BUDGET_HOURS_AGGREGATION, DAILY_BUDGET_HOURS_AGGREGATION
-from ..io_manager import get_formulation
+from pyomo.core import Constraint, Expression, Var
+from pyomo.environ import NonNegativeReals, Param, Set, value
 
+from ..constants import (
+    DAILY_BUDGET_HOURS_AGGREGATION,
+    MONTHLY_BUDGET_HOURS_AGGREGATION,
+    VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
+)
+from ..io.formulations import get_formulation
+from .models_utils import (
+    add_alpha_and_ts_parameters,
+    add_budget_parameter,
+    add_generation_variables,
+    add_lower_bound_paramenters,
+    add_upper_bound_paramenters,
+    generic_budget_rule,
+)
 
 ####################################################################################|
 # ----------------------------------- Parameters -----------------------------------|

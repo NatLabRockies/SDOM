@@ -27,7 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 from sdom.common.utilities import get_complete_path
-from sdom.io_manager import load_data
+from sdom.io.loader import load_data
 from sdom.resiliency.system_state import DesignedSystem, validate_thermal_resiliency_formulation
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ import math
 from pyomo.core.base.block import ScalarBlock
 from pyomo.environ import Constraint, NonNegativeReals, Param, Var, quicksum, sqrt
 
-from ..io_manager import get_formulation
+from ..io.formulations import get_formulation
 
 adequacy_duration_hours = 1
 

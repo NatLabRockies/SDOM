@@ -37,7 +37,8 @@ from .constants import (
     VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
 )
 from .initializations import check_n_hours, initialize_params, initialize_sets
-from .io_manager import get_formulation, get_network_formulation, validate_thermal_min_dispatch
+from .io.formulations import get_formulation, get_network_formulation
+from .io.validation import validate_thermal_min_dispatch
 from .models.formulations_hydro import (
     add_hydro_budget_constraints,
     add_hydro_run_of_river_constraints,

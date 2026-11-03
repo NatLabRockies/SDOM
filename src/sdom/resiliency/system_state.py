@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
-from sdom.io_manager import get_formulation
+from sdom.io.formulations import get_formulation
 
 logger = logging.getLogger(__name__)
 

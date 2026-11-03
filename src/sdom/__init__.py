@@ -2,7 +2,8 @@
 
 from .common.utilities import safe_pyomo_value
 from .config_sdom import configure_logging
-from .io_manager import export_results, load_data
+from .io.export import export_results
+from .io.loader import load_data
 from .optimization_main import get_default_solver_config_dict, initialize_model, run_solver
 from .parametric import ParametricStudy
 from .resiliency import evaluate_resiliency

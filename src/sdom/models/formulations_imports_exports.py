@@ -1,13 +1,14 @@
 """Build external trade capacities, price terms, and optional net-load coupling."""
 
-from pyomo.core import Var, Expression, Constraint
+from pyomo.core import Constraint, Expression, Var
 from pyomo.environ import *
-from .models_utils import get_filtered_ts_parameter_dict
-from ..io_manager import get_formulation
+
 from ..constants import (
     IMPORTS_EXPORTS_NOT_MODEL,
     IMPORTS_EXPORTS_WITHOUT_NET_LOAD_CONSTRAINTS,
 )
+from ..io.formulations import get_formulation
+from .models_utils import get_filtered_ts_parameter_dict
 
 ####################################################################################|
 # ----------------------------------- Parameters -----------------------------------|

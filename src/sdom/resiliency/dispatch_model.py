@@ -19,7 +19,7 @@ import pandas as pd
 import pyomo.environ as pyo
 
 from sdom.constants import IMPORTS_EXPORTS_NOT_MODEL
-from sdom.io_manager import get_formulation
+from sdom.io.formulations import get_formulation
 from sdom.models.formulations_storage import add_storage_variable_costs
 from sdom.models.formulations_thermal import (
     add_thermal_variable_costs,

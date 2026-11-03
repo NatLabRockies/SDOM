@@ -6,7 +6,8 @@ from pyomo.core import Constraint, Expression, Var
 from pyomo.environ import NonNegativeReals, Param, Set, UnitInterval, quicksum
 
 from ..constants import NO_RAMPS_MIN_DISPATCH_FORMULATION, THERMAL_PROPERTIES_NAMES
-from ..io_manager import get_formulation, validate_thermal_min_dispatch
+from ..io.formulations import get_formulation
+from ..io.validation import validate_thermal_min_dispatch
 from .models_utils import (
     add_generation_variables,
     add_generic_fixed_costs,
