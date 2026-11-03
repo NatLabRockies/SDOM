@@ -15,6 +15,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
+from sdom.io_manager import get_formulation
+
 logger = logging.getLogger(__name__)
 
 
@@ -151,9 +154,6 @@ def validate_thermal_resiliency_formulation(data: dict | None, *, formulation_ma
     ValueError
         If canonical inputs contain invalid or duplicate Thermal selections.
     """
-    from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
-    from sdom.io_manager import get_formulation
-
     selected = data is not None and get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION
     override = any(
         component.lower() == "thermal" and selection == NO_RAMPS_MIN_DISPATCH_FORMULATION

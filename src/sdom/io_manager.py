@@ -33,6 +33,7 @@ from .constants import (
     VALID_IMPORTS_EXPORTS_FORMULATIONS_TO_DESCRIPTION_MAP,
     VALID_NETWORK_FORMULATIONS_TO_DESCRIPTION_MAP,
 )
+from .results import OptimizationResults
 
 # Compiled once: matches "<entity>@<area_id>@" with no extra '@' characters.
 _AREA_TAG_RE = re.compile(
@@ -1850,9 +1851,6 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
     This function accepts either an OptimizationResults dataclass (new API)
     or the legacy tuple return from run_solver (deprecated).
     """
-    # Import here to avoid circular imports
-    from .results import OptimizationResults
-
     logging.info("Exporting SDOM results...")
     os.makedirs(output_dir, exist_ok=True)
 

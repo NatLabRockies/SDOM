@@ -6,11 +6,11 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from pyomo.environ import sqrt, value as pyo_value
+from pyomo.environ import sqrt
+from pyomo.environ import value as pyo_value
 
-from .common.utilities import safe_pyomo_value
+from .common.utilities import concatenate_dataframes, safe_pyomo_value
 from .constants import MW_TO_KW
-
 
 _RESULT_ATTRIBUTE_UNITS = {
     "capacity": "MW",
@@ -947,8 +947,6 @@ def _build_summary_dataframe(model, results: OptimizationResults, storage_tech_l
     pd.DataFrame
         Summary DataFrame with metrics.
     """
-    from .common.utilities import concatenate_dataframes
-
     # Total cost
     total_cost = pd.DataFrame.from_dict(
         {"Total cost": [None, 1, results.total_cost, "$US"]},
@@ -1111,8 +1109,6 @@ def _build_zonal_summary_dataframe(
         Summary rows matching the legacy summary schema used by CSV export and
         standard plotting functions.
     """
-    from .common.utilities import concatenate_dataframes
-
     total_cost = pd.DataFrame.from_dict(
         {"Total cost": [None, 1, results.total_cost, "$US"]},
         orient="index",
@@ -1928,4 +1924,3 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     )
 
     return results
-

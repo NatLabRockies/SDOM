@@ -9,6 +9,7 @@ import copy
 import logging
 
 from ..optimization_main import initialize_model, run_solver
+from ..results import OptimizationResults
 from .mutations import (
     _apply_scalar_mutation,
     _apply_storage_factor_mutation,
@@ -56,8 +57,6 @@ def _run_single_case(case_dict: dict):
         Results dataclass.  ``is_optimal`` is ``False`` when the solver did
         not find a feasible solution or an exception was raised.
     """
-    from ..results import OptimizationResults
-
     case_name: str = case_dict["case_name"]
     data: dict = copy.deepcopy(case_dict["data"])
     solver_config: dict = case_dict["solver_config"]

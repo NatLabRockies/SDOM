@@ -27,6 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 from sdom.common.utilities import get_complete_path
+from sdom.io_manager import load_data
 from sdom.resiliency.system_state import DesignedSystem, validate_thermal_resiliency_formulation
 
 logger = logging.getLogger(__name__)
@@ -461,8 +462,6 @@ def load_cem_data(inputs_dir, *, formulations_overrides=None):
         If ``inputs_dir`` does not exist or is missing CSVs required by
         :func:`sdom.io_manager.load_data`.
     """
-    from sdom.io_manager import load_data  # local import to avoid a cycle
-
     inputs_dir = Path(inputs_dir)
     if not inputs_dir.is_dir():
         raise FileNotFoundError(f"CEM inputs directory does not exist: {inputs_dir}")
