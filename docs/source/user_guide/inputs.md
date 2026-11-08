@@ -8,6 +8,13 @@ All input CSV files should be placed in a directory (e.g., `Data/scenario_name/`
 
 The following sections list each file and describe the data required in every field.
 
+Each **Main use (math)** column links to the equation or constraint that mainly
+uses that input. Identifiers select model sets or profile columns; descriptions
+and geographic coordinates are metadata, not numerical equation coefficients.
+All hourly power profiles are in MW. Summing them over SDOM's one-hour steps
+gives MWh. Preserve the CSV cost units below: the model converts USD/kW and
+USD/kWh inputs to the USD/MW and USD/MWh coefficients used in the math reference.
+
 > **⚠️ Attention:**  
 >  - Make sure all required CSV files are present in the specified folder before starting the simulation.
 >  - Preserve the documented filename stem. For example, `CapSolar_2025.csv` must retain the `CapSolar` stem, though case and separators can vary.
@@ -32,32 +39,32 @@ For full zonal CSV schema, validation rules, and examples, see [Zonal Inputs](zo
 This file the user selects the modeling approach (formulation) for each major system component in the SDOM optimization model. Each row assigns a formulation to a component, determining how SDOM will represent its behavior and constraints during optimization.
 
 **CSV file columns:**
-| Field/Column           | Description                                                                    |Expected type |
-|------------------------|--------------------------------------------------------------------------------|--------------|
-| Component              | String with the component name you are going to set the formulation (Model).   |string        |
-| Formulation            | Name of the formulation (model) you want to use. See more below.               |String        |
-| Description (Optional) | Just a description/guidelines that developers let for users.                   |String        |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `Component` | Component whose formulation is selected. | Not applicable; selector | string | Selects the relevant [constraint family](sdom_math_formulation.md#constraints), not a numerical coefficient. |
+| `Formulation` | Exact formulation name; see supported choices below. | Not applicable; selector | string | Enables the corresponding [constraints](sdom_math_formulation.md#constraints). |
+| `Description` | Optional explanatory text. | Not applicable; metadata | string | No optimization equation; descriptive metadata for the selected [constraint family](sdom_math_formulation.md#constraints). |
 
 **Important Notes:**
 - Only one formulation should be assigned per component.
 - The chosen formulation directly affects how SDOM optimizes and simulates each component.
 - Refer to the tables below for valid formulations for each component.
 
-| Component | Formulation | Description |
-|-----------|-------------|-------------|
-| hydro | RunOfRiverFormulation | Fixed hourly hydro profile |
-| hydro | MonthlyBudgetFormulation | Monthly energy budget constraint |
-| hydro | DailyBudgetFormulation | Daily energy budget constraint |
-| Thermal | NoRampsDispatchFormulation | Legacy continuous dispatch (default if Thermal is absent) |
-| Thermal | NoRampsMinDispatchFormulation | Hourly must-run fractions of total installed thermal capacity |
-| Imports | NotModel | No imports modeled |
-| Imports | CapacityPriceNetLoadFormulation | Price-based import optimization |
-| Exports | NotModel | No exports modeled |
-| Exports | CapacityPriceNetLoadFormulation | Price-based export optimization |
-| Network | CopperPlateNetwork | Single-area legacy network model |
-| Network | AreaTransportationModelNetwork | Multi-area transportation network |
-| Reserves | notModel | Disabled default; no reserve components |
-| Reserves | CapacityMarginFormulation | Deterministic hourly capacity margin |
+| Component | Formulation | Description | Units | Main use (math) |
+| --- | --- | --- | --- | --- |
+| hydro | RunOfRiverFormulation | Fixed hourly hydro profile | Not applicable; selector | [Fixed generation injections](sdom_math_formulation.md#fixed-generation-injections). |
+| hydro | MonthlyBudgetFormulation | Fixed 730-hour energy upper bounds | Not applicable; selector | [Hydro energy budget](sdom_math_formulation.md#energy-budget-upper-bound). |
+| hydro | DailyBudgetFormulation | 24-hour energy upper bounds | Not applicable; selector | [Hydro energy budget](sdom_math_formulation.md#energy-budget-upper-bound). |
+| Thermal | NoRampsDispatchFormulation | Legacy continuous dispatch; default if absent | Not applicable; selector | [Thermal dispatch limit](sdom_math_formulation.md#dispatch-limit). |
+| Thermal | NoRampsMinDispatchFormulation | Hourly fractions of total installed capacity | Not applicable; selector | [Hourly minimum dispatch](sdom_math_formulation.md#hourly-minimum-dispatch). |
+| Imports | NotModel | No imports modeled | Not applicable; selector | [External trade constraints](sdom_math_formulation.md#import-and-export-constraints) are disabled for imports. |
+| Imports | CapacityPriceNetLoadFormulation | Capacity/price/net-load constrained imports | Not applicable; selector | [Import capacity](sdom_math_formulation.md#capacity-limits) and [import gate](sdom_math_formulation.md#import-allowed-only-when-net-load-is-positive). |
+| Exports | NotModel | No exports modeled | Not applicable; selector | [External trade constraints](sdom_math_formulation.md#import-and-export-constraints) are disabled for exports. |
+| Exports | CapacityPriceNetLoadFormulation | Capacity/price/net-load constrained exports | Not applicable; selector | [Export capacity](sdom_math_formulation.md#capacity-limits) and [export gate](sdom_math_formulation.md#export-allowed-only-when-net-load-is-negative). |
+| Network | CopperPlateNetwork | Single-area system-wide balance | Not applicable; selector | [Energy supply balance](sdom_math_formulation.md#energy-supply-balance). |
+| Network | AreaTransportationModelNetwork | Multi-area transportation network | Not applicable; selector | [Per-area supply balance](zonal_math_formulation.md#per-area-supply-balance) and [network limits](zonal_math_formulation.md#network-constraints). |
+| Reserves | notModel | Disabled default; no reserve components | Not applicable; selector | [Capacity-margin equations](sdom_math_formulation.md#optional-hourly-capacity-margin) are disabled. |
+| Reserves | CapacityMarginFormulation | Deterministic hourly capacity margin | Not applicable; selector | [Hourly capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
 
 `get_formulation` uses centrally registered defaults for missing Thermal,
 Network, and Reserves rows. An explicit API `default=` takes precedence.
@@ -81,10 +88,10 @@ Network,CopperPlateNetwork
 This file provides the system hourly electricity demand time-series.
 
 **CSV file columns:**
-| Field/Column    | Description                                                                                         |Expected type |
-|-----------------|-----------------------------------------------------------------------------------------------------|--------------|
-| *Hour           | Number of the hour of the year, from 1 to 8760 (You can teh number of hours you prefer).            |Int           |
-| Load            | The estimated system electricity demand at each hour of the year in MWh.                            |float         |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `*Hour` | One-based hourly index covering the modeled horizon. | Hour index; one-hour steps | int | Index $h$ in [energy supply balance](sdom_math_formulation.md#energy-supply-balance). |
+| `Load` | Gross customer electricity demand in each hour. | MW | float | $d_h$ in [supply balance](sdom_math_formulation.md#energy-supply-balance), [clean share](sdom_math_formulation.md#carbon-free-generation-target), and [capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
 
 
 
@@ -107,10 +114,10 @@ This file defines the hourly solar/wind capacity factors for each one of the pot
 - Values: Capacity factors (0-1) for each hour and plant
 
 **CSV file columns:**
-| Field/Column    | Description                                                                                         |Expected type |
-|-----------------|-----------------------------------------------------------------------------------------------------|--------------|
-| Hour            | Number of the hour of the year, from 1 to 8760 (You can choose the number of hours you prefer)*.            |Int           |
-| Col for each id | The estimated capacity factor at each hour of the year for each site in MWh/installed MW.          |float         |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `*Hour` | First column: one-based hourly index. The VRE builder reads the first column as the hour key. | Hour index; one-hour steps | int | Index $h$ in [PV balance](sdom_math_formulation.md#pv-balance) or [wind balance](sdom_math_formulation.md#wind-balance). |
+| `<sc_gid>` | One capacity-factor column per candidate site in the corresponding capacity table. Values are fractions between 0 and 1. | Dimensionless fraction | float | $\sigma_{ph}$ in [PV balance](sdom_math_formulation.md#pv-balance), $\zeta_{wh}$ in [wind balance](sdom_math_formulation.md#wind-balance), and contemporaneous VRE output in [capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
 
  **\*⚠️ Attention:**  
 >  - Ensure that your input files contain a number of hours equal to or greater than the `n_hours` parameter specified when calling the `initialize_model()` function:
@@ -125,19 +132,19 @@ model = initialize_model(
 
 ##### **Plant Data**: `CapSolar.csv`
 This file lists all candidate sites for solar PV and wind energy deployment. For each site, it specifies installed-capacity bounds, geographic coordinates, capital expenditure (CAPEX), fixed operation and maintenance (FOM) costs, and transmission interconnection costs. These parameters are used by SDOM to evaluate investment options and optimize resource allocation across the available sites.
-- Columns: `sc_gid` (plant ID), `capacity` (MW), optional `MinCapacity` (MW), `CAPEX_M` ($/kW), `FOM_M` ($/kW-yr), `trans_cap_cost` ($/kW)
+- Columns: `sc_gid` (plant ID), `capacity` (MW), optional `MinCapacity` (MW), `CAPEX_M` (USD/kW), `FOM_M` (USD/kW/year), `trans_cap_cost` (USD/MW)
 
 **CSV file columns:**
-| Field/Column    | Description                                                                                         |Expected type |
-|-----------------|-----------------------------------------------------------------------------------------------------|--------------|
-| sc_gid          | Unique identifier for each PV/Wind site or resource that will be represented by a single profile.   |string        |
-| capacity        | Upper bound for the allowed installed capacity at the site (MW).                                    |float         |
-| MinCapacity     | Optional lower bound for the allowed installed capacity at the site (MW).                           |float         |
-| latitude        | Latitude coordinate of the site (optional for future fetching of VRE files).                        |float         |
-| longitude       | Longitude coordinate of the site (optional for future fetching of VRE profiles).                    |float         |
-| trans_cap_cost  | Transmission Capital expediture costs associated with transmission in USD/kW                        |float         |
-| CAPEX_M         | Capital expenditure in USD/kW.                                                                      |float         |
-| FOM_M           | Fixed operation and maintenance cost in USD/kW.                                                     |float         |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `sc_gid` | Site identifier matching a capacity-factor column. | Not applicable; identifier | string | Selects plant index $p$ or $w$ in the [resource sets](sdom_math_formulation.md#sets). |
+| `capacity` | Upper bound on installed capacity at the site. | MW | float | $\bar p$ in [VRE installed-capacity bounds](sdom_math_formulation.md#vre-installed-capacity-bounds), [PV balance](sdom_math_formulation.md#pv-balance), and [wind balance](sdom_math_formulation.md#wind-balance). |
+| `MinCapacity` | Optional installed-capacity lower bound; omitted, blank, or NaN defaults to zero. | MW | float | $\underline p$ in [VRE installed-capacity bounds](sdom_math_formulation.md#vre-installed-capacity-bounds). |
+| `latitude` | Optional geographic coordinate for reporting or resource preparation. | Degrees | float | No optimization equation; geographic metadata for the [renewable resource](sdom_math_formulation.md#renewable-investment). |
+| `longitude` | Optional geographic coordinate for reporting or resource preparation. | Degrees | float | No optimization equation; geographic metadata for the [renewable resource](sdom_math_formulation.md#renewable-investment). |
+| `trans_cap_cost` | Site interconnection capital cost, already expressed per MW; not a line-flow capacity or transmission-investment variable. | USD/MW | float | $\kappa^{tc}$ in [PV cost](sdom_math_formulation.md#pv-cost) or [wind cost](sdom_math_formulation.md#wind-cost). |
+| `CAPEX_M` | Site capital expenditure; multiplied by 1000 to obtain USD/MW. | USD/kW | float | $\kappa$ in [PV cost](sdom_math_formulation.md#pv-cost) or [wind cost](sdom_math_formulation.md#wind-cost). |
+| `FOM_M` | Annual fixed O&M; multiplied by 1000 to obtain USD/MW/year. | USD/kW/year | float | $\phi$ in [PV cost](sdom_math_formulation.md#pv-cost) or [wind cost](sdom_math_formulation.md#wind-cost). |
 
 `capacity` (lowercase) is the installed-capacity upper bound. `MinCapacity` is optional and is the installed-capacity lower bound; both values are in MW. When `MinCapacity` is omitted, blank, or `NaN`, SDOM uses `0` MW. Otherwise, it must be finite and satisfy `0 <= MinCapacity <= capacity`. A `capacity` value of `0` is valid only when `MinCapacity` is omitted, blank, `NaN`, or `0`. These bounds apply in both copperplate and zonal runs. In the Infrasys System interface, `MinCapacity` maps to `min_active_power`.
 
@@ -159,14 +166,14 @@ This file provides the hourly generation time-series for nuclear power plants an
 - Fixed nuclear generation profile (MW)
 
 **CSV file columns:**
-| Field/Column    | Description                                                                                         |Expected type |
-|-----------------|-----------------------------------------------------------------------------------------------------|--------------|
-| *Hour           | Number of the hour of the year, from 1 to 8760 (You can teh number of hours you prefer).            |Int           |
-| Nuclear/OtherRenewables| The estimated generation at each hour of the year in MWh from Nuclear of Other Renewables (Such as Biomass, for instance).|float    |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `*Hour` | One-based hourly index. | Hour index; one-hour steps | int | Index $h$ in [energy supply balance](sdom_math_formulation.md#energy-supply-balance). |
+| `Nuclear` | Fixed nuclear generation profile before `AlphaNuclear` scaling. | MW | float | $\nu_h$ in [fixed generation injections](sdom_math_formulation.md#fixed-generation-injections), [supply balance](sdom_math_formulation.md#energy-supply-balance), and [capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
 
 #### Large Hydropower
 ###### **File**: `lahy_hourly.csv`
-This file provides the hourly generation time-series for hydropower plants. The way SDOM utilizes this data depends on the selected hydro formulation ([see section 2.1 formulations.csv](#21-formulationscsv)):
+This file provides the hourly generation time-series for hydropower plants. The way SDOM utilizes this data depends on the selected hydro formulation ([formulations configuration](#1-formulations-configuration)):
 
 - **RunOfRiverFormulation:**  
     Hydropower generation is directly set to the values specified in the time-series. No optimization is performed; the model simply follows the provided hourly profile.
@@ -179,19 +186,31 @@ This file provides the hourly generation time-series for hydropower plants. The 
 In summary, this file either serves as a fixed generation profile or as the basis for energy budgets, depending on the chosen hydro formulation.
 
 **CSV file columns:**
-| Field/Column    | Description                                                                                         |Expected type |
-|-----------------|-----------------------------------------------------------------------------------------------------|--------------|
-| *Hour           | Number of the hour of the year, from 1 to 8760 (You can teh number of hours you prefer).            |Int           |
-| LargeHydro      | The estimated hydropower generation at each hour of the year in MWh or average values to make the budget.|float         |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `*Hour` | One-based hourly index grouped into complete budget periods when a budget formulation is selected. | Hour index; one-hour steps | int | $\mathcal H_b$ in the [energy budget](sdom_math_formulation.md#energy-budget-upper-bound). |
+| `LargeHydro` | Run-of-river profile or hourly availability values whose one-hour sums form period energy budgets. | MW; period sums are MWh | float | $\rho_h$ in [fixed generation injections](sdom_math_formulation.md#fixed-generation-injections) or $\epsilon_b$ in the [energy-budget upper bound](sdom_math_formulation.md#energy-budget-upper-bound). |
 
 **Budget Formulation Files** (if using Monthly/Daily budgets):
 - These files determine the lower and upper bounds for hydropower dispatch when Budget Formulations are used.
 - `lahy_max_hourly.csv`: Maximum hourly capacity (MW)
 - `lahy_min_hourly.csv`: Minimum hourly generation (MW)
 
+Both bound files use the same columns:
+
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `*Hour` | One-based hourly index covering the effective budget-adjusted horizon. | Hour index; one-hour steps | int | Index $h$ in [hydro hourly bounds](sdom_math_formulation.md#hourly-bounds). |
+| `LargeHydro` | Minimum dispatch in `lahy_min_hourly.csv`, or maximum dispatch in `lahy_max_hourly.csv`, before `AlphaLargHy` scaling. | MW | float | $\underline g^{hyd}_h$ or $\overline g^{hyd}_h$ in [hydro hourly bounds](sdom_math_formulation.md#hourly-bounds). |
+
 #### Other Renewables
 **File**: `otre_hourly.csv`
 - Other renewable sources (geothermal, biomass, etc.)
+
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `*Hour` | One-based hourly index. | Hour index; one-hour steps | int | Index $h$ in [energy supply balance](sdom_math_formulation.md#energy-supply-balance). |
+| `OtherRenewables` | Fixed other-renewable generation profile before `AlphaOtheRe` scaling. | MW | float | $\omega_h$ in [fixed generation injections](sdom_math_formulation.md#fixed-generation-injections), [supply balance](sdom_math_formulation.md#energy-supply-balance), and [capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
 
 ### 5. Storage Technology Data
 
@@ -199,20 +218,20 @@ In summary, this file either serves as a fixed generation profile or as the basi
 
 This CSV input file provides key technical and economic parameters for diverse energy storage technologies (Some examples could be: Li-Ion (Lithium-Ion), CAES (Compressed Air Energy Storage), PHS (Pumped Hydro Storage), H2 (Hydrogen Storage), etc). Each column represents a technology, and each row specifies a parameter:
 
-| Field        | Description                                                                                                    | Expected type   |
-|--------------|----------------------------------------------------------------------------------------------------------------|-----------------|
-| P_Capex      | Power-related capital expenditure (USD/kW)                                                                     | float           |
-| E_Capex      | Energy-related capital expenditure (USD/kWh)                                                                   | float           |
-| Eff          | Round-trip efficiency (fraction)                                                                               | float           |
-| Min_Duration | Minimum storage duration (hours)                                                                               | float/int       |
-| Max_Duration | Maximum storage duration (hours)                                                                               | float/int       |
-| Max_P        | Maximum power capacity (kW)                                                                                    | float/int       |
-| MaxCycles    | Maximum number of charge/discharge cycles                                                                      | int             |
-| Coupled      | Indicates if input and output power are coupled (1 = coupled - enforces input Power = output Power)            | int (0 or 1)    |
-| FOM          | Fixed operation and maintenance cost (USD/kW/year)                                                             | float           |
-| VOM          | Variable operation and maintenance cost (USD/MWh)                                                              | float           |
-| Lifetime     | Expected system lifetime (years)                                                                               | int             |
-| CostRatio    | Ratio of cost allocation between input and output power. If Input Power Capex = Output Power Capex, then CostRatio = 0.5| float           |
+| Field | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `P_Capex` | Power capital expenditure; converted to USD/MW for the objective. | USD/kW | float | $\kappa^P_j$ in [storage cost](sdom_math_formulation.md#storage-cost). |
+| `E_Capex` | Energy capital expenditure; converted to USD/MWh for the objective. | USD/kWh | float | $\kappa^E_j$ in [storage cost](sdom_math_formulation.md#storage-cost). |
+| `Eff` | Round-trip efficiency; charging and discharging each use its square root. | Dimensionless fraction | float | $\eta_j$ in [SOC balance](sdom_math_formulation.md#state-of-charge-balance) and [storage capacity-margin energy bound](sdom_math_formulation.md#optional-hourly-capacity-margin). |
+| `Min_Duration` | Minimum energy-to-discharge-power duration. | hours | float | $\underline\delta_j$ in [duration limits](sdom_math_formulation.md#duration-limits). |
+| `Max_Duration` | Maximum energy-to-discharge-power duration. | hours | float | $\overline\delta_j$ in [duration limits](sdom_math_formulation.md#duration-limits). |
+| `Max_P` | Upper bound on installed charging and discharging power. | MW | float | $\bar p^{stor}_j$ in [power capacity bounds](sdom_math_formulation.md#power-capacity-bounds). |
+| `MaxCycles` | Allowed equivalent cycles over the technology lifetime. | Equivalent cycle count | float | $\kappa^{cyc}_j$ in [cycle limits](sdom_math_formulation.md#cycle-limits); not prorated for a shortened run. |
+| `Coupled` | `1` forces equal installed charging/discharging power; `0` permits separate ratings. | Dimensionless flag | int, `0` or `1` | Membership of $\mathcal J^c$ in [coupled power equality](sdom_math_formulation.md#coupled-power-equality). |
+| `FOM` | Annual fixed O&M for installed power; converted to USD/MW/year. | USD/kW/year | float | $\phi^{stor}_j$ in [storage cost](sdom_math_formulation.md#storage-cost). |
+| `VOM` | Variable O&M charged on discharged energy only. | USD/MWh | float | $\psi^{stor}_j$ in [storage cost](sdom_math_formulation.md#storage-cost). |
+| `Lifetime` | Storage lifetime used to calculate its annualization factor. | years | float | [Capital recovery factor](sdom_math_formulation.md#derived-quantities) in [storage cost](sdom_math_formulation.md#storage-cost). |
+| `CostRatio` | Fraction of power CAPEX and FOM assigned to charging; `0.5` splits costs equally. | Dimensionless fraction | float | $\alpha_j$ in [storage cost](sdom_math_formulation.md#storage-cost). |
 
 **Key considerations:**
 - If you dont have energy CAPEX for the technology, and you only have power CAPEX for a particular duration, enforce ```Min_Duration==Max_Duration```.
@@ -247,22 +266,33 @@ This file contains essential data for thermal generation plants or aggregated un
 
 
 **CSV file columns:**
-| Field/Column | Description | Expected type |
-|--------------|-------------|---------------|
-| Plant_id     | Unique identifier for each thermal generation plant or aggregation of plants. | string |
-| MinCapacity  | Minimum allowed installed capacity at the plant (MW). | float |
-| MaxCapacity  | Maximum allowed installed capacity at the plant (MW). | float |
-| Lifetime     | Expected operational lifetime of the plant (years). | int |
-| Capex        | Capital expenditure in USD/kW. | float |
-| HeatRate     | Heat rate of the plant (fuel energy input per unit electricity output, typically in MMBtu/MWh). | float |
-| FuelCost     | Fuel cost in USD/MMBtu. | float |
-| VOM          | Variable operation and maintenance cost in USD/MWh. | float |
-| FOM          | Fixed operation and maintenance cost in USD/kW. | float |
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `Plant_id` | Unique exact plant identifier, also used by thermal-profile headers. | Not applicable; identifier | string | Selects index $k$ in the [balancing-unit set](sdom_math_formulation.md#sets) and [hourly minimum dispatch](sdom_math_formulation.md#hourly-minimum-dispatch). |
+| `MinCapacity` | Minimum installed plant capacity, not an hourly dispatch floor. | MW | float | $\underline p^{bal}_k$ in [thermal capacity bounds](sdom_math_formulation.md#capacity-bounds). |
+| `MaxCapacity` | Maximum installed plant capacity. | MW | float | $\bar p^{bal}_k$ in [thermal capacity bounds](sdom_math_formulation.md#capacity-bounds). |
+| `Lifetime` | Plant lifetime used for its annualization factor. | years | float | [Capital recovery factor](sdom_math_formulation.md#derived-quantities) in [balancing-unit cost](sdom_math_formulation.md#balancing-unit-cost). |
+| `Capex` | Plant capital expenditure; converted to USD/MW. | USD/kW | float | $\kappa^{bal}_k$ in [balancing-unit cost](sdom_math_formulation.md#balancing-unit-cost). |
+| `HeatRate` | Fuel energy input per unit of electricity output; multiplied by fuel price. | MMBtu/MWh | float | $\gamma_k = HeatRate_k\,FuelCost_k$ in [balancing-unit cost](sdom_math_formulation.md#balancing-unit-cost). |
+| `FuelCost` | Fuel price multiplied by the plant heat rate. | USD/MMBtu | float | $\gamma_k$ in [balancing-unit cost](sdom_math_formulation.md#balancing-unit-cost). |
+| `VOM` | Variable O&M on generated energy. | USD/MWh | float | $\psi^{bal}_k$ in [balancing-unit cost](sdom_math_formulation.md#balancing-unit-cost). |
+| `FOM` | Annual fixed O&M on installed capacity; converted to USD/MW/year. | USD/kW/year | float | $\phi^{bal}_k$ in [balancing-unit cost](sdom_math_formulation.md#balancing-unit-cost). |
 
 #### Optional hourly thermal minimum dispatch
 
 Select `Thermal,NoRampsMinDispatchFormulation` in `formulations.csv` and supply
 `Thermal_MinDispatchFraction.csv`:
+
+**CSV file columns:**
+
+| Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `Hour` | Unique positive one-based hourly index covering the effective model horizon. | Hour index; one-hour steps | int | Index $h$ in the [hourly minimum-dispatch constraint](sdom_math_formulation.md#hourly-minimum-dispatch). |
+| `<Plant_id>` | One column per exact thermal `Plant_id`; each value is the minimum dispatch fraction for that plant and hour, including candidate plants. | Dimensionless fraction, `[0,1]` | float | $q^{bal}_{kh}$ in [minimum dispatch](sdom_math_formulation.md#hourly-minimum-dispatch): $G^{bal}_{kh} \ge q^{bal}_{kh}P^{bal}_k$. |
+
+`<Plant_id>` denotes a plant-specific header such as `GasCC_existing`, not a
+literal column name. A value of `0.40` means at least 40% of installed MW;
+do not enter `40` or a MW output value.
 
 ```csv
 Hour,GasCC_existing,GasCC_candidate
@@ -319,15 +349,16 @@ Result columns and zero/one/many-plant thermal reporting remain unchanged.
 
 This CSV file contains key parameters and their corresponding values for an energy system model. Each row specifies a parameter name and its value, which are used to configure various aspects of the model, such as technology lifetimes, financial rates, and generation mix targets.
 
-| Parameter        | Description                                                                             | Expected Type|
-|------------------|-----------------------------------------------------------------------------------------|--------------|
-| LifeTimeVRE      | Operational lifetime in years of Variable Renewable Energy sources (To calculate CRF)   | int          |
-| GenMix_Target    | Target value for generation mix (e.g., share of renewables). Between 0 and 1.           | float        |
-| AlphaNuclear     | Activation/Deactivation (1/0) for nuclear energy                                        | int (0 or 1) |
-| AlphaLargHy      | Activation/Deactivation (1/0) for large hydro energy                                    | int (0 or 1) |
-| AlphaOtheRe      | Activation/Deactivation (1/0) for other renewable energy sources                        | int (0 or 1) |
-| r                | Discount rate or interest rate used in financial calculations (Example: r=0.06)         | float        |
-| EUE_max          | Maximum allowed Expected Unserved Energy (EUE) - used when resiliency constraints = true| float        |
+| Parameter | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `LifeTimeVRE` | Shared operational lifetime of PV and wind used to calculate their annualization factor. | years | float | [Capital recovery factor](sdom_math_formulation.md#derived-quantities), [PV cost](sdom_math_formulation.md#pv-cost), and [wind cost](sdom_math_formulation.md#wind-cost). |
+| `GenMix_Target` | Minimum clean-energy share, entered as a fraction between 0 and 1. | Dimensionless fraction | float | $\tau$ in the [carbon-free generation target](sdom_math_formulation.md#carbon-free-generation-target). |
+| `AlphaNuclear` | Multiplier for the fixed nuclear profile; typically 0 disables and 1 preserves the input profile. | Dimensionless multiplier | float | $\alpha^{nuc}\nu_h$ in [energy supply balance](sdom_math_formulation.md#energy-supply-balance) and [capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
+| `AlphaLargHy` | Multiplier for run-of-river generation or hourly hydro dispatch bounds; does not scale the energy budget. | Dimensionless multiplier | float | [Fixed generation injections](sdom_math_formulation.md#fixed-generation-injections) and [hydro hourly bounds](sdom_math_formulation.md#hourly-bounds). |
+| `AlphaOtheRe` | Multiplier for the fixed other-renewables profile; typically 0 disables and 1 preserves the input profile. | Dimensionless multiplier | float | $\alpha^{oth}\omega_h$ in [energy supply balance](sdom_math_formulation.md#energy-supply-balance) and [capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
+| `r` | Discount rate for annualized capital costs; `0.06` means 6%. | Dimensionless annual rate | float | [Capital recovery factor](sdom_math_formulation.md#derived-quantities), used in the [cost objective](sdom_math_formulation.md#objective-function). |
+| `EUE_max` | Aggregate load-shedding energy limit in the legacy planning resiliency constraints, enabled by `with_resilience_constraints=True`; not an outage-evaluator probability input. | MWh | float | $EUE^{max}$ in the [legacy aggregate planning resiliency limit](sdom_math_formulation.md#legacy-aggregate-planning-resiliency). |
+| `capacity_marging_fraction` | Optional nonnegative capacity-margin fraction; default `0.0`. `0.04` requires generation capacity of at least 104% of gross hourly demand. Consumed only by `CapacityMarginFormulation`; applies separately in each zone. | Dimensionless fraction | float | $m$ in the [hourly capacity-margin requirement](sdom_math_formulation.md#optional-hourly-capacity-margin). |
 
 **Note:** Adjust parameter values as needed to reflect the specific scenario or assumptions for your energy system analysis.
 
@@ -336,9 +367,10 @@ This CSV file contains key parameters and their corresponding values for an ener
 Parameter,Value
 r,0.07
 GenMix_Target,0.95
-alpha_Nuclear,1.0
-alpha_Hydro,1.0
-alpha_OtherRenewables,1.0
+AlphaNuclear,1.0
+AlphaLargHy,1.0
+AlphaOtheRe,1.0
+capacity_marging_fraction,0.04
 ```
 
 #### Optional capacity-margin scalar
@@ -393,6 +425,17 @@ These files are only required when Imports and Exports formulations are set diff
 - `Import_Prices.csv`: Hourly import prices ($/MWh)
 - `Export_Cap.csv`: Hourly export capacity limits (MW)
 - `Export_Prices.csv`: Hourly export prices ($/MWh)
+
+Each file has `*Hour` and the indicated value column. These are external
+system imports/exports, not the inter-area flows of zonal mode.
+
+| File | Field/Column | Description | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- | --- |
+| All four trade files | `*Hour` | One-based hourly index. | Hour index; one-hour steps | int | Index $h$ in [trade constraints](sdom_math_formulation.md#import-and-export-constraints) and [trade cost](sdom_math_formulation.md#trade-cost). |
+| `Import_Cap.csv` | `Imports` | Hourly maximum external import power. | MW | float | $\bar\iota_h$ in [capacity limits](sdom_math_formulation.md#capacity-limits) and the [import net-load gate](sdom_math_formulation.md#import-allowed-only-when-net-load-is-positive). |
+| `Import_Prices.csv` | `Imports_price` | Price paid per imported MWh. | USD/MWh | float | $c^{imp}_h$ in [trade cost](sdom_math_formulation.md#trade-cost). |
+| `Export_Cap.csv` | `Exports` | Hourly maximum external export power. | MW | float | $\bar\xi_h$ in [capacity limits](sdom_math_formulation.md#capacity-limits) and the [export net-load gate](sdom_math_formulation.md#export-allowed-only-when-net-load-is-negative). |
+| `Export_Prices.csv` | `Exports_price` | Revenue per exported MWh. | USD/MWh | float | $c^{exp}_h$ in [trade cost](sdom_math_formulation.md#trade-cost). |
 
 ## Data Validation
 

@@ -51,9 +51,12 @@ Exogenous time series scaled by activation parameters $\alpha$.
 | $\rho_h$       | Run-of-river hydro generation      | MW    | $\mathbb{R}_+$ |
 | $\nu_h$        | Nuclear generation profile         | MW    | $\mathbb{R}_+$ |
 | $\omega_h$     | Other renewable generation profile | MW    | $\mathbb{R}_+$ |
-| $\alpha^{nuc}$ | Nuclear activation scalar          | —     | $\{0, 1\}$     |
-| $\alpha^{hyd}$ | Hydro activation scalar            | —     | $\{0, 1\}$     |
-| $\alpha^{oth}$ | Other renewables activation scalar | —     | $\{0, 1\}$     |
+| $\alpha^{nuc}$ | Nuclear profile multiplier          | —     | $\mathbb{R}_+$ |
+| $\alpha^{hyd}$ | Hydro profile/bound multiplier      | —     | $\mathbb{R}_+$ |
+| $\alpha^{oth}$ | Other renewables profile multiplier | —     | $\mathbb{R}_+$ |
+
+These are dimensionless numeric multipliers, commonly set to zero or one,
+not binary decision variables. See the [input scalar table](inputs.md#7-system-scalars).
 
 ### Renewable investment
 
@@ -179,6 +182,11 @@ Both charge and discharge power capacity variables exist for **all** storage tec
 ---
 
 ## Objective Function
+
+The cost coefficients below use USD/MW, USD/MWh, and USD/MW/year.
+CSV CAPEX and fixed O&M in USD/kW, USD/kWh, and USD/kW/year are multiplied
+by 1000 before use; VRE `trans_cap_cost` is already USD/MW and is not
+multiplied by 1000. The [input tables](inputs.md) specify the CSV units.
 
 $$
 \min \; Z \;=\; Z^{pv} + Z^{wind} + Z^{bal} + Z^{stor} + Z^{trade}
@@ -310,6 +318,21 @@ $$
 ---
 
 ## Constraints
+
+### Fixed generation injections
+
+`RunOfRiverFormulation` fixes hydro dispatch, rather than imposing an energy budget:
+
+$$
+\forall h\in\mathcal H:\qquad G^{hyd}_h=\alpha^{hyd}\rho_h.
+$$
+
+Fixed nuclear and other-renewable injections enter supply balance as
+$\alpha^{nuc}\nu_h$ and $\alpha^{oth}\omega_h$, respectively. These terms
+have units of MW and are not new investment or dispatch variables.
+Their CSV profiles cannot be curtailed by the VRE curtailment variables.
+For dispatchable budget hydro, use the [hourly bounds](#hourly-bounds) and
+[energy-budget upper bound](#energy-budget-upper-bound) instead.
 
 ### System constraints
 
@@ -469,6 +492,23 @@ Duration remains fixed at one hour, not a user option.
 ### VRE balance constraints
 
 Generation plus curtailment equals total available resource. Per-technology equality:
+
+#### VRE installed-capacity bounds
+
+For each PV site $p$ and wind site $w$, installed MW are the site's maximum
+`capacity` multiplied by its build fraction:
+
+$$
+\underline p^{pv}_p\le\bar p^{pv}_pF^{pv}_p\le\bar p^{pv}_p,
+\qquad
+\underline p^{wind}_w\le\bar p^{wind}_wF^{wind}_w\le\bar p^{wind}_w.
+$$
+
+Here $\underline p$ is optional `MinCapacity`, defaulting to zero, and
+$0\le F\le1$. For positive maximum capacity, the implementation sets
+$F\ge\underline p/\bar p$. A zero-capacity site must have zero minimum
+capacity and requires no division. These are installed-capacity bounds,
+not minimum hourly generation obligations.
 
 #### PV balance
 
@@ -724,6 +764,27 @@ but budgets above maximum possible generation are valid.
 | $\overline{g}^{hyd}_h$  | Parameter | Hourly hydro upper bound (MW)        |
 | $\epsilon_b$            | Parameter | Energy budget for period $b$ (MWh)   |
 | $G^{hyd}_h$             | Variable  | Dispatchable hydro generation (MW)   |
+
+### Legacy aggregate planning resiliency
+
+With `with_resilience_constraints=True`, the legacy planning builder adds
+nonnegative `LoadShed[h]` variables and an aggregate unserved-energy limit:
+
+$$
+L_h\ge0,\qquad \sum_{h\in\mathcal H}L_h\le EUE^{max}.
+$$
+
+Here $L_h$ is `LoadShed[h]` in MW and $EUE^{max}$ is the input scalar
+`EUE_max` in MWh. The sum uses fixed one-hour steps, with no scenario
+probabilities or annual scaling. This block also applies an aggregate
+served-load requirement using the fixed `PCLS_TARGET` and
+`CRITICAL_LOAD_PERCENTAGE` constants; these are not CSV scalar inputs.
+
+These legacy aggregate limits do not, by themselves, connect `LoadShed`
+to the supply balance or implement the separate post-design outage evaluator.
+They are not an hourly reliability guarantee. See the
+[resiliency model equations](../api/models.md#sdom.models.formulations_resiliency.max_eue_constraint_rule)
+for the builder contract.
 
 ### Import and export constraints
 
