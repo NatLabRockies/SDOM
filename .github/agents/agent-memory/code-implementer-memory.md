@@ -4,6 +4,15 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Input Units and Equation References (2026-11-08)
+
+- Base and zonal input tables now include `Units` and `Main use (math)` columns. Link each numeric field to its principal constraint or objective; identify keys as indexing/ownership inputs and coordinates/descriptions as metadata without inventing numerical equation uses.
+- `Thermal_MinDispatchFraction.csv` uses `Hour` plus one exact plant-ID column per thermal unit. Fractions are dimensionless `[0,1]` coefficients multiplying total installed MW. Document `capacity_marging_fraction` in the main scalar table, retaining its exact spelling, optional zero default, dimensionless nonnegative fraction, and per-area gross-demand interpretation.
+- CSV power profiles and storage `Max_P` are MW, not MWh/kW. VRE `trans_cap_cost` is USD/MW; CAPEX and FOM inputs are USD/kW and USD/kW/year, with a factor of 1000 in model cost coefficients. Storage energy CAPEX is USD/kWh and converts to USD/MWh. Use exact `AlphaNuclear`, `AlphaLargHy`, and `AlphaOtheRe` names in examples; these are numeric multipliers, not binary flags.
+- The mathematical reference now supplies direct targets for fixed generation injections, VRE installed-capacity bounds (including optional `MinCapacity`), and the legacy aggregate `EUE_max` limit. Do not confuse the legacy load-shedding block with the separate post-design outage evaluator or imply it connects shedding to supply balance by itself.
+- Extend `tests/test_docs_build.py`, not a separate test file: parse source tables using MarkdownIt and use an HTMLParser-based collector in the existing Sphinx build test to verify actual rendered math-page anchors. Four added parameterized cases cover the two reported gaps and both input guides; the rendered-link test caught the missing EUE anchor before its fix.
+- Validation: all 18 documentation checks passed, including both builds and input-to-equation links. Ruff diagnostics remain 23 versus 23 at HEAD with zero additions; editor diagnostics are clean. No optimization behavior, dependencies, source CSVs, commits, or pushes changed.
+
 ## Flexible Hydro Energy Budgets (2026-11-08)
 
 - Daily (24-hour) and monthly (fixed 730-hour) planning budgets now cap period generation with `<=` through the shared `generic_budget_rule`, including per-area zonal and Infrasys-built models. Run-of-river, unscaled budget profiles, alpha-scaled hourly bounds, public signatures, and result schemas remain unchanged; unused energy does not carry forward.
