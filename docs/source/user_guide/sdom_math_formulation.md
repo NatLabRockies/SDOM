@@ -694,15 +694,21 @@ $$
 \alpha^{hyd} \; \underline{g}^{hyd}_h \;\leq\; G^{hyd}_h \;\leq\; \alpha^{hyd} \; \overline{g}^{hyd}_h
 $$
 
-#### Energy budget (equality)
+#### Energy budget (upper bound)
 
-Total dispatchable hydro generation within each budget period must **equal** the available
+Total dispatchable hydro generation within each budget period must **not exceed** the available
 energy budget:
 
 $$
 \forall\, b \in \mathcal{B}: \qquad
-\sum_{h \in \mathcal{H}_b} G^{hyd}_h \;=\; \epsilon_b
+\sum_{h \in \mathcal{H}_b} G^{hyd}_h \;\leq\; \epsilon_b
 $$
+
+Unused energy is allowed and is not carried into subsequent periods. Daily budgets use
+consecutive 24-hour periods; monthly budgets use fixed 730-hour periods, not calendar months.
+The budget is the unscaled sum of the input hydro profile; $\alpha^{hyd}$ applies only to
+the hourly dispatch bounds. Budgets below mandatory minimum generation remain infeasible,
+but budgets above maximum possible generation are valid.
 
 **Symbols used in hydro budget constraints:**
 

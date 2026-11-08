@@ -173,6 +173,7 @@ This file provides the hourly generation time-series for hydropower plants. The 
 
 - **Budget Formulations (MonthlyBudgetFormulation or DailyBudgetFormulation):**  
     SDOM aggregates the time-series data into energy budgets over consecutive periods—24 hours for daily budgets and 730 hours for monthly budgets. These budgets define the total energy available for dispatch within each period, allowing SDOM to optimize the allocation of hydropower generation while respecting the specified limits.
+    Generation may be lower than the budget; unused energy is not carried into later periods. The budget is not scaled by `AlphaLargHy`, which scales the hourly minimum and maximum dispatch bounds instead. A budget above maximum possible generation is valid, but a budget below mandatory minimum generation is rejected before solving.
     These budgets usually are outputs from long- and medium-term hydropower planning tools often based on Stochastic dual dynamic programming (SDDP). An example of open-source tool for this is [SimSEE](https://www.simsee.org/)
 
 In summary, this file either serves as a fixed generation profile or as the basis for energy budgets, depending on the chosen hydro formulation.
