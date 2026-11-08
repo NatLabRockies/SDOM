@@ -38,7 +38,7 @@ def add_large_hydro_parameters(host, data: dict):
     Notes
     -----
     ``hydro.alpha`` scales hourly profile/bound constraints. The energy-budget
-    equality uses the unscaled profile; see :func:`add_hydro_budget_constraints`.
+    upper bound uses the unscaled profile; see :func:`add_hydro_budget_constraints`.
     """
     add_alpha_and_ts_parameters(host.hydro, host.h, data, "AlphaLargHy", "large_hydro_data", "LargeHydro")
     formulation = get_formulation(data, component='hydro')
@@ -106,7 +106,7 @@ def add_hydro_run_of_river_constraints(host, data: dict):
 
 
 def add_hydro_budget_constraints(host, data: dict):
-    r"""Bound hourly hydro dispatch and enforce each energy-budget equality.
+    r"""Bound hourly hydro dispatch and cap each period's energy generation.
 
     Parameters
     ----------
@@ -125,11 +125,12 @@ def add_hydro_budget_constraints(host, data: dict):
        \alpha^{hyd}\underline g^{hyd}_h \le G^{hyd}_h
        \le \alpha^{hyd}\overline g^{hyd}_h,\qquad
        \sum_{h\in\mathcal H_b}G^{hyd}_h
-       = \sum_{h\in\mathcal H_b}\rho_h.
+    \le \sum_{h\in\mathcal H_b}\rho_h.
 
     The hourly bounds and dispatch are in MW. With implicit one-hour steps,
     each sum is energy in MWh. The budget profile :math:`\rho_h` is
     ``hydro.ts_parameter[h]`` and is **not** multiplied by ``hydro.alpha``.
+    Unused energy is allowed and is not carried into subsequent periods.
     :func:`~sdom.models.models_utils.generic_budget_rule` defines the
     contiguous, fixed-length hour set :math:`\mathcal H_b`.
     """

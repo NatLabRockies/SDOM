@@ -109,9 +109,10 @@ def _is_memory_profiling_enabled() -> bool:
 def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
     """Raise when hydro budget bins cannot satisfy their hourly bounds.
 
-    Hydro budget constraints require the unscaled hourly budget series to
-    equal dispatch. The hourly bounds are scaled by ``AlphaLargHy`` in the
-    model, so their bin totals are scaled before comparison.
+    Hydro budget constraints cap dispatch at the unscaled hourly budget
+    series total. The hourly bounds are scaled by ``AlphaLargHy`` in the
+    model, so their bin totals are scaled before comparison. Availability
+    above the maximum dispatch is allowed and may remain unused.
 
     Parameters
     ----------
@@ -125,8 +126,8 @@ def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
     Raises
     ------
     ValueError
-        If one or more hydro budget bins lie outside their feasible lower and
-        upper bound totals.
+        If one or more hydro budgets are below their mandatory minimum
+        generation totals.
     """
     formulation = get_formulation(data, component="hydro")
     if formulation == RUN_OF_RIVER_FORMULATION:
@@ -155,19 +156,11 @@ def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
                 f"summed min={minimum:.6f} MWh, summed max={maximum:.6f} MWh, "
                 f"budget={budget:.6f} MWh, lower violation={minimum - budget:.6f} MWh"
             )
-        elif budget > maximum:
-            infeasible_bins.append(
-                f"{formulation}, "
-                f"{'area ' + repr(area_id) + ', ' if area_id is not None else ''}"
-                f"bin {bin_index} (hours {start_hour}-{start_hour + interval - 1}): "
-                f"summed min={minimum:.6f} MWh, summed max={maximum:.6f} MWh, "
-                f"budget={budget:.6f} MWh, upper violation={budget - maximum:.6f} MWh"
-            )
 
     if infeasible_bins:
         raise ValueError(
             "Infeasible hydro budget input; each bin must satisfy "
-            "sum(min) <= availability budget <= sum(max):\n- "
+            "sum(min) <= availability budget:\n- "
             + "\n- ".join(infeasible_bins)
         )
 

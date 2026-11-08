@@ -23,11 +23,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CASES = [
     pytest.param("no_exchange_run_of_river", 24, 194, 765, None, id="run-of-river"),
     pytest.param(
-        "no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, 5113, 32141, 730, id="monthly"
+        "no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, 5112, 32142, 730, id="monthly"
     ),
-    pytest.param("no_exchange_hydro_daily_budget_multiple_balancing_p95", 168, 1185, 7413, 24, id="daily"),
+    pytest.param("no_exchange_hydro_daily_budget_multiple_balancing_p95", 168, 1178, 7420, 24, id="daily"),
     pytest.param(
-        "exchange_hydro_daily_budget_multiple_balancing_p95", 168, 1185, 8421, 24, id="daily-exchange"
+        "exchange_hydro_daily_budget_multiple_balancing_p95", 168, 1178, 8428, 24, id="daily-exchange"
     ),
 ]
 EXPECTED = {
@@ -223,7 +223,7 @@ def test_four_percent_hydro_solves(folder, hours, *, equalities, inequalities, b
         assert not balance["has_imports"]
     if budget_hours:
         tolerance = 1e-3 + relative_tolerance * max(
-            abs(value(c.lower)) for c in model.hydro.budget_constraint.values()
+            abs(value(c.upper)) for c in model.hydro.budget_constraint.values()
         )
         budget = check_budget_constraint(model, block_name="hydro", tolerance=tolerance)
         assert budget["is_satisfied"], budget
@@ -240,7 +240,7 @@ def test_four_percent_zonal_daily_budget_builds_and_solves(tmp_path):
     model = initialize_model(data, n_hours=168)
     assert not hasattr(model, "reserves")
     assert all(len(model.area[a].reserves.Capability) == 168 for a in model.A)
-    assert get_n_eq_ineq_constraints(model) == {"equality": 2370, "inequality": 13313}
+    assert get_n_eq_ineq_constraints(model) == {"equality": 2356, "inequality": 13327}
     config = _highs_config()
     results = run_solver(model, config)
     assert results.termination_condition == "optimal"
@@ -265,19 +265,17 @@ def test_four_percent_zonal_daily_budget_builds_and_solves(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("folder", "hours", "bound", "message"),
+    ("folder", "hours"),
     [
-        ("no_exchange_hydro_daily_budget_multiple_balancing_p95", 24, "large_hydro_min", "lower"),
-        ("no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, "large_hydro_max", "upper"),
+        ("no_exchange_hydro_daily_budget_multiple_balancing_p95", 24),
+        ("no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730),
     ],
 )
-def test_four_percent_margin_preserves_hydro_budget_validation(folder, hours, *, bound, message):
+def test_four_percent_margin_preserves_hydro_budget_validation(folder, hours):
     data = enable_reserves(load_data(str(ROOT / "Data" / folder)))
-    if bound == "large_hydro_min":
-        data["large_hydro_data"].loc[data["large_hydro_data"]["*Hour"] <= hours, "LargeHydro"] = 0
-    else:
-        data[bound].loc[data[bound]["*Hour"] <= hours, "LargeHydro"] = 0
-    with pytest.raises(ValueError, match=rf"Infeasible hydro budget input.*\n- .*{message}"):
+    data["large_hydro_data"].loc[data["large_hydro_data"]["*Hour"] <= hours, "LargeHydro"] = 0
+    data["large_hydro_min"].loc[data["large_hydro_min"]["*Hour"] <= hours, "LargeHydro"] = 1
+    with pytest.raises(ValueError, match=r"Infeasible hydro budget input.*\n- .*lower"):
         initialize_model(data, n_hours=hours)
 
 
