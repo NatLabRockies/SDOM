@@ -7,9 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-
-from sdom import OptimizationResults, get_default_solver_config_dict, initialize_model, load_data, run_solver
-
 from utils_tests import (
     check_budget_constraint,
     check_hydro_budget_matches_csv,
@@ -17,6 +14,7 @@ from utils_tests import (
     get_n_eq_ineq_constraints,
 )
 
+from sdom import OptimizationResults, get_default_solver_config_dict, initialize_model, load_data, run_solver
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ZONAL_FIXTURE = REPO_ROOT / "Data" / "zonal_test"
@@ -91,10 +89,15 @@ def test_zonal_daily_hydro_budget_builds_and_solves(tmp_path):
     ],
     ids=["literal", "tagged-zonal"],
 )
+@pytest.mark.parametrize(
+    ("dispatch_fraction", "is_satisfied"),
+    [(0.5, True), (1.0, True), (1.5, False)],
+    ids=["unused", "binding", "exceeded"],
+)
 def test_hydro_budget_csv_check_supports_literal_and_tagged_columns(
-    tmp_path, source_columns, expected_sum
+    tmp_path, source_columns, *, expected_sum, dispatch_fraction, is_satisfied
 ):
-    """CSV matching accepts the legacy column and sums zonal tagged columns."""
+    """CSV budget checking allows unused energy but rejects excess dispatch."""
     hours = pd.DataFrame({"*Hour": [1, 2]})
     for index, column in enumerate(source_columns, start=1):
         hours[column] = [12.0 * index, 12.0 * index]
@@ -102,10 +105,10 @@ def test_hydro_budget_csv_check_supports_literal_and_tagged_columns(
 
     results = OptimizationResults(
         generation_df=pd.DataFrame(
-            {"Hour": [1, 2], "Hydro Generation (MW)": [expected_sum / 2] * 2}
+            {"Hour": [1, 2], "Hydro Generation (MW)": [expected_sum * dispatch_fraction / 2] * 2}
         )
     )
     check = check_hydro_budget_matches_csv(results, tmp_path, budget_hours=2)
 
-    assert check["is_satisfied"], check
+    assert check["is_satisfied"] == is_satisfied, check
     assert check["budget_details"][0]["csv_parameter_sum"] == expected_sum

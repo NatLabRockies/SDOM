@@ -197,7 +197,7 @@ def check_hydro_budget_matches_csv(
     *,
     tolerance: float = 1e-3,
 ) -> dict:
-    """Check solved hydro generation against the source CSV budget by period.
+    """Check solved hydro generation does not exceed each source CSV budget.
 
     Parameters
     ----------
@@ -208,8 +208,8 @@ def check_hydro_budget_matches_csv(
     budget_hours : int
         Number of hours in each hydro budget period.
     tolerance : float, optional
-        Maximum allowed absolute difference between solved hydro generation
-        and the source CSV parameter within a budget period.
+        Maximum allowed excess of solved hydro generation above the source
+        CSV budget within a period. Unused budget is allowed.
 
     Returns
     -------
@@ -291,7 +291,7 @@ def check_hydro_budget_matches_csv(
             "difference": difference,
         }
         budget_details.append(detail)
-        if abs_difference > tolerance:
+        if difference > tolerance:
             violations.append(detail)
 
     return {
@@ -309,8 +309,8 @@ def check_hydro_budget_matches_csv(
 def check_budget_constraint(model, block_name: str = "hydro", tolerance: float = 1e-3) -> dict:
     """Check that the budget constraint is satisfied for all budget periods.
 
-    Verifies that for each budget period, the sum of generation equals the sum of
-    the time-series parameter over that period.
+    Verifies that for each budget period, the sum of generation does not exceed
+    the sum of the time-series parameter over that period.
 
     Parameters
     ----------
@@ -319,7 +319,7 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
     block_name : str, optional
         Name of the block to check (e.g., 'hydro'). Defaults to 'hydro'.
     tolerance : float, optional
-        Tolerance for checking budget equality. Defaults to 1e-3.
+        Tolerance for generation above the budget. Defaults to 1e-3.
 
     Returns
     -------
@@ -328,7 +328,7 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
         - 'is_satisfied': bool indicating if all budget periods satisfy the constraint
         - 'budget_scalar': int number of hours per budget period
         - 'n_budget_periods': int number of budget periods checked
-        - 'max_imbalance': float maximum absolute imbalance found
+        - 'max_imbalance': float maximum absolute budget difference, including unused energy
         - 'violations': list of (period, generation_sum, ts_sum, diff) tuples
         - 'budget_details': list of dicts with period details
     """
@@ -378,7 +378,7 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
             "difference": diff,
         })
 
-        if abs_diff > tolerance:
+        if diff > tolerance:
             violations.append((hhh, generation_sum, ts_sum, diff))
 
     return {

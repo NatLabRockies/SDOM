@@ -9,6 +9,11 @@ Network,AreaTransportationModelNetwork
 
 Use this together with [Inputs](inputs.md).
 
+The base input guide provides field units and primary equation links for all
+technology, profile, cost, and scalar inputs. In zonal mode, those equations
+apply within each area's block unless noted otherwise. The additional
+**Main use (math)** references below identify network and ownership uses.
+
 ## Zonal Conventions
 
 - `@` is a reserved delimiter in wide CSV headers.
@@ -63,6 +68,10 @@ additional reserve transfers. External imports/exports remain unsupported in
 zonal mode. Existing network and energy-balance equations are unchanged.
 See [capability equations](zonal_math_formulation.md#optional-local-capacity-margin).
 
+| Parameter | Meaning | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `capacity_marging_fraction` | Shared optional margin, default `0.0`; applies to each area's gross hourly demand when enabled. | Dimensionless fraction | float | $m$ in the [local capacity-margin requirement](zonal_math_formulation.md#optional-local-capacity-margin). |
+
 Storage contributes credited supply MW bounded by installed discharge power
 and beginning-of-hour SOC. This is not an upward reserve award and does not
 depend on scheduled charging/discharging or add another charging obligation.
@@ -82,6 +91,9 @@ and per-area ownership/capacity views must agree for directly supplied data.
 Copperplate aggregation preserves each plant's fractions separately without
 averaging or capacity weighting. No additional per-area profile registry exists.
 
+See the [column and unit table](inputs.md#optional-hourly-thermal-minimum-dispatch)
+and [per-area thermal minimum-dispatch equations](zonal_math_formulation.md#optional-thermal-minimum-dispatch).
+
 ### areas.csv
 
 Optional in zonal mode. When present, it declares the allowed `area_id` values.
@@ -89,10 +101,10 @@ When omitted, SDOM infers areas from tagged wide-file headers and `area_id`
 columns in row-oriented files. Use `areas.csv` when you need explicit area
 descriptions or validation that referenced areas are declared.
 
-| Column | Meaning |
-|---|---|
-| `area_id` | Area identifier (primary key). |
-| `description` | Free text description. |
+| Column | Meaning | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `area_id` | Area identifier (primary key). | Not applicable; identifier | string | Defines index $a$ in the [area set](zonal_math_formulation.md#sets) and [per-area supply balance](zonal_math_formulation.md#per-area-supply-balance). |
+| `description` | Free-text area description. | Not applicable; metadata | string | No optimization equation; descriptive metadata for the [area set](zonal_math_formulation.md#sets). |
 
 Example:
 
@@ -106,11 +118,11 @@ A2,South area
 
 Required in zonal mode.
 
-| Column | Meaning |
-|---|---|
-| `line_id` | Line identifier (unique). |
-| `from_area` | Origin area ID. |
-| `to_area` | Destination area ID. |
+| Column | Meaning | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `line_id` | Unique line identifier matching line-capacity columns. | Not applicable; identifier | string | Defines index $l$ in the [line set](zonal_math_formulation.md#sets) and [network capacity constraints](zonal_math_formulation.md#network-constraints). |
+| `from_area` | Stored origin area of the line's positive-flow direction. | Not applicable; identifier | string | Defines $\mathcal L_{out}(a)$ and signed outflow in [per-area supply balance](zonal_math_formulation.md#per-area-supply-balance). |
+| `to_area` | Stored destination area of the line's positive-flow direction. | Not applicable; identifier | string | Defines $\mathcal L_{in}(a)$ and signed inflow in [per-area supply balance](zonal_math_formulation.md#per-area-supply-balance). |
 
 Example:
 
@@ -133,6 +145,12 @@ Both line-cap files:
 - Must have the same hour count as the run horizon (`n_hours`).
 - Must be non-negative.
 
+| File | Column | Meaning | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- | --- |
+| Both line-cap files | `*Hour` | One-based hourly index. | Hour index; one-hour steps | int | Index $h$ in [network capacity constraints](zonal_math_formulation.md#network-constraints). |
+| `LineCap_FT.csv` | `<line_id>` | Maximum power in the stored `from_area` to `to_area` direction. | MW | float | $\overline F^{FT}_{l,h}$ in [network limits](zonal_math_formulation.md#network-constraints): $f_{l,h} \le \overline F^{FT}_{l,h}$. |
+| `LineCap_TF.csv` | `<line_id>` | Maximum power in the reverse direction. | MW | float | $\overline F^{TF}_{l,h}$ in [network limits](zonal_math_formulation.md#network-constraints): $-f_{l,h} \le \overline F^{TF}_{l,h}$. |
+
 Example:
 
 ```csv
@@ -150,6 +168,10 @@ Example:
 - `Data_BalancingUnits.csv`
 
 Add `area_id` column.
+
+| Column | Meaning | Units | Expected type | Main use (math) |
+| --- | --- | --- | --- | --- |
+| `area_id` | Owner of each VRE site or thermal plant; other fields retain the [base input schemas](inputs.md). | Not applicable; identifier | string | Assigns plants to each area in [supply balance](zonal_math_formulation.md#per-area-supply-balance), [thermal floors](zonal_math_formulation.md#optional-thermal-minimum-dispatch), and [capacity margin](zonal_math_formulation.md#optional-local-capacity-margin). |
 
 For `CapSolar.csv` and `CapWind.csv`, `capacity` (lowercase) remains the installed-capacity upper bound in MW. The optional canonical `MinCapacity` column is the installed-capacity lower bound in MW. If the column is omitted or its value is blank or `NaN`, SDOM uses `0` MW. Provided values must be finite and satisfy `0 <= MinCapacity <= capacity`; `capacity = 0` is valid only when `MinCapacity` is omitted, blank, `NaN`, or `0`. In the Infrasys System interface, this lower bound maps to `min_active_power`.
 
@@ -174,6 +196,13 @@ Typical files:
 - `Export_Cap.csv`, `Export_Prices.csv`
 - `StorageData.csv`
 
+Tagged profiles retain the [base file units and equation references](inputs.md).
+`@area_id@` assigns each profile or storage technology to an area in
+[per-area supply balance](zonal_math_formulation.md#per-area-supply-balance)
+and [local capacity margin](zonal_math_formulation.md#optional-local-capacity-margin).
+The clean-share target still uses the
+[system-wide clean-share constraint](zonal_math_formulation.md#system-wide-clean-share-constraint).
+
 Example:
 
 ```csv
@@ -191,6 +220,10 @@ These remain plant-keyed and do not require `@area_id@` tags. Each capacity
 factor column is assigned to an area through the matching `sc_gid` record in
 `CapSolar.csv` or `CapWind.csv`; those capacity tables therefore require an
 `area_id` column in zonal mode.
+
+The capacity-factor units and [PV/wind availability equations](sdom_math_formulation.md#vre-balance-constraints)
+are unchanged; each area's factors also enter
+[local capacity margin](zonal_math_formulation.md#optional-local-capacity-margin).
 
 ## Zonal Support Boundaries
 

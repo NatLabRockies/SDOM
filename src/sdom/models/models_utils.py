@@ -395,7 +395,7 @@ def different_fcr_capex_cost_expr_rule( block ):
 ####################################################################################|
 
 def generic_budget_rule(block, hhh):
-    r"""Return an energy-budget equality for a fixed-length period.
+    r"""Return an energy-budget upper bound for a fixed-length period.
 
     Parameters
     ----------
@@ -407,8 +407,8 @@ def generic_budget_rule(block, hhh):
 
     Returns
     -------
-    pyomo.core.expr.relational_expr.EqualityExpression
-        Generation equal to the unscaled reference energy for the period.
+    pyomo.core.expr.relational_expr.InequalityExpression
+        Generation bounded by the unscaled reference energy for the period.
 
     Notes
     -----
@@ -417,7 +417,7 @@ def generic_budget_rule(block, hhh):
     .. math::
 
        \mathcal H_b=\{(b-1)B+1,\ldots,bB\},\qquad
-       \sum_{h\in\mathcal H_b}G_h=\sum_{h\in\mathcal H_b}\rho_h.
+       \sum_{h\in\mathcal H_b}G_h\le\sum_{h\in\mathcal H_b}\rho_h.
 
     :math:`G_h` is ``generation[h]`` and :math:`\rho_h` is
     ``ts_parameter[h]``, both in MW; one-hour sums are MWh. No activation
@@ -428,7 +428,7 @@ def generic_budget_rule(block, hhh):
     start = ( (hhh - 1) * budget_n_hours ) + 1
     end = hhh * budget_n_hours + 1
     list_budget = list(range(start, end))
-    return sum(block.generation[h] for h in list_budget) == sum(block.ts_parameter[h] for h in list_budget)
+    return sum(block.generation[h] for h in list_budget) <= sum(block.ts_parameter[h] for h in list_budget)
 
 ####################################################################################|
 # -----------------------------------= Add_costs -----------------------------------|
