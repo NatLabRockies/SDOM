@@ -125,7 +125,7 @@ def add_hydro_budget_constraints(host, data: dict):
        \alpha^{hyd}\underline g^{hyd}_h \le G^{hyd}_h
        \le \alpha^{hyd}\overline g^{hyd}_h,\qquad
        \sum_{h\in\mathcal H_b}G^{hyd}_h
-    \le \sum_{h\in\mathcal H_b}\rho_h.
+       \le \sum_{h\in\mathcal H_b}\rho_h.
 
     The hourly bounds and dispatch are in MW. With implicit one-hour steps,
     each sum is energy in MWh. The budget profile :math:`\rho_h` is
