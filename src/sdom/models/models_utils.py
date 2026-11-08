@@ -417,7 +417,7 @@ def generic_budget_rule(block, hhh):
     .. math::
 
        \mathcal H_b=\{(b-1)B+1,\ldots,bB\},\qquad
-    \sum_{h\in\mathcal H_b}G_h\le\sum_{h\in\mathcal H_b}\rho_h.
+       \sum_{h\in\mathcal H_b}G_h\le\sum_{h\in\mathcal H_b}\rho_h.
 
     :math:`G_h` is ``generation[h]`` and :math:`\rho_h` is
     ``ts_parameter[h]``, both in MW; one-hour sums are MWh. No activation
