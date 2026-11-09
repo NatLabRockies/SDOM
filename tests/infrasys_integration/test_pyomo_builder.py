@@ -120,8 +120,8 @@ def _assert_zonal_results_match(system_results, direct_results) -> None:
 @pytest.mark.parametrize(
     ("data_path", "n_hours", "expected_counts"),
     [
-        ("Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, {"equality": 5112, "inequality": 25572}),
-        ("Data/no_exchange_hydro_daily_budget_multiple_balancing_p95", 168, {"equality": 1178, "inequality": 5908}),
+        ("Data/no_exchange_monthly_hydro_budget_multiple_balancing_p50", 730, {"equality": 5113, "inequality": 25571}),
+        ("Data/no_exchange_hydro_daily_budget_multiple_balancing_p95", 168, {"equality": 1185, "inequality": 5901}),
     ],
 )
 def test_hydro_budget_system_path_matches_legacy_constraint_counts(data_path, n_hours, expected_counts):

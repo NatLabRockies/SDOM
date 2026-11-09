@@ -20,16 +20,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ZONAL_FIXTURE = REPO_ROOT / "Data" / "zonal_test"
 
 
-def _daily_budget_fixture(tmp_path: Path) -> Path:
+def _daily_budget_fixture(tmp_path: Path, *, formulation: str = "DailyBudgetFormulation") -> Path:
     """Create a daily-budget variant without changing the canonical RoR fixture."""
     fixture_dir = tmp_path / "zonal_daily_hydro_budget"
     shutil.copytree(ZONAL_FIXTURE, fixture_dir)
 
     formulations_path = fixture_dir / "formulations.csv"
     formulations = pd.read_csv(formulations_path)
-    formulations.loc[formulations["Component"] == "Hydro", "Formulation"] = (
-        "DailyBudgetFormulation"
-    )
+    formulations.loc[formulations["Component"] == "Hydro", "Formulation"] = formulation
     formulations.to_csv(formulations_path, index=False)
 
     hydro = pd.read_csv(fixture_dir / "lahy_hourly.csv")
@@ -51,9 +49,10 @@ def _highs_config() -> dict:
     return config
 
 
-def test_zonal_daily_hydro_budget_builds_and_solves(tmp_path):
+@pytest.mark.parametrize("formulation", ["DailyBudgetFormulation", "DailyBudgetUpperBoundFormulation"])
+def test_zonal_daily_hydro_budget_builds_and_solves(tmp_path, formulation):
     """Zonal daily hydro budgets build per-area bounds and solve through public APIs."""
-    fixture_dir = _daily_budget_fixture(tmp_path)
+    fixture_dir = _daily_budget_fixture(tmp_path, formulation=formulation)
     data = load_data(str(fixture_dir))
 
     model = initialize_model(data, n_hours=168, with_resilience_constraints=False)
@@ -94,10 +93,17 @@ def test_zonal_daily_hydro_budget_builds_and_solves(tmp_path):
     [(0.5, True), (1.0, True), (1.5, False)],
     ids=["unused", "binding", "exceeded"],
 )
+@pytest.mark.parametrize(
+    ("formulation", "equality"),
+    [("DailyBudgetFormulation", True), ("DailyBudgetUpperBoundFormulation", False)],
+)
 def test_hydro_budget_csv_check_supports_literal_and_tagged_columns(
-    tmp_path, source_columns, *, expected_sum, dispatch_fraction, is_satisfied
+    tmp_path, source_columns, *, expected_sum, dispatch_fraction, is_satisfied, formulation, equality
 ):
-    """CSV budget checking allows unused energy but rejects excess dispatch."""
+    """CSV budget checking distinguishes strict and unused-budget dispatch."""
+    pd.DataFrame({"Component": ["Hydro"], "Formulation": [formulation]}).to_csv(
+        tmp_path / "formulations.csv", index=False
+    )
     hours = pd.DataFrame({"*Hour": [1, 2]})
     for index, column in enumerate(source_columns, start=1):
         hours[column] = [12.0 * index, 12.0 * index]
@@ -110,5 +116,6 @@ def test_hydro_budget_csv_check_supports_literal_and_tagged_columns(
     )
     check = check_hydro_budget_matches_csv(results, tmp_path, budget_hours=2)
 
-    assert check["is_satisfied"] == is_satisfied, check
+    expected = dispatch_fraction == 1.0 if equality else is_satisfied
+    assert check["is_satisfied"] == expected, check
     assert check["budget_details"][0]["csv_parameter_sum"] == expected_sum

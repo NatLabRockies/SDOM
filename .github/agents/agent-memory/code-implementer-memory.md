@@ -4,6 +4,18 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Explicit Hydro Budget Choices - Issue 102, Slice 1 (2026-11-09)
+
+- Existing daily/monthly names again enforce equality; explicit `DailyBudgetUpperBoundFormulation` and `MonthlyBudgetUpperBoundFormulation` names preserve flexible budgets. `HYDRO_FORMULATION_METADATA` centralizes fixed hours, budget sense, and Infrasys period labels; the existing public hours map is derived from it.
+- The shared budget builder selects its relation with a keyword-only `equality` argument. No decision variables, budget rows, binaries, hourly bounds, objective terms, or run-of-river behavior were added or changed. Budget profiles remain unscaled; hourly bounds alone use `AlphaLargHy`. Daily and monthly periods remain 24 and 730 hours, rounded up through the existing helper.
+- The hydro builder resolves the budget-sense string to `equality` once per host, outside the per-period lambda; the shared rule retains its symbolic equality/inequality conditional.
+- Equality feasibility checks reject budgets above summed scaled maxima as well as below summed scaled minima. Upper-bound choices reject only the latter. Unsupported choices raise the existing explicit formulation error; unrelated first-match/default lookup behavior remains unchanged.
+- Model test helpers inspect each Pyomo row's equality flag; source-CSV checks read the selected formulation. Synthetic CSV helper fixtures must now include `formulations.csv`. Tests intentionally allowing unused energy select explicit upper-bound names.
+- Structural baselines move one row per area/period from inequality to equality, preserving total rows and variable names. Tests compare objectives and component names across choices and reject compensating period residuals.
+- Infrasys tests cover all four choices in copperplate and zonal construction, source-dictionary conversion, typed period labels, and serialized formulation/period metadata. Serialized Systems still have the existing source-data requirement for model construction; this slice does not introduce a new reconstruction path.
+- Validation: 119 hydro/model/solver/System regressions and 110 input, thermal-selection, and System compatibility tests passed. Changed regression tests pass Ruff. Production/shared-helper Ruff diagnostics remain 106 versus 106 at HEAD; source type diagnostics remain 9 versus 9, with no additions. The existing AnyIO/pytest deprecation warning remains unrelated.
+- Reporting and user/mathematical migration documentation are deliberately deferred to approved slices 2 and 3. No commits or pushes were made.
+
 ## Input Units and Equation References (2026-11-08)
 
 - Base and zonal input tables now include `Units` and `Main use (math)` columns. Link each numeric field to its principal constraint or objective; identify keys as indexing/ownership inputs and coordinates/descriptions as metadata without inventing numerical equation uses.

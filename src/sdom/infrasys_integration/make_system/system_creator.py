@@ -10,10 +10,10 @@ import pandas as pd
 from infrasys import System
 
 from sdom import load_data as _load_data
-from sdom.constants import NO_RAMPS_MIN_DISPATCH_FORMULATION
+from sdom.constants import HYDRO_FORMULATION_METADATA, NO_RAMPS_MIN_DISPATCH_FORMULATION
 from sdom.initializations import validate_vre_capacity_data
 from sdom.io.formulations import get_formulation
-from sdom.io.validation import validate_thermal_min_dispatch, validate_thermal_ownership
+from sdom.io.validation import check_formulation, validate_thermal_min_dispatch, validate_thermal_ownership
 
 from ..models import (
     SDOMArea,
@@ -684,10 +684,9 @@ def _hydro_budget_period(data: Mapping[str, Any]) -> str | None:
     ]
     if hydro_formulations.empty:
         return None
-    return {
-        "DailyBudgetFormulation": "daily",
-        "MonthlyBudgetFormulation": "monthly",
-    }.get(str(hydro_formulations.iloc[0]))
+    formulation = get_formulation({"formulations": formulations}, component="hydro")
+    check_formulation(formulation, HYDRO_FORMULATION_METADATA.keys())
+    return HYDRO_FORMULATION_METADATA[formulation].budget_period
 
 
 def _add_storage(system: System, data: Mapping[str, Any], buses: Mapping[str, SDOMBus]) -> None:

@@ -24,8 +24,8 @@ def test_optimization_model_ini_case_no_resiliency_168h_daily_budget():
 
     constraint_counts = get_n_eq_ineq_constraints( model )
 
-    assert constraint_counts["equality"] == 1178
-    assert constraint_counts["inequality"] == 6916
+    assert constraint_counts["equality"] == 1185
+    assert constraint_counts["inequality"] == 6909
 
 
 def test_optimization_model_res_case_no_resiliency_168h_daily_budget_highs():

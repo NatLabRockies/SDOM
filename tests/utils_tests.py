@@ -8,7 +8,8 @@ from pyomo.environ import Constraint
 
 from sdom import OptimizationResults
 from sdom.common.utilities import get_complete_path
-from sdom.constants import INPUT_CSV_NAMES
+from sdom.constants import HYDRO_FORMULATION_METADATA, INPUT_CSV_NAMES
+from sdom.io.formulations import get_formulation
 
 
 def get_cbc_executable():
@@ -197,7 +198,7 @@ def check_hydro_budget_matches_csv(
     *,
     tolerance: float = 1e-3,
 ) -> dict:
-    """Check solved hydro generation does not exceed each source CSV budget.
+    """Check solved hydro generation against the selected source CSV budgets.
 
     Parameters
     ----------
@@ -208,8 +209,7 @@ def check_hydro_budget_matches_csv(
     budget_hours : int
         Number of hours in each hydro budget period.
     tolerance : float, optional
-        Maximum allowed excess of solved hydro generation above the source
-        CSV budget within a period. Unused budget is allowed.
+        Absolute tolerance for equality residuals or upper-bound excess.
 
     Returns
     -------
@@ -220,6 +220,10 @@ def check_hydro_budget_matches_csv(
         return {"is_satisfied": False, "error": "Results object is None"}
     if budget_hours <= 0:
         return {"is_satisfied": False, "error": f"budget_hours must be positive, got {budget_hours}"}
+
+    formulations = pd.read_csv(Path(input_data_dir) / INPUT_CSV_NAMES["formulations"])
+    formulation = get_formulation({"formulations": formulations}, component="hydro")
+    equality = HYDRO_FORMULATION_METADATA[formulation].budget_sense == "equality"
 
     generation_df = results.get_generation_dataframe()
     if generation_df.empty:
@@ -291,7 +295,7 @@ def check_hydro_budget_matches_csv(
             "difference": difference,
         }
         budget_details.append(detail)
-        if difference > tolerance:
+        if (abs_difference if equality else difference) > tolerance:
             violations.append(detail)
 
     return {
@@ -309,8 +313,7 @@ def check_hydro_budget_matches_csv(
 def check_budget_constraint(model, block_name: str = "hydro", tolerance: float = 1e-3) -> dict:
     """Check that the budget constraint is satisfied for all budget periods.
 
-    Verifies that for each budget period, the sum of generation does not exceed
-    the sum of the time-series parameter over that period.
+    Verifies equality or upper-bound semantics from each Pyomo budget row.
 
     Parameters
     ----------
@@ -319,7 +322,7 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
     block_name : str, optional
         Name of the block to check (e.g., 'hydro'). Defaults to 'hydro'.
     tolerance : float, optional
-        Tolerance for generation above the budget. Defaults to 1e-3.
+        Absolute tolerance for equality residuals or upper-bound excess.
 
     Returns
     -------
@@ -378,7 +381,8 @@ def check_budget_constraint(model, block_name: str = "hydro", tolerance: float =
             "difference": diff,
         })
 
-        if diff > tolerance:
+        constraint = block.budget_constraint[hhh]
+        if (abs_diff if constraint.equality else diff) > tolerance:
             violations.append((hhh, generation_sum, ts_sum, diff))
 
     return {

@@ -1,5 +1,8 @@
 # INCLUDE HERE ALL THE CONSTATS AND USE UPPER CASE NAMES
 
+from dataclasses import dataclass
+from typing import Literal
+
 MW_TO_KW = 1000.0
 
 #---------------- -------------------- --------------|
@@ -68,12 +71,51 @@ RUN_OF_RIVER_AGGREGATION = 1
 # Hydro formulation choices.
 MONTHLY_BUDGET_FORMULATION = "MonthlyBudgetFormulation"
 DAILY_BUDGET_FORMULATION = "DailyBudgetFormulation"
+MONTHLY_BUDGET_UPPER_BOUND_FORMULATION = "MonthlyBudgetUpperBoundFormulation"
+DAILY_BUDGET_UPPER_BOUND_FORMULATION = "DailyBudgetUpperBoundFormulation"
 RUN_OF_RIVER_FORMULATION = "RunOfRiverFormulation"
 
+
+@dataclass(frozen=True, kw_only=True)
+class HydroFormulationMetadata:
+    """Describe a supported hydro formulation without adding model components.
+
+    Parameters
+    ----------
+    hours : int
+        Fixed period length in one-hour steps.
+    budget_sense : {"equality", "upper_bound"} or None
+        Energy-budget relation; None denotes fixed run-of-river dispatch.
+    budget_period : {"daily", "monthly"} or None
+        Infrasys period label; None denotes run-of-river dispatch.
+    """
+
+    hours: int
+    budget_sense: Literal["equality", "upper_bound"] | None
+    budget_period: Literal["daily", "monthly"] | None
+
+
+HYDRO_FORMULATION_METADATA = {
+    MONTHLY_BUDGET_FORMULATION: HydroFormulationMetadata(
+        hours=MONTHLY_BUDGET_HOURS_AGGREGATION, budget_sense="equality", budget_period="monthly"
+    ),
+    DAILY_BUDGET_FORMULATION: HydroFormulationMetadata(
+        hours=DAILY_BUDGET_HOURS_AGGREGATION, budget_sense="equality", budget_period="daily"
+    ),
+    MONTHLY_BUDGET_UPPER_BOUND_FORMULATION: HydroFormulationMetadata(
+        hours=MONTHLY_BUDGET_HOURS_AGGREGATION, budget_sense="upper_bound", budget_period="monthly"
+    ),
+    DAILY_BUDGET_UPPER_BOUND_FORMULATION: HydroFormulationMetadata(
+        hours=DAILY_BUDGET_HOURS_AGGREGATION, budget_sense="upper_bound", budget_period="daily"
+    ),
+    RUN_OF_RIVER_FORMULATION: HydroFormulationMetadata(
+        hours=RUN_OF_RIVER_AGGREGATION, budget_sense=None, budget_period=None
+    ),
+}
+
+# Retain the existing public mapping, derived from the shared metadata.
 VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP = {
-    MONTHLY_BUDGET_FORMULATION: MONTHLY_BUDGET_HOURS_AGGREGATION,
-    DAILY_BUDGET_FORMULATION: DAILY_BUDGET_HOURS_AGGREGATION,
-    RUN_OF_RIVER_FORMULATION: RUN_OF_RIVER_AGGREGATION,
+    name: metadata.hours for name, metadata in HYDRO_FORMULATION_METADATA.items()
 }
 
 # Imports/Exports formulation choices.
