@@ -1,7 +1,5 @@
 """Long-format individual thermal dispatch from real model inputs."""
 
-import os
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -73,15 +71,6 @@ def test_thermal_dispatch_has_one_dense_row_per_hour_and_owned_plant(tmp_path, p
         assert exported["Generation (MW)"].sum() == pytest.approx(
             results.generation_df["All Thermal Generation (MW)"].sum()
         )
-
-
-@pytest.mark.parametrize("plant_count", [1, 2])
-def test_deprecated_model_export_uses_same_long_thermal_schema(tmp_path, plant_count):
-    model = _thermal_model(plant_count, zonal=False)
-    expected = _collect(model).get_thermal_generation_dataframe()
-    export_results(model, case="legacy", output_dir=str(tmp_path) + os.sep)
-    actual = pd.read_csv(tmp_path / "OutputThermalGeneration_legacy.csv", dtype={"Plant ID": str})
-    pd.testing.assert_frame_equal(actual, expected)
 
 
 @pytest.mark.parametrize("invalid", [float("nan"), float("inf")])

@@ -227,6 +227,19 @@ Xpress installation directory or specified via environment variables.
 
 In the path specified by "output_dir", sdom will writhe the following output csv files:
 
+`export_results` accepts only `OptimizationResults`, including results
+reconstructed from an Infrasys System:
+
+```python
+results = run_solver(model, solver_config)
+export_results(results, case, output_dir)
+```
+
+Legacy direct-model exports were deprecated and have been removed. Passing a raw
+model or another unsupported object raises an explicit `TypeError` before any
+output directory is created or any files are written. Existing structured-result
+export arguments, filenames, and CSV schemas are unchanged.
+
 | File name                          | Description                                              |
 |-------------------------------------|----------------------------------------------------------|
 | OutputGeneration_CASENAME.csv      | Hourly system generation results aggregated by technology, curtailment, imports/exports and Load. In zonal runs, this has exactly one row per hour. |
@@ -278,8 +291,8 @@ rows or plant columns for other areas. With $H$ hours and $P$ plants across the
 system, the table has $H P$ rows and four columns. No thermal CSV is emitted when
 there are no plants.
 
-This intentionally replaces the previous one-column-per-plant thermal schema
-for both structured and deprecated direct-model exports. Other CSV schemas,
+This intentionally replaces the previous one-column-per-plant thermal schema.
+Other CSV schemas,
 including aggregate thermal generation, are unchanged. Read `Plant ID` as text
 when loading a CSV to preserve identifiers such as leading-zero numeric names:
 

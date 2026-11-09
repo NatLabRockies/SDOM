@@ -1,5 +1,4 @@
 #include tests for csv outputs
-import logging
 import os
 import shutil
 import tempfile
@@ -51,7 +50,7 @@ def test_output_files_creation_case_no_resiliency():
         os.remove(os.path.join('./results_pyomo/', f"{file_name}.csv"))
 
 # =============================================================================
-# export_results → _export_from_results_object
+# Structured results export
 # =============================================================================
 
 @pytest.fixture(scope="module")
@@ -140,39 +139,39 @@ def test_optimization_results_preserves_legacy_attribute_units_position():
 
 
 # =============================================================================
-# export_results → _export_from_model_legacy  (deprecated path)
+# Rejected export inputs
 # =============================================================================
 
-def test_export_from_model_legacy_creates_files(_solved_run_of_river):
-    """Passing a Pyomo model to export_results must trigger the legacy path and write CSVs."""
+def test_export_results_rejects_deprecated_model_before_creating_output(_solved_run_of_river, tmp_path):
+    """Report the removed legacy path before any filesystem changes."""
     model, _ = _solved_run_of_river
-    tmp_dir = tempfile.mkdtemp()
-    try:
-        case_name = "test_legacy"
-        # Passing the raw model (not OptimizationResults) triggers _export_from_model_legacy
-        export_results(model, case_name, tmp_dir + os.sep)
-
-        for stem in (
-            f"OutputGeneration_{case_name}",
-            f"OutputStorage_{case_name}",
-            f"OutputSummary_{case_name}",
-        ):
-            path = os.path.join(tmp_dir, f"{stem}.csv")
-            assert os.path.exists(path), f"{stem}.csv not created (legacy path)"
-            assert os.path.getsize(path) > 0, f"{stem}.csv is empty (legacy path)"
-    finally:
-        shutil.rmtree(tmp_dir)
+    output = tmp_path / "not-created"
+    with pytest.raises(TypeError, match=r"Legacy exports.*deprecated.*no longer supported") as error:
+        export_results(model, "legacy", str(output))
+    assert "OptimizationResults" in str(error.value)
+    assert "run_solver(model, solver_config)" in str(error.value)
+    assert "export_results(results, case, output_dir)" in str(error.value)
+    assert not output.exists()
 
 
-def test_export_from_model_legacy_uses_logging_warning(_solved_run_of_river, caplog):
-    """export_results with a raw model must log a deprecation warning."""
-    model, _ = _solved_run_of_river
-    tmp_dir = tempfile.mkdtemp()
-    try:
-        with caplog.at_level(logging.WARNING, logger="sdom"):
-            export_results(model, "warn_check", tmp_dir + os.sep)
-        assert any("deprecated" in record.message.lower() for record in caplog.records), (
-            "Expected a deprecation warning to be logged when passing a raw model"
-        )
-    finally:
-        shutil.rmtree(tmp_dir)
+@pytest.mark.parametrize("unsupported", [None, {}, object()], ids=["none", "dictionary", "object"])
+@pytest.mark.parametrize("existing", [False, True], ids=["new-directory", "existing-directory"])
+def test_export_results_rejects_unsupported_inputs_without_writing(tmp_path, unsupported, *, existing):
+    """Reject invalid inputs without creating directories or altering files."""
+    output = tmp_path / "output"
+    if existing:
+        output.mkdir()
+        (output / "OutputSummary_case.csv").write_text("unchanged", encoding="utf-8")
+    with pytest.raises(TypeError, match="requires an OptimizationResults"):
+        export_results(unsupported, "case", str(output))
+    assert output.exists() == existing
+    if existing:
+        assert [path.name for path in output.iterdir()] == ["OutputSummary_case.csv"]
+        assert (output / "OutputSummary_case.csv").read_text(encoding="utf-8") == "unchanged"
+
+
+def test_historical_io_facade_keeps_public_results_export():
+    """The historical import path must retain the supported public exporter."""
+    from sdom.io_manager import export_results as facade_export
+
+    assert facade_export is export_results

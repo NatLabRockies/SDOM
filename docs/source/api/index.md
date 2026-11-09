@@ -63,8 +63,7 @@ sdom/
 │   ├── areas.py            # Area parsing and per-area views
 │   ├── network.py          # Topology and line-capacity reads
 │   ├── aggregation.py      # Zonal-to-copper-plate transformations
-│   ├── export.py           # OptimizationResults CSV export
-│   └── _legacy_export.py   # Deprecated direct-model export
+│   └── export.py           # OptimizationResults CSV export
 ├── initializations.py       # Sets and parameters initialization
 ├── parametric/              # Parametric & sensitivity analysis
 │   ├── __init__.py          # Public surface (ParametricStudy, sweep types)

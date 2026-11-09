@@ -3,8 +3,8 @@
 Covers emission of ``OutputInterregionalExchanges_{case}.csv``
 when the optimization results contain a non-empty ``interregional_exchanges_df``.
 
-Legacy single-area runs must NOT produce this file. The export is a pure
-side-effect on top of :func:`_export_from_results_object`; the CSV schema
+Single-area runs must NOT produce this file. The export is a pure
+side-effect of :func:`sdom.export_results`; the CSV schema
 matches PRD §2.4 and the row count is ``|L| * n_hours``.
 """
 

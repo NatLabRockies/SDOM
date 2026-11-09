@@ -1,13 +1,11 @@
 """Preserve the historical I/O API while implementations live in ``sdom.io``.
 
 New internal callers should import from the owning implementation module.
-Existing public signatures and private helper aliases remain available.
+Supported public functions and input-helper aliases remain available.
+Deprecated direct-model export and its private helpers have been removed.
 """
 
 from .io import validation as _validation
-from .io._legacy_export import (
-    _export_from_model_legacy as _export_from_model_legacy,
-)
 from .io.aggregation import (
     _aggregate_to_single_area as _aggregate_to_single_area,
 )
@@ -40,9 +38,6 @@ from .io.areas import (
 )
 from .io.areas import (
     _split_wide_by_area as _split_wide_by_area,
-)
-from .io.export import (
-    _export_from_results_object as _export_from_results_object,
 )
 from .io.export import (
     export_results as export_results,

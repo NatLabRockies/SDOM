@@ -1,13 +1,14 @@
-"""Write modern result DataFrames and dispatch deprecated model exports."""
+"""Write structured optimization result DataFrames to CSV."""
 
 import logging
 import os
 
 from ..results import OptimizationResults
-from ._legacy_export import _export_from_model_legacy
 
 
-def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
+def export_results(
+    results: OptimizationResults, case: str | int, output_dir: str = "./results_pyomo/"
+) -> None:
     """Export optimization results to CSV files.
 
     Writes the results from an OptimizationResults object to CSV files in the
@@ -15,9 +16,9 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
 
     Parameters
     ----------
-    results : OptimizationResults or pyomo.environ.ConcreteModel
-        The optimization results object from run_solver(), or a solved model
-        for the deprecated direct-model export path.
+    results : OptimizationResults
+        Structured optimization results returned by run_solver() or
+        reconstructed from an Infrasys System.
     case : str or int
         Case identifier used in output filenames to distinguish between
         different scenarios or runs.
@@ -28,6 +29,13 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
     Returns
     -------
     None
+
+    Raises
+    ------
+    TypeError
+        If results is not an OptimizationResults instance. Legacy exports
+        directly from Pyomo models were deprecated and are no longer supported.
+        Invalid inputs are rejected before creating directories or writing files.
 
     Output Files
     ------------
@@ -72,38 +80,17 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
 
     Notes
     -----
-    This function accepts either an OptimizationResults dataclass or a solved
-    Pyomo model (deprecated). Both paths use the long thermal dispatch schema;
-    other CSV schemas remain unchanged.
+    Export the result of ``run_solver(model, solver_config)``, not the raw model.
+    The argument order, output filenames, and structured CSV schemas are unchanged.
     """
+    if not isinstance(results, OptimizationResults):
+        raise TypeError(
+            "export_results() requires an OptimizationResults instance. "
+            "Legacy exports directly from Pyomo models were deprecated and are no longer supported. "
+            "Use results = run_solver(model, solver_config), then export_results(results, case, output_dir)."
+        )
     logging.info("Exporting SDOM results...")
     os.makedirs(output_dir, exist_ok=True)
-
-    # Handle both new OptimizationResults and legacy model input
-    if isinstance(results, OptimizationResults):
-        _export_from_results_object(results, case, output_dir)
-    else:
-        # Legacy support: assume it's a model object
-        logging.warning(
-            "export_results() received a model object instead of OptimizationResults. "
-            "This usage is deprecated. Please use the OptimizationResults from run_solver()."
-        )
-        _export_from_model_legacy(results, case, output_dir)
-
-
-def _export_from_results_object(results, case: str, output_dir: str):
-    """Export results from OptimizationResults object to CSV files.
-
-    Parameters
-    ----------
-    results : OptimizationResults
-        The optimization results object.
-    case : str
-        Case identifier for filenames.
-    output_dir : str
-        Output directory path.
-    """
-    logging.info("Exporting csv files containing SDOM results...")
 
     # Save generation results to CSV
     logging.debug("-- Saving generation results to CSV...")

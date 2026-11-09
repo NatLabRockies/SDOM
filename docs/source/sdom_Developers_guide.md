@@ -204,8 +204,7 @@ callers import directly from the module that owns the operation.
 | `areas.py` | Interprets validated area tags, splits wide and row tables, assigns capacity factors to areas, and constructs `per_area_*` views. |
 | `network.py` | Reads topology and directional line-capacity CSVs and delegates content checks to validation. |
 | `aggregation.py` | Transforms multi-area data into a synthetic copper-plate area, including summed profiles and capacity-weighted trade prices. |
-| `export.py` | Writes `OptimizationResults` DataFrames to CSV and dispatches deprecated direct-model exports. |
-| `_legacy_export.py` | Preserves the deprecated direct-Pyomo export implementation and its existing output schema. |
+| `export.py` | Writes `OptimizationResults` DataFrames to CSV; rejects unsupported inputs before filesystem access. |
 
 ```mermaid
 flowchart TD
@@ -223,7 +222,6 @@ flowchart TD
   Aggregation --> Validation
   Validation --> Dependencies[constants and NumPy/pandas]
   Export --> Results[OptimizationResults DataFrames]
-  Export --> Legacy[deprecated model export]
 ```
 
 Implementation modules must not import `io_manager`, model builders, or adapters.
@@ -286,7 +284,8 @@ must retain their full precision when the hourly formulation is enabled.
 - **New aggregation rule:** update `aggregation.py`; preserve identifiers,
   frame schemas, weighted-price fallback warnings, and dictionary ownership.
 - **New result CSV:** update `export.py`; keep model-value collection in
-  `results.py`. Do not extend the deprecated exporter for modern-only outputs.
+  `results.py`. Export accepts structured results only; the deprecated
+  direct-model exporter has been removed.
 - **New sweepable time series:** also update the mapping described in
   [Parametric implementation](parametric_implementation.md).
 
