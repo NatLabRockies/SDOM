@@ -233,7 +233,7 @@ In the path specified by "output_dir", sdom will writhe the following output csv
 | OutputGenerationPerArea_CASENAME.csv | Zonal-only hourly generation results with one row per area and hour. |
 | OutputStorage_CASENAME.csv         | Hourly storage operation results (charging/discharging and SOC). |
 | OutputSummary_CASENAME.csv         | Summary of key simulation results and statistics.        |
-| OutputThermalGeneration_CASENAME.csv | Hourly results for thermal generation plants.           |
+| OutputThermalGeneration_CASENAME.csv | Long individual thermal dispatch: `Hour`, `Area`, `Plant ID`, `Generation (MW)`. |
 | OutputInstalledPowerPlants_CASENAME.csv | Installed capacity for each individual power plant (Solar PV, Wind, Thermal). |
 | OutputInterregionalExchanges_CASENAME.csv | Zonal-only line flows (`line_id`, `from_area`, `to_area`, `hour`, signed and directional flows, directional capacity and utilization). |
 | marginal_prices.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
@@ -256,6 +256,48 @@ run-of-river reports zero. The rows are system-wide, not additions to per-area
 summaries; existing VRE rows and units are unchanged. See
 [hydro curtailment reporting](sdom_math_formulation.md#hydro-curtailment-reporting)
 for the equations and residual-validation policy.
+
+### Individual thermal dispatch
+
+`OutputThermalGeneration_CASENAME.csv` and
+`results.get_thermal_generation_dataframe()` use the same long format in
+copperplate and zonal runs:
+
+```csv
+Hour,Area,Plant ID,Generation (MW)
+1,A1,T1,100.0
+2,A1,T1,0.0
+1,A2,T2,80.0
+2,A2,T2,90.0
+```
+
+Each owned plant has one row per modeled hour, including zero dispatch,
+zero-capacity plants, and areas with a single thermal plant. Copperplate uses
+`Area="copperplate"`; zonal rows name the owning area. There are no placeholder
+rows or plant columns for other areas. With $H$ hours and $P$ plants across the
+system, the table has $H P$ rows and four columns. No thermal CSV is emitted when
+there are no plants.
+
+This intentionally replaces the previous one-column-per-plant thermal schema
+for both structured and deprecated direct-model exports. Other CSV schemas,
+including aggregate thermal generation, are unchanged. Read `Plant ID` as text
+when loading a CSV to preserve identifiers such as leading-zero numeric names:
+
+```python
+import pandas as pd
+
+thermal = pd.read_csv("OutputThermalGeneration_case.csv", dtype={"Plant ID": str})
+```
+
+For consumers requiring a wide view, pivot the desired area's rows:
+
+```python
+local = thermal.loc[thermal["Area"] == "A1"]
+wide = local.pivot(index="Hour", columns="Plant ID", values="Generation (MW)")
+```
+
+`results.area_thermal_generation_df[area]` contains the same long dispatch for
+one area with the redundant `Area` column omitted.
 
 ### Marginal Prices
 

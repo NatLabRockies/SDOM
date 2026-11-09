@@ -51,8 +51,9 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
         unused hydro budget energy (TWh and percentage, technology ``Hydro``).
 
     OutputThermalGeneration_{case}.csv
-        Disaggregated hourly thermal generation by plant (only if more than
-        one thermal plant exists).
+        Long individual dispatch with Hour, Area, Plant ID, and Generation
+        (MW) columns. Includes single-plant fleets and zero dispatch.
+        Copperplate uses area ``copperplate``; zonal rows use owning areas.
 
     OutputInterregionalExchanges_{case}.csv
         Hourly per-line interregional exchanges (PRD §2.4 schema). Emitted
@@ -72,7 +73,8 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
     Notes
     -----
     This function accepts either an OptimizationResults dataclass or a solved
-    Pyomo model (deprecated). Both paths retain their existing CSV schemas.
+    Pyomo model (deprecated). Both paths use the long thermal dispatch schema;
+    other CSV schemas remain unchanged.
     """
     logging.info("Exporting SDOM results...")
     os.makedirs(output_dir, exist_ok=True)

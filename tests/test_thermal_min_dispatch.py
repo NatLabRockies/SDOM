@@ -621,8 +621,7 @@ def test_result_schema_and_thermal_reporting_are_unchanged(data, plant_count):
         assert list(frame.columns) == columns
         assert frame["All Thermal Generation (MW)"].sum() == pytest.approx(200)
         disaggregated = result.get_thermal_generation_dataframe()
-        if plant_count == 1:
-            assert disaggregated.empty
-        else:
-            assert list(disaggregated.columns) == ["Hour", "unit", "second"]
-            assert disaggregated[["unit", "second"]].to_numpy().sum() == pytest.approx(200)
+        assert list(disaggregated.columns) == ["Hour", "Area", "Plant ID", "Generation (MW)"]
+        assert len(disaggregated) == 2 * plant_count
+        assert set(disaggregated["Area"]) == {"copperplate"}
+        assert disaggregated["Generation (MW)"].sum() == pytest.approx(200)

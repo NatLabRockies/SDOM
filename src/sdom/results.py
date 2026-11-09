@@ -15,6 +15,48 @@ from .constants import MW_TO_KW
 _HYDRO_BUDGET_ABSOLUTE_TOLERANCE_MWH = 1e-3
 _HYDRO_BUDGET_RELATIVE_TOLERANCE = 5e-8
 
+
+def _collect_thermal_generation_dataframe(host, *, generation: np.ndarray | None = None) -> pd.DataFrame:
+    """Collect long-format hourly thermal dispatch for every owned plant.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area exposing ``h`` and ``thermal.plants_set``.
+    generation : numpy.ndarray, optional
+        Already extracted hour-major dispatch, reused by zonal collection.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns ``Hour``, ``Plant ID``, and ``Generation (MW)``, including
+        zero dispatch and single-plant fleets. Empty fleets retain the schema.
+
+    Raises
+    ------
+    ValueError
+        If individual thermal dispatch contains missing or nonfinite values.
+    """
+    hours = list(host.h)
+    plants = list(host.thermal.plants_set)
+    if generation is None:
+        generation = np.fromiter(
+            (_value_or_nan(host.thermal.generation[hour, plant]) for hour in hours for plant in plants),
+            dtype=float,
+            count=len(hours) * len(plants),
+        )
+    values = generation.reshape(-1)
+    if not np.isfinite(values).all():
+        raise ValueError(f"Nonfinite thermal dispatch for {host.name}.")
+    return pd.DataFrame(
+        {
+            "Hour": np.repeat(np.asarray(hours, dtype=int), len(plants)),
+            "Plant ID": np.tile(np.asarray(plants, dtype=object), len(hours)),
+            "Generation (MW)": values,
+        }
+    )
+
+
 _RESULT_ATTRIBUTE_UNITS = {
     "capacity": "MW",
     "storage_capacity.charge": "MW",
@@ -115,7 +157,8 @@ class OptimizationResults:
     storage_df : pd.DataFrame
         Hourly storage operation results (charge, discharge, SOC).
     thermal_generation_df : pd.DataFrame
-        Disaggregated hourly thermal generation by plant.
+        Long dispatch with Hour, Area, Plant ID, and Generation (MW) columns.
+        Copperplate uses area ``copperplate``; zonal rows identify the owner.
     installed_plants_df : pd.DataFrame
         Installed capacity for each individual power plant (solar, wind, thermal).
     summary_df : pd.DataFrame
@@ -316,7 +359,9 @@ class OptimizationResults:
         Returns
         -------
         pd.DataFrame
-            DataFrame with columns: Hour, and one column per thermal plant.
+            One row per hour and owned plant, with columns ``Hour``, ``Area``,
+            ``Plant ID``, and ``Generation (MW)``. Copperplate uses area
+            ``copperplate``; zero dispatch and single-plant fleets are retained.
         """
         return self.thermal_generation_df.copy()
 
@@ -1016,17 +1061,8 @@ def _collect_results_copperplate(model, solver_result, *, case_name: str = "run"
     # ----------------------------------------------------------------------------------
     logging.debug("Building thermal generation DataFrame...")
 
-    if len(model.thermal.plants_set) > 1:
-        thermal_data = {"Hour": []}
-        for plant in model.thermal.plants_set:
-            thermal_data[str(plant)] = []
-
-        for h in model.h:
-            thermal_data["Hour"].append(h)
-            for plant in model.thermal.plants_set:
-                thermal_data[str(plant)].append(safe_pyomo_value(model.thermal.generation[h, plant]))
-
-        results.thermal_generation_df = pd.DataFrame(thermal_data)
+    results.thermal_generation_df = _collect_thermal_generation_dataframe(model)
+    results.thermal_generation_df.insert(1, "Area", "copperplate")
 
     # ----------------------------------------------------------------------------------
     # Build installed power plants DataFrame
@@ -1422,7 +1458,6 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
     storage_tech_arr = np.array(storage_tech_list, dtype=object)
     thermal_plants = list(host.thermal.plants_set)
     n_thermal = len(thermal_plants)
-    thermal_plants_arr = np.array(thermal_plants, dtype=object)
 
     # One-pass extraction of solved values for hourly outputs.
     solar_gen = np.fromiter(
@@ -1730,11 +1765,7 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
         )
 
     # Thermal generation DataFrame (disaggregated) -------------------------
-    thermal_generation_df = pd.DataFrame()
-    if n_thermal > 1:
-        thermal_cols = [str(plant) for plant in thermal_plants_arr]
-        thermal_generation_df = pd.DataFrame(thermal_mat, columns=thermal_cols)
-        thermal_generation_df.insert(0, "Hour", hours_arr)
+    thermal_generation_df = _collect_thermal_generation_dataframe(host, generation=thermal_mat)
 
     # Installed plants DataFrame ------------------------------------------
     installed_plants_data = {
@@ -2004,10 +2035,8 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
         results.area_storage_df[a] = bundle["storage_df"]
 
         thermal_df_a = bundle["thermal_generation_df"].copy()
-        if not thermal_df_a.empty:
-            insert_pos = list(thermal_df_a.columns).index("Hour") + 1
-            thermal_df_a.insert(insert_pos, "Area", a)
-            thermal_pieces.append(thermal_df_a)
+        thermal_df_a.insert(1, "Area", a)
+        thermal_pieces.append(thermal_df_a)
         results.area_thermal_generation_df[a] = bundle["thermal_generation_df"]
 
         plants_df_a = bundle["installed_plants_df"].copy()

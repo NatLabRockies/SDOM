@@ -140,7 +140,9 @@ def add_results_to_system(
     _attach_cost_results(system, owner, results.cost_breakdown, context=context)
     _attach_installed_plant_results(system, owner, results.installed_plants_df, context=context)
     _attach_storage_dispatch_results(system, owner, results.storage_df, context=context)
-    _attach_thermal_generation_results(system, owner, results.thermal_generation_df, context=context)
+    _attach_thermal_generation_results(
+        system, results.thermal_generation_df, context=context, is_zonal=results.is_zonal
+    )
     _attach_summary_results(system, owner, results.summary_df, context=context)
     _attach_interregional_exchange_results(system, results.interregional_exchanges_df, context=context)
     _attach_area_results(system, owner, results, context=context)

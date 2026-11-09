@@ -244,12 +244,15 @@ overwrite=True)` and `System.from_json(path)`. It round-trips System
 components, associations, and queryable time-series metadata for both the
 copperplate and zonal examples.
 
-For solved hydro results, full copperplate JSON round trips and zonal
-summary-payload round trips preserve the hydro rows. Full zonal result JSON
-persistence has a separate existing limitation: mixed-thermal result tables can
-contain cross-area `NaN` values, which serialize to nulls rejected by typed thermal
-dispatch reconstruction. Summary-payload persistence does not establish support
-for those complete mixed-thermal zonal payloads.
+Full solved copperplate and zonal result JSON round trips preserve both the
+hydro summary rows and individual thermal dispatch. The
+[long thermal table](running_and_outputs.md#individual-thermal-dispatch) attaches
+only each plant's owned rows to its `SDOMThermalGenerationResult`, including zero
+dispatch and single-plant areas. This removes the cross-area placeholder values
+that previously prevented mixed-thermal zonal JSON persistence. Existing valid
+typed thermal attributes retain their schema and reconstruct into the new long
+table; previously written invalid JSON payloads containing null dispatch are not
+repaired automatically.
 
 ```python
 from pathlib import Path

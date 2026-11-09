@@ -9,18 +9,19 @@ from pyomo.environ import sqrt
 
 from ..common.utilities import (
     concatenate_dataframes,
-    get_dict_string_void_list_from_keys_in_list,
     safe_pyomo_value,
 )
 from ..constants import (
     MW_TO_KW,
 )
+from ..results import _collect_thermal_generation_dataframe
 
 
 def _export_from_model_legacy(model, case, output_dir="./results_pyomo/"):
     """Legacy export function that works directly with a model object.
 
-    This is the original implementation preserved for backward compatibility.
+    Preserve the original outputs except individual thermal dispatch, which
+    uses the same long schema as the structured results export.
 
     Parameters
     ----------
@@ -463,26 +464,8 @@ def _export_from_model_legacy(model, case, output_dir="./results_pyomo/"):
     if len(summary_results) > 0:
         summary_results.to_csv(output_dir + f"OutputSummary_{case}.csv", index=False)
 
-    if len(model.thermal.plants_set) <= 1:
-        return
-    thermal_gen_columns = ["Hour"] + [str(plant) for plant in model.thermal.plants_set]
-    disaggregated_thermal_gen_results = get_dict_string_void_list_from_keys_in_list(thermal_gen_columns)
-
-    for h in model.h:
-        disaggregated_thermal_gen_results["Hour"].append(h)
-        for plant in model.thermal.plants_set:
-            disaggregated_thermal_gen_results[plant].append(
-                safe_pyomo_value(model.thermal.generation[h, plant])
-            )
-
     logging.debug("-- Saving disaggregated thermal generation results to CSV...")
-    if disaggregated_thermal_gen_results["Hour"]:
-        with open(output_dir + f"OutputThermalGeneration_{case}.csv", mode="w", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=disaggregated_thermal_gen_results.keys())
-            writer.writeheader()
-            writer.writerows(
-                [
-                    dict(zip(disaggregated_thermal_gen_results, t, strict=False))
-                    for t in zip(*disaggregated_thermal_gen_results.values(), strict=False)
-                ]
-            )
+    thermal_frame = _collect_thermal_generation_dataframe(model)
+    thermal_frame.insert(1, "Area", "copperplate")
+    if not thermal_frame.empty:
+        thermal_frame.to_csv(os.path.join(output_dir, f"OutputThermalGeneration_{case}.csv"), index=False)
