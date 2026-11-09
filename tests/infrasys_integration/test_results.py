@@ -11,7 +11,9 @@ import pytest
 infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
-from sdom import load_data  # noqa: E402
+from test_hydro_curtailment_results import _hydro_rows, _reporting_data  # noqa: E402
+
+from sdom import export_results, get_default_solver_config_dict, load_data, run_solver  # noqa: E402
 from sdom.infrasys_integration.make_system import load_system_from_data  # noqa: E402
 from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMArea,
@@ -27,9 +29,11 @@ from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMSolarGenerator,
     SDOMStorage,
     SDOMStorageDispatchResult,
+    SDOMSummaryMetricResult,
     SDOMThermalGenerationResult,
     SDOMThermalGenerator,
 )
+from sdom.infrasys_integration.pyomo_builder import initialize_model_from_system  # noqa: E402
 from sdom.infrasys_integration.results import (  # noqa: E402
     add_results_to_system,
     optimization_results_from_system,
@@ -38,6 +42,102 @@ from sdom.infrasys_integration.results import (  # noqa: E402
 from sdom.results import OptimizationResults  # noqa: E402
 
 System = infrasys.System
+
+
+@pytest.mark.parametrize("zonal", [False, True], ids=["copperplate", "zonal"])
+@pytest.mark.parametrize(
+    ("formulation", "hours"),
+    [("DailyBudgetUpperBoundFormulation", 24), ("MonthlyBudgetUpperBoundFormulation", 730)],
+)
+def test_hydro_summary_from_system_solve_survives_serialization_and_export(
+    tmp_path, formulation, *, hours, zonal
+):
+    """Persist solved summaries, isolating the existing zonal thermal JSON issue."""
+    system = load_system_from_data(_reporting_data(formulation, zonal=zonal))
+    model = initialize_model_from_system(system, n_hours=hours).create_instance()
+    config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+    config["solve_keywords"].update(tee=False, report_timing=False, keepfiles=False)
+
+    results = run_solver(model, config)
+    assert results.is_optimal
+    expected = _hydro_rows(results.summary_df)
+    assert expected["Technology"].tolist() == ["Hydro", "Hydro"]
+    assert expected["Unit"].tolist() == ["TWh", "%"]
+    assert expected["Optimal Value"].gt(0).all()
+
+    persisted_results = results
+    if zonal:
+        persisted_results = OptimizationResults(
+            summary_df=results.summary_df, is_zonal=results.is_zonal, areas=results.areas
+        )
+    add_results_to_system(system, persisted_results, run_id="hydro")
+    path = tmp_path / "hydro.json"
+    system.to_json(path, overwrite=True)
+    restored = System.from_json(path)
+    attributes = query_result_attributes(restored, run_id="hydro", attribute_type=SDOMSummaryMetricResult)
+    hydro_attributes = {
+        attribute.metric: attribute
+        for attribute in attributes
+        if attribute.technology == "Hydro" and attribute.metric in expected["Metric"].values
+    }
+    assert set(hydro_attributes) == {"Total Hydro curtailment", "Hydro curtailment percentage"}
+    assert all(attribute.scope == "system" for attribute in hydro_attributes.values())
+    assert hydro_attributes["Total Hydro curtailment"].unit == "TWh"
+    assert hydro_attributes["Hydro curtailment percentage"].unit == "%"
+
+    reconstructed = optimization_results_from_system(restored, run_id="hydro")
+    pd.testing.assert_frame_equal(_hydro_rows(reconstructed.summary_df), expected)
+    export_results(reconstructed, case="hydro", output_dir=str(tmp_path))
+    exported = pd.read_csv(tmp_path / "OutputSummary_hydro.csv")
+    pd.testing.assert_frame_equal(_hydro_rows(exported), expected)
+
+
+def test_zonal_summary_round_trip_distinguishes_system_and_area_scopes(tmp_path):
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    system_summary = pd.DataFrame(
+        {
+            "Metric": ["Total Hydro curtailment", "Hydro curtailment percentage"],
+            "Technology": ["Hydro", "Hydro"],
+            "Run": [1, 1],
+            "Optimal Value": [6.0, 25.0],
+            "Unit": ["TWh", "%"],
+        }
+    )
+    area_summary = pd.DataFrame(
+        {"Metric": ["Capacity"], "Technology": ["Thermal"], "Run": [1], "Optimal Value": [10.0], "Unit": ["MW"]}
+    )
+    results = OptimizationResults(
+        is_zonal=True, areas=["A1", "A2"], summary_df=system_summary, area_summary_df={"A1": area_summary}
+    )
+    add_results_to_system(system, results, run_id="scoped")
+    path = tmp_path / "scoped.json"
+    system.to_json(path, overwrite=True)
+
+    reconstructed = optimization_results_from_system(System.from_json(path), run_id="scoped")
+
+    pd.testing.assert_frame_equal(reconstructed.summary_df, system_summary)
+    assert set(reconstructed.area_summary_df) == {"A1"}
+    pd.testing.assert_frame_equal(reconstructed.area_summary_df["A1"], area_summary)
+
+
+def test_legacy_summary_without_explicit_scope_keeps_owner_based_area(tmp_path):
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    add_results_to_system(system, OptimizationResults(is_zonal=True, areas=["A1", "A2"]), run_id="legacy")
+    attribute = SDOMSummaryMetricResult(
+        run_id="legacy", row_order=0, metric="Capacity", technology="Thermal", optimal_value=10.0, unit="MW"
+    )
+    system.add_supplemental_attribute(system.get_component(SDOMArea, "A2"), attribute)
+
+    reconstructed = optimization_results_from_system(system, run_id="legacy")
+
+    assert reconstructed.summary_df.empty
+    assert set(reconstructed.area_summary_df) == {"A2"}
+    assert reconstructed.area_summary_df["A2"]["Optimal Value"].tolist() == [10.0]
+    path = tmp_path / "legacy.json"
+    system.to_json(path, overwrite=True)
+    restored = optimization_results_from_system(System.from_json(path), run_id="legacy")
+    assert restored.summary_df.empty
+    pd.testing.assert_frame_equal(restored.area_summary_df["A2"], reconstructed.area_summary_df["A2"])
 
 
 def _sample_results(data: dict) -> OptimizationResults:

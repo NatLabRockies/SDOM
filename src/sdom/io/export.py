@@ -47,7 +47,8 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
     OutputSummary_{case}.csv
         Summary metrics including: Total costs, Installed capacities by
         technology, Total generation by technology, Demand statistics,
-        Cost breakdowns (VRE, storage, thermal CAPEX/FOM/VOM).
+        Cost breakdowns (VRE, storage, thermal CAPEX/FOM/VOM), and system-wide
+        unused hydro budget energy (TWh and percentage, technology ``Hydro``).
 
     OutputThermalGeneration_{case}.csv
         Disaggregated hourly thermal generation by plant (only if more than

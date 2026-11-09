@@ -474,9 +474,14 @@ def _rebuild_summary_results(system: System, results: OptimizationResults, *, fi
     rows: list[dict[str, Any]] = []
     rows_by_area: dict[str, list[dict[str, Any]]] = {}
     for owner, attr in _iter_result_attributes(system, SDOMSummaryMetricResult, filters=filters):
+        assert isinstance(attr, SDOMSummaryMetricResult)
         row = _summary_row(attr)
         row["__order"] = attr.row_order
-        area = owner.name if results.is_zonal and isinstance(owner, SDOMArea) else None
+        area = (
+            owner.name
+            if attr.scope != "system" and results.is_zonal and isinstance(owner, SDOMArea)
+            else None
+        )
         if area is None:
             rows.append(row)
         else:

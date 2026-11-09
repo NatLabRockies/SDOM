@@ -12,6 +12,9 @@ from pyomo.environ import value as pyo_value
 from .common.utilities import concatenate_dataframes, safe_pyomo_value
 from .constants import MW_TO_KW
 
+_HYDRO_BUDGET_ABSOLUTE_TOLERANCE_MWH = 1e-3
+_HYDRO_BUDGET_RELATIVE_TOLERANCE = 5e-8
+
 _RESULT_ATTRIBUTE_UNITS = {
     "capacity": "MW",
     "storage_capacity.charge": "MW",
@@ -116,7 +119,8 @@ class OptimizationResults:
     installed_plants_df : pd.DataFrame
         Installed capacity for each individual power plant (solar, wind, thermal).
     summary_df : pd.DataFrame
-        Summary metrics including capacities, costs, and totals.
+        Summary metrics including capacities, costs, totals, and system-wide
+        unused hydro budget energy (TWh and percentage of available budget).
     problem_info : dict
         Solver problem information (constraints, variables, etc.).
     capacity : dict
@@ -549,6 +553,142 @@ def collect_marginal_prices_from_model(
         pd.DataFrame(line_rows, columns=_LINE_CONGESTION_DUAL_COLUMNS),
     )
 
+def _validate_hydro_budget_residuals(
+    host,
+    unused: np.ndarray,
+    *,
+    budget: np.ndarray,
+    dispatched: np.ndarray,
+    equality: np.ndarray,
+) -> None:
+    """Validate each hydro period before residual normalization or aggregation.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area exposing ``hydro.budget_constraint``.
+    unused : numpy.ndarray
+        Budget minus dispatch for each period, in MWh.
+    budget : numpy.ndarray
+        Unscaled budget energy for each period, in MWh.
+    dispatched : numpy.ndarray
+        Actual dispatch energy for each period, in MWh.
+    equality : numpy.ndarray
+        Boolean mask identifying equality budget constraints.
+
+    Raises
+    ------
+    ValueError
+        If a period violates its budget relation beyond numerical tolerance.
+
+    Notes
+    -----
+    The tolerance is ``1e-3 + 5e-8 * max(abs(budget), abs(dispatch))`` MWh
+    per period. The relative term accommodates eight-significant-digit
+    solver output.
+    """
+    tolerance = _HYDRO_BUDGET_ABSOLUTE_TOLERANCE_MWH + (
+        _HYDRO_BUDGET_RELATIVE_TOLERANCE * np.maximum(np.abs(budget), np.abs(dispatched))
+    )
+    violations = (unused < -tolerance) | (equality & (np.abs(unused) > tolerance))
+    if violations.any():
+        periods = list(host.hydro.budget_constraint)
+        details = "; ".join(
+            f"period {periods[index]}: budget={budget[index]:.9g} MWh, "
+            f"dispatch={dispatched[index]:.9g} MWh, unused={unused[index]:.9g} MWh, "
+            f"tolerance={tolerance[index]:.9g} MWh"
+            for index in np.flatnonzero(violations)
+        )
+        raise ValueError(f"Hydro budget violation in {host.name}, {details}")
+
+
+def _collect_hydro_budget_energy(host, generation: np.ndarray) -> tuple[float, float]:
+    """Collect available and unused hydro budget energy over modeled periods.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area exposing ``h`` and ``hydro``.
+    generation : numpy.ndarray
+        Existing hourly hydro dispatch values in modeled-hour order, in MW.
+
+    Returns
+    -------
+    tuple of float
+        Total unscaled budget and unused budget energy, in MWh.
+        Run-of-river returns two zeros.
+
+    Raises
+    ------
+    ValueError
+        If hydro dispatch is incomplete or nonfinite, or a period violates
+        its budget relation beyond numerical tolerance.
+
+    Notes
+    -----
+    One-hour dispatch values sum to MWh. Budgets come from the unscaled
+    reference profile, not hourly profile-minus-dispatch differences.
+    :func:`_validate_hydro_budget_residuals` rejects material excess dispatch
+    and either material equality residual before aggregation, using its
+    documented tolerance. Accepted equality residuals and tiny negative
+    upper-bound residuals report zero; positive upper-bound unused energy
+    is preserved, even below tolerance.
+    """
+    hydro = host.hydro
+    if not hasattr(hydro, "budget_constraint"):
+        return 0.0, 0.0
+    if generation.shape != (len(host.h),):
+        raise ValueError(f"Incomplete hydro dispatch for {host.name}; expected {len(host.h)} hourly values.")
+    interval = int(pyo_value(hydro.budget_scalar))
+    profile = np.fromiter(
+        (pyo_value(hydro.ts_parameter[hour]) for hour in host.h),
+        dtype=float,
+        count=len(host.h),
+    )
+    if not np.isfinite(profile).all() or not np.isfinite(generation).all():
+        raise ValueError(f"Nonfinite hydro budget or dispatch for {host.name}.")
+    budget = profile.reshape(-1, interval).sum(axis=1)
+    dispatched = generation.reshape(-1, interval).sum(axis=1)
+    unused = budget - dispatched
+    periods = list(hydro.budget_constraint)
+    equality = np.fromiter(
+        (hydro.budget_constraint[period].equality for period in periods), dtype=bool, count=len(periods)
+    )
+    _validate_hydro_budget_residuals(host, unused, budget=budget, dispatched=dispatched, equality=equality)
+    unused = np.where(equality | (unused < 0), 0.0, unused)
+    return float(budget.sum()), float(unused.sum())
+
+
+def _append_hydro_curtailment_summary(
+    summary: pd.DataFrame, budget_energy: tuple[float, float]
+) -> pd.DataFrame:
+    """Append system-wide unused hydro budget energy and its percentage.
+
+    Parameters
+    ----------
+    summary : pandas.DataFrame
+        Existing summary, including unchanged VRE metrics.
+    budget_energy : tuple of float
+        Aggregated budget and unused budget energy in MWh.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Summary with two rows using technology ``Hydro`` and units TWh and %.
+    """
+    budget, unused = budget_energy
+    summary = concatenate_dataframes(
+        summary, {"Hydro": unused / 1e6}, run=1, unit="TWh", metric="Total Hydro curtailment"
+    )
+    return concatenate_dataframes(
+        summary,
+        {"Hydro": 100.0 * unused / budget if budget > 0 else 0.0},
+        run=1,
+        unit="%",
+        metric="Hydro curtailment percentage",
+    )
+
+
 def collect_results_from_model(model, solver_result, case_name: str = "run") -> OptimizationResults:
     """Collect all optimization results from a solved Pyomo model.
 
@@ -557,9 +697,10 @@ def collect_results_from_model(model, solver_result, case_name: str = "run") -> 
     a per-area ``Block`` ``model.area`` (the convention established by
     :func:`sdom.optimization_main._initialize_model_zonal`).
 
-    On the **legacy** path the returned :class:`OptimizationResults` matches
-    today's schema bit-identically (locked by
-    ``tests/test_zonal_legacy_regression.py``). On the **zonal** path the
+    On the **legacy** path the returned :class:`OptimizationResults` preserves
+    existing metrics and adds two system-wide hydro-curtailment summary rows.
+    Legacy objectives remain locked by ``tests/test_zonal_legacy_regression.py``.
+    On the **zonal** path the
     same top-level DataFrames (``generation_df``, ``storage_df``,
     ``thermal_generation_df``, ``installed_plants_df``) are populated as the
     concatenation of per-area frames with a leading ``Area`` column, and
@@ -581,11 +722,21 @@ def collect_results_from_model(model, solver_result, case_name: str = "run") -> 
     OptimizationResults
         A dataclass containing all optimization results.
 
+    Raises
+    ------
+    ValueError
+        If a hydro budget period materially violates its equality or
+        upper-bound constraint, or required budget dispatch is nonfinite.
+
     Notes
     -----
     Under the zonal path, ``summary_df`` contains system-level aggregates and
     :attr:`OptimizationResults.area_summary_df` contains per-area summaries.
     ``interregional_exchanges_df`` is available for zonal CSV export.
+    Hydro curtailment means unused period budget energy, not physical water
+    spill. Budgets and unused energy are summed before calculating the
+    system percentage. See :func:`_collect_hydro_budget_energy` for numerical
+    tolerance handling; run-of-river reports zero.
     """
     is_zonal = hasattr(model, "A") and hasattr(model, "area")
     if is_zonal:
@@ -676,12 +827,18 @@ def _collect_results_copperplate(model, solver_result, *, case_name: str = "run"
     # ----------------------------------------------------------------------------------
     logging.debug("Collecting generation totals...")
 
+    hydro_generation = np.fromiter(
+        (_value_or_nan(model.hydro.generation[hour]) for hour in model.h),
+        dtype=float,
+        count=len(model.h),
+    )
+    hydro_budget_energy = _collect_hydro_budget_energy(model, hydro_generation)
     results.generation_totals = {
         "Thermal": safe_pyomo_value(model.thermal.total_generation),
         "Solar PV": safe_pyomo_value(model.pv.total_generation),
         "Wind": safe_pyomo_value(model.wind.total_generation),
         "Other renewables": safe_pyomo_value(sum(model.other_renewables.ts_parameter[h] for h in model.h)) * safe_pyomo_value(model.other_renewables.alpha),
-        "Hydro": safe_pyomo_value(sum(model.hydro.generation[h] for h in model.h)) * safe_pyomo_value(model.hydro.alpha),
+        "Hydro": float(hydro_generation.sum()) * safe_pyomo_value(model.hydro.alpha),
         "Nuclear": safe_pyomo_value(sum(model.nuclear.ts_parameter[h] for h in model.h)) * safe_pyomo_value(model.nuclear.alpha),
     }
 
@@ -925,7 +1082,9 @@ def _collect_results_copperplate(model, solver_result, *, case_name: str = "run"
     # ----------------------------------------------------------------------------------
     logging.debug("Building summary DataFrame...")
 
-    results.summary_df = _build_summary_dataframe(model, results, storage_tech_list)
+    results.summary_df = _append_hydro_curtailment_summary(
+        _build_summary_dataframe(model, results, storage_tech_list), hydro_budget_energy
+    )
 
     return results
 
@@ -1251,6 +1410,8 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
         - ``generation_totals`` : dict by technology (incl. each storage tech).
         - ``cost_breakdown`` : dict (``capex``, ``power_capex``, ``energy_capex``,
           ``fom``, ``vom``, ``fuel_cost``, ``imports_cost``, ``exports_revenue``).
+        - ``hydro_budget_energy`` : tuple of budget and unused energy in MWh,
+          validated independently for each period.
         - ``generation_df``, ``storage_df``, ``thermal_generation_df``,
           ``installed_plants_df`` : pandas DataFrames with the same schema
           as the legacy top-level frames.
@@ -1622,6 +1783,7 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
         "storage_df": storage_df,
         "thermal_generation_df": thermal_generation_df,
         "installed_plants_df": installed_plants_df,
+        "hydro_budget_energy": _collect_hydro_budget_energy(host, hydro_gen),
     }
 
 
@@ -1813,9 +1975,14 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     thermal_pieces = []
     plants_pieces = []
     storage_tech_set = set()
+    hydro_budget_mwh = 0.0
+    hydro_unused_mwh = 0.0
     for a in results.areas:
         host = model.area[a]
         bundle = _collect_host_metrics(host, hours, case_name=case_name)
+        budget, unused = bundle["hydro_budget_energy"]
+        hydro_budget_mwh += budget
+        hydro_unused_mwh += unused
         storage_tech_set.update(bundle["storage_tech_list"])
 
         results.area_capacity[a] = bundle["capacity"]
@@ -1909,8 +2076,9 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     results.storage_capacity = storage_capacity_sys
     results.generation_totals = generation_totals_sys
     results.cost_breakdown = cost_breakdown_sys
-    results.summary_df = _build_zonal_summary_dataframe(
-        results, sorted(storage_tech_set)
+    results.summary_df = _append_hydro_curtailment_summary(
+        _build_zonal_summary_dataframe(results, sorted(storage_tech_set)),
+        (hydro_budget_mwh, hydro_unused_mwh),
     )
 
     # Interregional exchanges (PRD §2.4) -----------------------------------

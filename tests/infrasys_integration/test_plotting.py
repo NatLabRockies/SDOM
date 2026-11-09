@@ -260,18 +260,29 @@ def test_plot_system_parametric_results_builds_chunked_sensitivity_plots(tmp_pat
         assert (sensitivity_dir / f"{plot_name}_part2.png").is_file()
 
 
-def test_plot_system_parametric_results_builds_zonal_per_case_plots(tmp_path):
-    """System parametric plots should support reconstructed zonal cases."""
+@pytest.mark.parametrize(
+    ("include_system_summary", "expected_percentage"),
+    [(True, 1.0), (False, 20.0 / 1940.0 * 100.0)],
+    ids=["stored-system-summary", "aggregate-area-summaries"],
+)
+def test_plot_system_parametric_results_builds_zonal_per_case_plots(
+    tmp_path, include_system_summary, *, expected_percentage
+):
+    """Preserve stored system summaries and aggregate areas only as fallback."""
     system = load_system_from_data(load_data("Data/zonal_test"))
     study = SystemParametricStudy(system, solver_config={})
     study._study._case_metadata = [
         {"case_name": "GenMix_Target=0.8", "case_index": 0, "GenMix_Target": 0.8},
         {"case_name": "GenMix_Target=1.0", "case_index": 1, "GenMix_Target": 1.0},
     ]
+    case_results = [_zonal_results(), _zonal_results()]
+    if not include_system_summary:
+        for result in case_results:
+            result.summary_df = pd.DataFrame()
     add_parametric_results_to_system(
         system,
         study,
-        results=[_zonal_results(), _zonal_results()],
+        results=case_results,
         run_id="zonal-param-run",
     )
     _, reconstructed_results = _system_parametric_plot_data(system, run_id="zonal-param-run")
@@ -282,7 +293,7 @@ def test_plot_system_parametric_results_builds_zonal_per_case_plots(tmp_path):
         & (reconstructed_results[0].summary_df["Technology"] == "All"),
         "Optimal Value",
     ].item()
-    assert curtailment_percentage == pytest.approx(20.0 / 1940.0 * 100.0)
+    assert curtailment_percentage == pytest.approx(expected_percentage)
 
     plot_system_parametric_results(
         system,

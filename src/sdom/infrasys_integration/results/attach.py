@@ -698,6 +698,7 @@ def _attach_summary_results(
                 run=_json_scalar(row.get("Run")),
                 optimal_value=_json_scalar(row.get("Optimal Value")),
                 unit=_optional_str(row.get("Unit")),
+                scope="system" if area is None else "area",
             ),
         )
 
