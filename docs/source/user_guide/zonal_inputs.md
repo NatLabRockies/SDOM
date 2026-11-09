@@ -197,6 +197,10 @@ Typical files:
 - `StorageData.csv`
 
 Tagged profiles retain the [base file units and equation references](inputs.md).
+The [hydro formulation choices](inputs.md#large-hydropower) apply independently
+to every area: existing daily/monthly names enforce energy equality, while
+explicit `UpperBound` names allow unused period energy. Area budgets remain
+unscaled; `AlphaLargHy` scales hourly bounds only.
 `@area_id@` assigns each profile or storage technology to an area in
 [per-area supply balance](zonal_math_formulation.md#per-area-supply-balance)
 and [local capacity margin](zonal_math_formulation.md#optional-local-capacity-margin).

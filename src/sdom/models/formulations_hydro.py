@@ -89,7 +89,7 @@ def add_hydro_run_of_river_constraints(host, data: dict):
     host : pyomo.core.base.block.BlockData
         System or area with initialized hydro generation and parameters.
     data : dict
-        Loaded inputs; unused by this builder.
+        Loaded inputs selecting the hydro formulation and its budget sense.
 
     Notes
     -----

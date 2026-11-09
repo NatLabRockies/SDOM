@@ -238,6 +238,25 @@ In the path specified by "output_dir", sdom will writhe the following output csv
 | OutputInterregionalExchanges_CASENAME.csv | Zonal-only line flows (`line_id`, `from_area`, `to_area`, `hour`, signed and directional flows, directional capacity and utilization). |
 | marginal_prices.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
 
+The system summary (`results.get_summary_dataframe()` and
+`OutputSummary_CASENAME.csv`) includes these hydro rows:
+
+| Metric | Technology | Unit |
+| --- | --- | --- |
+| `Total Hydro curtailment` | `Hydro` | `TWh` |
+| `Hydro curtailment percentage` | `Hydro` | `%` |
+
+Hydro curtailment is unused period-budget energy, not necessarily water spill.
+It is the unscaled available budget minus actual dispatch over the effective,
+budget-rounded horizon. TWh equals unused MWh divided by $10^6$; the percentage
+is 100 times total unused energy divided by total budget. Zonal runs aggregate
+energy across areas before division, not area percentages. Equality budgets
+report zero within numerical tolerance, zero total budgets report `0%`, and
+run-of-river reports zero. The rows are system-wide, not additions to per-area
+summaries; existing VRE rows and units are unchanged. See
+[hydro curtailment reporting](sdom_math_formulation.md#hydro-curtailment-reporting)
+for the equations and residual-validation policy.
+
 ### Marginal Prices
 
 After every successful planning solve, SDOM clones the solved model, fixes its

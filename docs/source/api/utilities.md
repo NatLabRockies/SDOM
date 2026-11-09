@@ -70,11 +70,19 @@ The `INPUT_CSV_NAMES` dictionary maps logical names to expected filenames:
 
 ```python
 VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP = {
-    "MonthlyBudgetFormulation": 730,   # Hours per month (approx)
-    "DailyBudgetFormulation": 24,      # Hours per day
+    "MonthlyBudgetFormulation": 730,
+    "DailyBudgetFormulation": 24,
+    "MonthlyBudgetUpperBoundFormulation": 730,
+    "DailyBudgetUpperBoundFormulation": 24,
     "RunOfRiverFormulation": 1         # No aggregation
 }
 ```
+
+The period map is derived from `HYDRO_FORMULATION_METADATA`, which also records
+budget sense and the Infrasys period label. Existing daily/monthly names enforce
+equality; explicit `UpperBound` names permit unused energy. Monthly periods are
+fixed 730-hour blocks, not calendar months. See
+[hydro formulation selection](../user_guide/inputs.md#large-hydropower).
 
 ### Import/Export Formulations
 
