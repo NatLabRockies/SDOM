@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-import warnings
 from datetime import datetime
 from typing import Any
 
@@ -25,14 +24,12 @@ from pyomo.environ import (
 from pyomo.opt import SolverFactory, SolverStatus, TerminationCondition, check_available_solvers
 from pyomo.util.infeasible import log_infeasible_constraints
 
-from .common.utilities import safe_pyomo_value
 from .constants import (
     AREA_TRANSPORTATION_MODEL_NETWORK,
     COPPER_PLATE_NETWORK,
     DEFAULT_AREA_ID,
     HYDRO_FORMULATION_METADATA,
     IMPORTS_EXPORTS_NOT_MODEL,
-    MW_TO_KW,
     NO_RAMPS_MIN_DISPATCH_FORMULATION,
     RUN_OF_RIVER_FORMULATION,
     VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
@@ -960,93 +957,6 @@ def _initialize_model_zonal(
     profiler.print_summary_table(logging.getLogger())
     model.profiler = profiler
     return model
-
-
-def collect_results(model):
-    """Collect results from a solved model (DEPRECATED).
-
-    This function is deprecated. Use `collect_results_from_model` from the results
-    module instead, which returns an OptimizationResults dataclass.
-
-    Parameters
-    ----------
-    model : pyomo.core.base.PyomoModel.ConcreteModel
-        The Pyomo model instance containing the optimization results.
-
-    Returns
-    -------
-    dict
-        A dictionary containing collected results for backward compatibility.
-
-    .. deprecated::
-        Use :func:`sdom.results.collect_results_from_model` instead.
-    """
-    warnings.warn(
-        "collect_results is deprecated. Use collect_results_from_model from results.py instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    logging.info("Collecting SDOM results...")
-    results = {}
-    results["Total_Cost"] = safe_pyomo_value(model.Obj.expr)
-
-    # Capacity and generation results
-    logging.debug("Collecting capacity results...")
-    results["Total_CapCC"] = safe_pyomo_value(model.thermal.total_installed_capacity)
-    results["Total_CapPV"] = safe_pyomo_value(model.pv.total_installed_capacity)
-    results["Total_CapWind"] = safe_pyomo_value(model.wind.total_installed_capacity)
-    results["Total_CapScha"] = {j: safe_pyomo_value(model.storage.Pcha[j]) for j in model.storage.j}
-    results["Total_CapSdis"] = {j: safe_pyomo_value(model.storage.Pdis[j]) for j in model.storage.j}
-    results["Total_EcapS"] = {j: safe_pyomo_value(model.storage.Ecap[j]) for j in model.storage.j}
-
-    # Generation and dispatch results
-    logging.debug("Collecting generation dispatch results...")
-    results["Total_GenPV"] = safe_pyomo_value(model.pv.total_generation)
-    results["Total_GenWind"] = safe_pyomo_value(model.wind.total_generation)
-    results["Total_GenS"] = {j: sum(safe_pyomo_value(model.storage.PD[h, j]) for h in model.h) for j in model.storage.j}
-
-    results["SolarPVGen"] = {h: safe_pyomo_value(model.pv.generation[h]) for h in model.h}
-    results["WindGen"] = {h: safe_pyomo_value(model.wind.generation[h]) for h in model.h}
-    results["AggThermalGen"] = {h: sum(safe_pyomo_value(model.thermal.generation[h, bu]) for bu in model.thermal.plants_set) for h in model.h}
-
-    results["SolarCapex"] = safe_pyomo_value(model.pv.capex_cost_expr)
-    results["WindCapex"] = safe_pyomo_value(model.wind.capex_cost_expr)
-    results["SolarFOM"] = safe_pyomo_value(model.pv.fixed_om_cost_expr)
-    results["WindFOM"] = safe_pyomo_value(model.wind.fixed_om_cost_expr)
-
-    logging.debug("Collecting storage results...")
-    storage_tech_list = list(model.storage.j)
-
-    for tech in storage_tech_list:
-        results[f"{tech}PowerCapex"] = model.storage.CRF[tech] * (
-            MW_TO_KW * model.storage.data["CostRatio", tech] * model.storage.data["P_Capex", tech] * model.storage.Pcha[tech]
-            + MW_TO_KW * (1 - model.storage.data["CostRatio", tech]) * model.storage.data["P_Capex", tech] * model.storage.Pdis[tech]
-        )
-        results[f"{tech}EnergyCapex"] = model.storage.CRF[tech] * MW_TO_KW * model.storage.data["E_Capex", tech] * model.storage.Ecap[tech]
-        results[f"{tech}FOM"] = (
-            MW_TO_KW * model.storage.data["CostRatio", tech] * model.storage.data["FOM", tech] * model.storage.Pcha[tech]
-            + MW_TO_KW * (1 - model.storage.data["CostRatio", tech]) * model.storage.data["FOM", tech] * model.storage.Pdis[tech]
-        )
-        results[f"{tech}VOM"] = model.storage.data["VOM", tech] * sum(model.storage.PD[h, tech] for h in model.h)
-
-    results["TotalThermalCapex"] = sum(
-        model.thermal.FCR[bu] * MW_TO_KW * model.thermal.CAPEX_M[bu] * model.thermal.plant_installed_capacity[bu]
-        for bu in model.thermal.plants_set
-    )
-    results["ThermalFuel"] = sum(
-        (model.thermal.fuel_price[bu] * model.thermal.heat_rate[bu]) * sum(model.thermal.generation[h, bu] for h in model.h)
-        for bu in model.thermal.plants_set
-    )
-    results["ThermalFOM"] = safe_pyomo_value(model.thermal.fixed_om_cost_expr)
-    results["ThermalVOM"] = sum(
-        model.thermal.VOM_M[bu] * sum(model.thermal.generation[h, bu] for h in model.h) for bu in model.thermal.plants_set
-    )
-
-    return results
-
-
-
 
 
 def configure_solver(solver_config_dict: dict):

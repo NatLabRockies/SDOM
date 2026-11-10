@@ -4,6 +4,23 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Summary Performance and Solver-Free Benchmarks (2026-11-09)
+
+- Preserve the summary-building section comments (average power capacity, imports/exports totals, storage charging, costs, and curtailment) when batching DataFrame construction.
+- Annual collection/summary benchmarks must not optimize an entire year. Build real-data 8,760-hour models and assign deterministic synthetic variable values outside timing; match hydro-budget dispatch to its input profile so explicit collector validation succeeds. These fixtures are not feasible/optimal solutions, and solver metadata must remain unknown.
+- Benchmark collection and summary builders separately. Solver-free fixture regression tests use 24 hours, reject solver construction, and verify reporting values without claiming optimization correctness. Existing short CSV-export benchmarks retain their separate solves.
+- Summary dispatch totals use checked numeric summation rather than symbolic Pyomo sums; missing/nonfinite modeled imports, exports, or storage charging raise errors. Unmodeled optional exchanges remain zero, and per-area summary errors propagate.
+
+## Results Package Extraction (2026-11-09)
+
+- Replaced `src/sdom/results.py` with the approved `results/` package. Collection modules are named `results_collection_main.py`, `collect_copperplate_resuts.py`, `collect_zonal_resuts.py`, and `collect_individual_host_results.py`; aggregation lives in `results_aggregation.py`. Preserve the explicitly approved `resuts` spelling.
+- All imports belong at module scope at the beginning of each script, grouped according to PEP 8; function-local imports are forbidden. Internal modules import concrete defining modules, not the package facade, to keep dependencies acyclic.
+- The repository ignores directories named `results/`; `.gitignore` must explicitly allow `src/sdom/results/` and its contents, following the existing Infrasys results-package exception, so the extracted code is included in Git.
+- The facade preserves the class and both public collection functions, plus the private thermal collector already imported by tests. `OptimizationResults` lives in `containers.py` but retains `__module__ = "sdom.results"` for historical pickle paths and multiprocessing. Keep dataclass field order and accessor-copy behavior unchanged.
+- Hydro calculation/validation is separate from hydro summary formatting. Aggregation does not read models, pricing extracts rather than solves, and CSV writing remains exclusively in `io/export.py`. Copperplate and host extraction are intentionally not unified in this structural refactor.
+- AST comparisons verified all 23 original function/class/constant definitions unchanged. Validation passed 106 baseline cases, 122 focused post-extraction cases, and 160 downstream/documentation cases (266 distinct final tests). Seventeen package tests cover module layout, documentation ownership, module-level imports, fresh-process import identity, pickle paths, and spawned-worker transfer.
+- Wheel build and direct wheel imports verified all 11 package modules are included and the old module is absent. New tests and import/undefined-name lint checks pass. Seven remaining Ruff findings and nine pandas type diagnostics are inherited from the original module; no new diagnostics were introduced. Developer and API documentation describe the package boundaries. No commits or pushes were made.
+
 ## Hydro Budget Curtailment Reporting - Issue 102, Slice 2
 
 - System summaries append exactly `Total Hydro curtailment` (TWh) and `Hydro curtailment percentage` (%), both with technology `Hydro`. Existing VRE metrics, generation-total scaling, per-area summaries, objectives, and optimization components remain unchanged.

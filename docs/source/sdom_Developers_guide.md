@@ -147,7 +147,7 @@ start docs\build\html\index.html
 | `src/sdom/optimization_main.py` | Owns the top-level model dispatcher and the copper-plate and zonal model builders. |
 | `src/sdom/initializations.py` | Initializes Pyomo sets, parameters, and time-series structures shared by model builders. |
 | `src/sdom/models/` | Defines technology, system, network, import/export, hydro, and resiliency Pyomo formulation blocks. |
-| `src/sdom/results.py` | Collects solved Pyomo values into `OptimizationResults` and exposes result DataFrames; CSV writing belongs to `src/sdom/io/export.py`. |
+| `src/sdom/results/` | Collects solved Pyomo values into `OptimizationResults` through focused collection, aggregation, validation, pricing, and summary modules; CSV writing belongs to `src/sdom/io/export.py`. |
 | `src/sdom/parametric/` | Builds Cartesian parameter sweeps and runs each case through the standard model and solver workflow. |
 | `src/sdom/resiliency/` | Evaluates outages from a designed system using baseline dispatch and per-outage simulations. |
 | `src/sdom/infrasys_integration/` | Provides a typed Infrasys adapter over the dictionary and Pyomo workflow, plus typed result attributes and queries. |
@@ -160,6 +160,65 @@ start docs\build\html\index.html
 | `pyproject.toml` | Defines package metadata, dependencies, test configuration, and development tools. |
 
 # Execution Architecture
+
+## Results Package Responsibilities
+
+The `sdom.results` package preserves the existing public imports while separating
+the in-memory result contract from model extraction and report construction.
+
+| Module under `src/sdom/results/` | Responsibility |
+|---|---|
+| `__init__.py` | Re-exports `OptimizationResults`, `collect_results_from_model`, and `collect_marginal_prices_from_model`. Also preserves the existing private thermal-collector import used by tests. |
+| `containers.py` | Defines `OptimizationResults`, its fields, unit metadata, and nonmutating accessors. Preserves the historical `sdom.results.OptimizationResults` pickle class path. |
+| `results_collection_main.py` | Detects the model structure and selects copperplate or zonal collection. |
+| `collect_copperplate_resuts.py` | Collects single-area model results through the existing copperplate calculation path. |
+| `collect_zonal_resuts.py` | Assembles per-area results, system rollups, and interregional exchange tables. |
+| `collect_individual_host_results.py` | Extracts operational tables and technology metrics from a model or individual area block, including long-format thermal dispatch. |
+| `results_aggregation.py` | Aggregates collected DataFrames and nested dictionaries without reading Pyomo models. |
+| `summary.py` | Builds copperplate, per-area, and zonal system summary tables, including hydro-curtailment reporting rows. |
+| `hydro.py` | Calculates available and unused hydro-budget energy and validates each budget period before aggregation. |
+| `pricing.py` | Extracts marginal prices and directional congestion duals from pricing-LP results; it does not solve the pricing LP. |
+| `_values.py` | Provides collector-specific numeric extraction helpers that reuse `common.utilities.safe_pyomo_value`. |
+
+All imports belong at the beginning of each module, after its docstring, grouped
+as standard-library, third-party, and local imports following PEP 8. Function-local
+imports are prohibited. Internal modules import dependencies directly from their
+defining modules rather than through the package facade to avoid circular imports.
+The results package does not write files; `sdom.io.export` serializes its prepared
+tables. Existing copperplate and zonal extraction algorithms remain separate.
+
+Summary builders batch ordered metric groups into one DataFrame rather than
+repeatedly concatenating growing tables. Both hydro-summary rows are appended in
+one operation. `_values._sum_initialized_dispatch` provides checked numeric totals
+for hourly imports, exports, and storage charging, avoiding temporary symbolic
+sums. Missing or nonfinite modeled dispatch raises `ValueError`; the zonal
+collector propagates per-area summary errors rather than returning an empty
+summary. Optional unmodeled imports and exports retain zero totals.
+
+### Collection-Only Benchmarks
+
+The collection and summary benchmarks in
+`tests/benchmarks/test_bench_results_export.py` use 8,760-hour models built from
+real copperplate, exchange, and zonal input scenarios. Setup assigns deterministic
+synthetic variable values without invoking a solver. Hydro-budget dispatch
+matches its input profile to pass the collector's budget validation; other
+constraints are not enforced. The fixture is not a feasible or optimal solution,
+and its solver metadata remains `unknown`.
+
+Model construction, variable initialization, and reference collection happen
+outside the timed region. The timed calls measure `collect_results_from_model`
+and the copperplate or zonal summary builder separately, with no optimization,
+pricing solve, or CSV writing. These benchmarks measure reporting performance,
+not optimization correctness. The separate existing 24-hour CSV-export benchmarks
+still solve their small fixtures.
+
+```powershell
+uv run --frozen pytest tests\benchmarks\test_bench_results_export.py -m bench_deep --no-cov --benchmark-min-rounds=3 --benchmark-max-time=1
+```
+
+Short-horizon regression tests in the same module reject solver construction
+during fixture setup and verify that collected synthetic results are not labeled
+optimal.
 
 ## CSV and Dictionary Workflow
 
@@ -284,7 +343,8 @@ must retain their full precision when the hourly formulation is enabled.
 - **New aggregation rule:** update `aggregation.py`; preserve identifiers,
   frame schemas, weighted-price fallback warnings, and dictionary ownership.
 - **New result CSV:** update `export.py`; keep model-value collection in
-  `results.py`. Export accepts structured results only; the deprecated
+  the appropriate `results/` collector and report-table construction in
+  `results/summary.py`. Export accepts structured results only; the deprecated
   direct-model exporter has been removed.
 - **New sweepable time series:** also update the mapping described in
   [Parametric implementation](parametric_implementation.md).

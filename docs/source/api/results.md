@@ -1,6 +1,27 @@
-# Results Module
+# Results Package
 
-The results module provides structured data classes for storing and accessing optimization results.
+The results package provides structured data classes for storing and accessing
+optimization results. Its public imports remain unchanged:
+
+```python
+from sdom.results import (
+    OptimizationResults,
+    collect_marginal_prices_from_model,
+    collect_results_from_model,
+)
+```
+
+`results_collection_main` selects the copperplate or zonal collector.
+`collect_individual_host_results` extracts host-level metrics and dispatch,
+`results_aggregation` combines collected data, and `summary` builds metric tables.
+Hydro-budget validation and pricing-LP result extraction live in `hydro` and
+`pricing`, respectively. `containers` defines the result dataclass and accessors.
+See the [developer guide](../sdom_Developers_guide.md#results-package-responsibilities)
+for the complete module responsibility map and import rules.
+
+These modules prepare results in memory; CSV writing remains the responsibility
+of `sdom.io.export.export_results`. Existing class imports and the historical
+`sdom.results.OptimizationResults` pickle class path are preserved.
 
 ## OptimizationResults Class
 
@@ -18,6 +39,26 @@ The `OptimizationResults` dataclass is the primary container for all optimizatio
 ```{eval-rst}
 .. autofunction:: sdom.results.collect_results_from_model
 ```
+
+## Marginal Price Collection
+
+```{eval-rst}
+.. autofunction:: sdom.results.collect_marginal_prices_from_model
+```
+
+## Summary Construction and Invalid Dispatch
+
+Copperplate, per-area, and aggregate zonal summaries collect ordered metric groups
+before constructing their DataFrame once. The two system-wide hydro-curtailment
+rows are appended together. Column order, units, metric order, and per-area
+ownership remain unchanged.
+
+Imports, exports, and storage-charging totals sum extracted numeric values rather
+than constructing temporary Pyomo sum expressions. If one of these modeled
+dispatch values is missing, NaN, or infinite, collection raises `ValueError` with
+the variable and hour. It does not report a partial total or silently replace a
+failed per-area summary with an empty table. Optional imports and exports that
+are not modeled still report zero.
 
 ## Example Usage
 
@@ -71,7 +112,7 @@ storage_df = results.get_storage_dataframe()
 # Get summary metrics
 summary_df = results.get_summary_dataframe()
 
-# Get disaggregated thermal generation (if multiple plants)
+# Get long-format thermal dispatch, including single-plant fleets
 thermal_df = results.get_thermal_generation_dataframe()
 
 # Get fixed-decision LP marginal prices and zonal line-dual audit values

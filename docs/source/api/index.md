@@ -54,7 +54,18 @@ sdom/
 ├── config_sdom.py           # Logging configuration
 ├── constants.py             # Constants and mappings
 ├── optimization_main.py     # Model initialization and solving
-├── results.py               # Results data structures
+├── results/                 # Structured results and model-value collection
+│   ├── __init__.py          # Backward-compatible results API
+│   ├── containers.py        # OptimizationResults and accessors
+│   ├── results_collection_main.py  # Model collection dispatcher
+│   ├── collect_copperplate_resuts.py  # Single-area collection
+│   ├── collect_zonal_resuts.py  # Zonal assembly and network exchanges
+│   ├── collect_individual_host_results.py  # Host metrics and thermal dispatch
+│   ├── results_aggregation.py  # DataFrame and dictionary rollups
+│   ├── summary.py           # Summary metric tables
+│   ├── hydro.py             # Hydro-budget calculation and validation
+│   ├── pricing.py           # Marginal-price and congestion-dual extraction
+│   └── _values.py           # Internal numeric value helpers
 ├── io_manager.py            # Historical I/O compatibility facade
 ├── io/
 │   ├── loader.py           # CSV reads and canonical dictionary preparation
