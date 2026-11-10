@@ -122,12 +122,11 @@ def test_successful_copperplate_solve_exports_marginal_prices(_solved_run_of_riv
     tmp_dir = tempfile.mkdtemp()
     try:
         export_results(results, "marginal_prices_case", tmp_dir + os.sep)
-        csv_path = os.path.join(tmp_dir, "marginal_prices.csv")
+        csv_path = os.path.join(tmp_dir, "OutputMarginalPrices_marginal_prices_case.csv")
         assert os.path.exists(csv_path)
         assert list(pd.read_csv(csv_path).columns) == MARGINAL_PRICE_COLUMNS
     finally:
         shutil.rmtree(tmp_dir)
-
 
 def test_optimization_results_preserves_legacy_attribute_units_position():
     """The pre-price positional constructor layout must keep attribute_units."""

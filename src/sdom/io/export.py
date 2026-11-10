@@ -71,7 +71,7 @@ def export_results(
         flow_TF_MW, cap_FT_MW, cap_TF_MW, utilization_FT, utilization_TF``.
         Row count is ``|L| * n_hours``.
 
-    marginal_prices.csv
+    OutputMarginalPrices_{case}.csv
         Fixed-decision LP marginal prices for successful solves. Columns:
         ``hour, area_id, marginal_price_USD_per_MWh,
         generation_component_USD_per_MWh, congestion_component_USD_per_MWh,
@@ -81,7 +81,8 @@ def export_results(
     Notes
     -----
     Export the result of ``run_solver(model, solver_config)``, not the raw model.
-    The argument order, output filenames, and structured CSV schemas are unchanged.
+    Marginal prices use a case-specific filename so exporting another case into
+    the same directory does not overwrite previously exported prices.
     """
     if not isinstance(results, OptimizationResults):
         raise TypeError(
@@ -147,6 +148,6 @@ def export_results(
     marginal_prices_df = getattr(results, "marginal_prices_df", None)
     if marginal_prices_df is not None and not marginal_prices_df.empty:
         marginal_prices_df.to_csv(
-            os.path.join(output_dir, "marginal_prices.csv"),
+            os.path.join(output_dir, f"OutputMarginalPrices_{case}.csv"),
             index=False,
         )

@@ -238,7 +238,7 @@ export_results(results, case, output_dir)
 Legacy direct-model exports were deprecated and have been removed. Passing a raw
 model or another unsupported object raises an explicit `TypeError` before any
 output directory is created or any files are written. Existing structured-result
-export arguments, filenames, and CSV schemas are unchanged.
+export arguments and CSV schemas are unchanged.
 
 | File name                          | Description                                              |
 |-------------------------------------|----------------------------------------------------------|
@@ -249,7 +249,7 @@ export arguments, filenames, and CSV schemas are unchanged.
 | OutputThermalGeneration_CASENAME.csv | Long individual thermal dispatch: `Hour`, `Area`, `Plant ID`, `Generation (MW)`. |
 | OutputInstalledPowerPlants_CASENAME.csv | Installed capacity for each individual power plant (Solar PV, Wind, Thermal). |
 | OutputInterregionalExchanges_CASENAME.csv | Zonal-only line flows (`line_id`, `from_area`, `to_area`, `hour`, signed and directional flows, directional capacity and utilization). |
-| marginal_prices.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
+| OutputMarginalPrices_CASENAME.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
 
 The system summary (`results.get_summary_dataframe()` and
 `OutputSummary_CASENAME.csv`) includes these hydro rows:
@@ -317,7 +317,7 @@ one area with the redundant `Area` column omitted.
 After every successful planning solve, SDOM clones the solved model, fixes its
 investment, capacity, and discrete decisions to the incumbent values, and
 re-solves the operational problem as a continuous LP with the configured
-solver. The resulting `marginal_prices.csv` contains the fixed-decision
+solver. The resulting `OutputMarginalPrices_CASENAME.csv` contains the fixed-decision
 operational LMPs rather than duals from the planning MIP.
 
 The CSV columns are `hour`, `area_id`, `marginal_price_USD_per_MWh`,
