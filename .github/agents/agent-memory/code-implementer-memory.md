@@ -4,6 +4,13 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Summary Performance and Solver-Free Benchmarks (2026-11-09)
+
+- Preserve the summary-building section comments (average power capacity, imports/exports totals, storage charging, costs, and curtailment) when batching DataFrame construction.
+- Annual collection/summary benchmarks must not optimize an entire year. Build real-data 8,760-hour models and assign deterministic synthetic variable values outside timing; match hydro-budget dispatch to its input profile so explicit collector validation succeeds. These fixtures are not feasible/optimal solutions, and solver metadata must remain unknown.
+- Benchmark collection and summary builders separately. Solver-free fixture regression tests use 24 hours, reject solver construction, and verify reporting values without claiming optimization correctness. Existing short CSV-export benchmarks retain their separate solves.
+- Summary dispatch totals use checked numeric summation rather than symbolic Pyomo sums; missing/nonfinite modeled imports, exports, or storage charging raise errors. Unmodeled optional exchanges remain zero, and per-area summary errors propagate.
+
 ## Results Package Extraction (2026-11-09)
 
 - Replaced `src/sdom/results.py` with the approved `results/` package. Collection modules are named `results_collection_main.py`, `collect_copperplate_resuts.py`, `collect_zonal_resuts.py`, and `collect_individual_host_results.py`; aggregation lives in `results_aggregation.py`. Preserve the explicitly approved `resuts` spelling.

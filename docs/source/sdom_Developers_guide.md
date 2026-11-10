@@ -187,6 +187,39 @@ defining modules rather than through the package facade to avoid circular import
 The results package does not write files; `sdom.io.export` serializes its prepared
 tables. Existing copperplate and zonal extraction algorithms remain separate.
 
+Summary builders batch ordered metric groups into one DataFrame rather than
+repeatedly concatenating growing tables. Both hydro-summary rows are appended in
+one operation. `_values._sum_initialized_dispatch` provides checked numeric totals
+for hourly imports, exports, and storage charging, avoiding temporary symbolic
+sums. Missing or nonfinite modeled dispatch raises `ValueError`; the zonal
+collector propagates per-area summary errors rather than returning an empty
+summary. Optional unmodeled imports and exports retain zero totals.
+
+### Collection-Only Benchmarks
+
+The collection and summary benchmarks in
+`tests/benchmarks/test_bench_results_export.py` use 8,760-hour models built from
+real copperplate, exchange, and zonal input scenarios. Setup assigns deterministic
+synthetic variable values without invoking a solver. Hydro-budget dispatch
+matches its input profile to pass the collector's budget validation; other
+constraints are not enforced. The fixture is not a feasible or optimal solution,
+and its solver metadata remains `unknown`.
+
+Model construction, variable initialization, and reference collection happen
+outside the timed region. The timed calls measure `collect_results_from_model`
+and the copperplate or zonal summary builder separately, with no optimization,
+pricing solve, or CSV writing. These benchmarks measure reporting performance,
+not optimization correctness. The separate existing 24-hour CSV-export benchmarks
+still solve their small fixtures.
+
+```powershell
+uv run --frozen pytest tests\benchmarks\test_bench_results_export.py -m bench_deep --no-cov --benchmark-min-rounds=3 --benchmark-max-time=1
+```
+
+Short-horizon regression tests in the same module reject solver construction
+during fixture setup and verify that collected synthetic results are not labeled
+optimal.
+
 ## CSV and Dictionary Workflow
 
 The standard workflow accepts a scenario directory and uses a dictionary as the

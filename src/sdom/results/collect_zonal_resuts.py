@@ -244,15 +244,9 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
             generation_totals=bundle["generation_totals"],
             cost_breakdown=bundle["cost_breakdown"],
         )
-        try:
-            results.area_summary_df[a] = _build_summary_dataframe(
-                host, per_area_results, bundle["storage_tech_list"]
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            logging.warning(
-                "Could not build per-area summary for area '%s': %s", a, exc
-            )
-            results.area_summary_df[a] = pd.DataFrame()
+        results.area_summary_df[a] = _build_summary_dataframe(
+            host, per_area_results, bundle["storage_tech_list"]
+        )
 
     # Top-level concatenated DataFrames ------------------------------------
     if gen_pieces:

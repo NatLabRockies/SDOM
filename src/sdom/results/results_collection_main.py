@@ -43,7 +43,9 @@ def collect_results_from_model(model, solver_result, case_name: str = "run") -> 
     ------
     ValueError
         If a hydro budget period materially violates its equality or
-        upper-bound constraint, or required budget dispatch is nonfinite.
+        upper-bound constraint, required budget dispatch is nonfinite, or
+        summary totals encounter missing or nonfinite modeled imports,
+        exports, or storage charging. Per-area summary errors propagate.
 
     Notes
     -----

@@ -46,6 +46,20 @@ The `OptimizationResults` dataclass is the primary container for all optimizatio
 .. autofunction:: sdom.results.collect_marginal_prices_from_model
 ```
 
+## Summary Construction and Invalid Dispatch
+
+Copperplate, per-area, and aggregate zonal summaries collect ordered metric groups
+before constructing their DataFrame once. The two system-wide hydro-curtailment
+rows are appended together. Column order, units, metric order, and per-area
+ownership remain unchanged.
+
+Imports, exports, and storage-charging totals sum extracted numeric values rather
+than constructing temporary Pyomo sum expressions. If one of these modeled
+dispatch values is missing, NaN, or infinite, collection raises `ValueError` with
+the variable and hour. It does not report a partial total or silently replace a
+failed per-area summary with an empty table. Optional imports and exports that
+are not modeled still report zero.
+
 ## Example Usage
 
 ### Basic Result Access
