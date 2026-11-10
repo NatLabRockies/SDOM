@@ -199,6 +199,14 @@ plot_system_results(system, run_id="copperplate-24h", output_dir="results/copper
 supplemental attributes; `attributes` contains the corresponding typed result
 attributes. Use a distinct `run_id` for each result set retained on a System.
 
+All four [hydro budget choices](inputs.md#large-hydropower) are supported, retaining
+the exact formulation selection as well as daily/monthly period metadata. The
+system-wide hydro-curtailment rows are stored as `SDOMSummaryMetricResult`
+attributes and reconstructed into `summary_df`, preserving technology `Hydro`
+and units `TWh` / `%`. Explicit `scope` distinguishes system and area summaries
+even when both are attached to an area component. Legacy summary attributes
+without scope retain owner-based interpretation.
+
 ## Zonal workflow
 
 Use `initialize_model_from_system` for data whose network formulation and
@@ -235,6 +243,16 @@ The tested infrasys JSON persistence format is `System.to_json(path,
 overwrite=True)` and `System.from_json(path)`. It round-trips System
 components, associations, and queryable time-series metadata for both the
 copperplate and zonal examples.
+
+Full solved copperplate and zonal result JSON round trips preserve both the
+hydro summary rows and individual thermal dispatch. The
+[long thermal table](running_and_outputs.md#individual-thermal-dispatch) attaches
+only each plant's owned rows to its `SDOMThermalGenerationResult`, including zero
+dispatch and single-plant areas. This removes the cross-area placeholder values
+that previously prevented mixed-thermal zonal JSON persistence. Existing valid
+typed thermal attributes retain their schema and reconstruct into the new long
+table; previously written invalid JSON payloads containing null dispatch are not
+repaired automatically.
 
 ```python
 from pathlib import Path

@@ -98,6 +98,11 @@ def test_legacy_fast_path_objective_is_bit_compatible(
 
     assert sol["Termination condition"] == "optimal"
     assert abs(sol["Total_Cost"] - golden_cost) <= abs_tol
+    hydro_rows = results.summary_df.loc[
+        results.summary_df["Metric"].isin(("Total Hydro curtailment", "Hydro curtailment percentage"))
+    ]
+    assert hydro_rows["Technology"].tolist() == ["Hydro", "Hydro"]
+    assert hydro_rows["Optimal Value"].tolist() == [0.0, 0.0]
 
 
 def test_dispatcher_delegates_to_legacy_helper(monkeypatch):

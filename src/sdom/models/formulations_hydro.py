@@ -7,6 +7,7 @@ from pyomo.environ import NonNegativeReals, Param, Set, value
 
 from ..constants import (
     DAILY_BUDGET_HOURS_AGGREGATION,
+    HYDRO_FORMULATION_METADATA,
     MONTHLY_BUDGET_HOURS_AGGREGATION,
     VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
 )
@@ -38,7 +39,7 @@ def add_large_hydro_parameters(host, data: dict):
     Notes
     -----
     ``hydro.alpha`` scales hourly profile/bound constraints. The energy-budget
-    upper bound uses the unscaled profile; see :func:`add_hydro_budget_constraints`.
+    relation uses the unscaled profile; see :func:`add_hydro_budget_constraints`.
     """
     add_alpha_and_ts_parameters(host.hydro, host.h, data, "AlphaLargHy", "large_hydro_data", "LargeHydro")
     formulation = get_formulation(data, component='hydro')
@@ -88,7 +89,7 @@ def add_hydro_run_of_river_constraints(host, data: dict):
     host : pyomo.core.base.block.BlockData
         System or area with initialized hydro generation and parameters.
     data : dict
-        Loaded inputs; unused by this builder.
+        Loaded inputs selecting the hydro formulation and its budget sense.
 
     Notes
     -----
@@ -106,7 +107,7 @@ def add_hydro_run_of_river_constraints(host, data: dict):
 
 
 def add_hydro_budget_constraints(host, data: dict):
-    r"""Bound hourly hydro dispatch and cap each period's energy generation.
+    r"""Bound hourly hydro dispatch and enforce the selected energy budget.
 
     Parameters
     ----------
@@ -125,18 +126,26 @@ def add_hydro_budget_constraints(host, data: dict):
        \alpha^{hyd}\underline g^{hyd}_h \le G^{hyd}_h
        \le \alpha^{hyd}\overline g^{hyd}_h,\qquad
        \sum_{h\in\mathcal H_b}G^{hyd}_h
-       \le \sum_{h\in\mathcal H_b}\rho_h.
+       \mathrel{\{=,\le\}} \sum_{h\in\mathcal H_b}\rho_h.
 
     The hourly bounds and dispatch are in MW. With implicit one-hour steps,
     each sum is energy in MWh. The budget profile :math:`\rho_h` is
     ``hydro.ts_parameter[h]`` and is **not** multiplied by ``hydro.alpha``.
-    Unused energy is allowed and is not carried into subsequent periods.
+    Existing daily/monthly names enforce equality. Explicit ``UpperBound``
+    names allow unused energy, without carryover into subsequent periods.
     :func:`~sdom.models.models_utils.generic_budget_rule` defines the
     contiguous, fixed-length hour set :math:`\mathcal H_b`.
     """
     host.hydro.upper_bound_ts_constraint = Constraint(host.h, rule=lambda m,h: m.generation[h] <= m.alpha * m.ts_parameter_upper_bound[h] )
     host.hydro.lower_bound_ts_constraint = Constraint(host.h, rule=lambda m,h: m.generation[h] >= m.alpha * m.ts_parameter_lower_bound[h] )
 
-    host.hydro.budget_constraint = Constraint(host.hydro.budget_set, rule = generic_budget_rule )
+    formulation = HYDRO_FORMULATION_METADATA[get_formulation(data, component="hydro")]
+    equality = formulation.budget_sense == "equality"
+    host.hydro.budget_constraint = Constraint(
+        host.hydro.budget_set,
+        rule=lambda block, period: generic_budget_rule(
+            block, period, equality=equality
+        ),
+    )
     
     return

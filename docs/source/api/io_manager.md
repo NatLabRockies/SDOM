@@ -79,7 +79,7 @@ if results.is_optimal:
 # - OutputGeneration_scenario_95pct_clean.csv
 # - OutputStorage_scenario_95pct_clean.csv
 # - OutputSummary_scenario_95pct_clean.csv
-# - marginal_prices.csv (fixed-decision LP hourly marginal prices)
+# - OutputMarginalPrices_scenario_95pct_clean.csv (fixed-decision LP hourly marginal prices)
 
 # You can also access the DataFrames directly from results:
 generation_df = results.generation_df

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from infrasys import System
 
@@ -42,6 +43,7 @@ from ..models import (
     SDOMStorageDispatchResult,
     SDOMSummaryMetricResult,
     SDOMThermalGenerationResult,
+    SDOMThermalGenerator,
     SDOMTransmissionInterface,
 )
 from .ownership import (
@@ -594,10 +596,10 @@ def _resolve_storage_dispatch_owner(
 
 def _attach_thermal_generation_results(
     system: System,
-    owner: SDOMComponent,
     frame: pd.DataFrame,
     *,
     context: _ResultContext,
+    is_zonal: bool,
 ) -> None:
     """Attach thermal generation time series to thermal components.
 
@@ -605,52 +607,60 @@ def _attach_thermal_generation_results(
     ----------
     system : infrasys.System
         System to mutate.
-    owner : SDOMComponent
-        Fallback owner for unmatched plant columns.
     frame : pandas.DataFrame
-        Thermal generation result DataFrame.
+        Long dispatch with Hour, Area, Plant ID, and Generation (MW) columns.
     context : _ResultContext
         Shared run metadata.
+    is_zonal : bool
+        Whether row areas must match generator ownership rather than copperplate.
 
     Returns
     -------
     None
         Attributes are attached in place.
 
+    Raises
+    ------
+    ValueError
+        If required fields are missing, dispatch is nonfinite, keys are
+        duplicated, or a plant cannot be matched to its declared ownership.
+
     Examples
     --------
-    >>> _attach_thermal_generation_results(System(name="empty"), SDOMArea(name="A"), pd.DataFrame(), context=_ResultContext("run-1", None, None))
+    >>> _attach_thermal_generation_results(System(name="empty"), pd.DataFrame(), context=_ResultContext("run-1", None, None), is_zonal=False)
     """
     if frame.empty:
         return
 
+    required = ["Hour", "Area", "Plant ID", "Generation (MW)"]
+    missing = set(required).difference(frame.columns)
+    if missing:
+        raise ValueError(f"Thermal dispatch is missing columns: {sorted(missing)}.")
+    if frame[required].isna().any().any():
+        raise ValueError("Thermal dispatch must not contain missing values.")
+    if not np.isfinite(frame["Generation (MW)"].to_numpy(dtype=float)).all():
+        raise ValueError("Thermal dispatch must contain finite generation values.")
+    if frame.duplicated(["Hour", "Area", "Plant ID"]).any():
+        raise ValueError("Thermal dispatch must have one row per hour, area, and plant.")
     components = _component_by_name(system)
-    area_column = "Area" if "Area" in frame.columns else None
-    ignore = {"Hour"}
-    if area_column:
-        ignore.add(area_column)
-
-    groups = frame.groupby(area_column, sort=False) if area_column else [(None, frame)]
-    for _, group in groups:
-        for column in group.columns:
-            if column in ignore:
-                continue
-            target = components.get(f"thermal:{column}")
-            if target is None:
-                LOGGER.warning(
-                    "No SDOM thermal generator matched column %r; attaching generation result to scenario owner %r.",
-                    column,
-                    owner.name,
-                )
-                target = owner
-            system.add_supplemental_attribute(
-                target,
-                SDOMThermalGenerationResult(
-                    **context.kwargs,
-                    hours=_int_list(group["Hour"]),
-                    generation_mw=_float_list(group[column]),
-                ),
-            )
+    for _, group in frame.groupby(["Area", "Plant ID"], sort=False):
+        area = str(group["Area"].iat[0])
+        plant = str(group["Plant ID"].iat[0])
+        target = components.get(f"thermal:{plant}")
+        if not isinstance(target, SDOMThermalGenerator):
+            raise ValueError(f"No SDOM thermal generator matched plant {plant!r}.")
+        expected_area = target.bus.area.name if is_zonal else "copperplate"
+        if area != expected_area:
+            raise ValueError(f"Thermal plant {plant!r} does not belong to area {area!r}.")
+        group = group.sort_values("Hour", kind="stable")
+        system.add_supplemental_attribute(
+            target,
+            SDOMThermalGenerationResult(
+                **context.kwargs,
+                hours=_int_list(group["Hour"]),
+                generation_mw=_float_list(group["Generation (MW)"]),
+            ),
+        )
 
 
 def _attach_summary_results(
@@ -698,6 +708,7 @@ def _attach_summary_results(
                 run=_json_scalar(row.get("Run")),
                 optimal_value=_json_scalar(row.get("Optimal Value")),
                 unit=_optional_str(row.get("Unit")),
+                scope="system" if area is None else "area",
             ),
         )
 

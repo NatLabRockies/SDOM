@@ -11,7 +11,9 @@ import pytest
 infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
-from sdom import load_data  # noqa: E402
+from test_hydro_curtailment_results import _hydro_rows, _reporting_data  # noqa: E402
+
+from sdom import export_results, get_default_solver_config_dict, load_data, run_solver  # noqa: E402
 from sdom.infrasys_integration.make_system import load_system_from_data  # noqa: E402
 from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMArea,
@@ -27,9 +29,11 @@ from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMSolarGenerator,
     SDOMStorage,
     SDOMStorageDispatchResult,
+    SDOMSummaryMetricResult,
     SDOMThermalGenerationResult,
     SDOMThermalGenerator,
 )
+from sdom.infrasys_integration.pyomo_builder import initialize_model_from_system  # noqa: E402
 from sdom.infrasys_integration.results import (  # noqa: E402
     add_results_to_system,
     optimization_results_from_system,
@@ -38,6 +42,175 @@ from sdom.infrasys_integration.results import (  # noqa: E402
 from sdom.results import OptimizationResults  # noqa: E402
 
 System = infrasys.System
+
+
+@pytest.mark.parametrize("zonal", [False, True], ids=["copperplate", "zonal"])
+def test_long_thermal_dispatch_round_trip_preserves_ownership_single_plants_and_zeros(tmp_path, zonal):
+    system = load_system_from_data(load_data("Data/zonal_test" if zonal else "Data/no_exchange_run_of_river"))
+    selected = {}
+    for thermal in system.get_components(SDOMThermalGenerator):
+        area = thermal.bus.area.name if zonal else "copperplate"
+        selected.setdefault(area, thermal)
+    rows = [
+        {"Hour": hour, "Area": area, "Plant ID": plant.name.removeprefix("thermal:"), "Generation (MW)": 0.0}
+        for area, plant in selected.items()
+        for hour in (1, 2)
+    ]
+    expected = pd.DataFrame(rows)
+    results = OptimizationResults(
+        is_zonal=zonal, areas=list(selected) if zonal else [], thermal_generation_df=expected
+    )
+    add_results_to_system(system, results, run_id="thermal")
+    attributes = query_result_attributes(system, run_id="thermal", attribute_type=SDOMThermalGenerationResult)
+    assert len(attributes) == len(selected)
+    assert all(attribute.hours == [1, 2] and attribute.generation_mw == [0.0, 0.0] for attribute in attributes)
+    path = tmp_path / "thermal.json"
+    system.to_json(path, overwrite=True)
+    restored = optimization_results_from_system(System.from_json(path), run_id="thermal")
+    keys = ["Area", "Hour", "Plant ID"]
+    pd.testing.assert_frame_equal(
+        restored.thermal_generation_df.sort_values(keys).reset_index(drop=True),
+        expected.sort_values(keys).reset_index(drop=True),
+    )
+    if zonal:
+        assert set(restored.area_thermal_generation_df) == set(selected)
+        for area, frame in restored.area_thermal_generation_df.items():
+            assert list(frame.columns) == ["Hour", "Plant ID", "Generation (MW)"]
+            assert set(frame["Plant ID"]) == {selected[area].name.removeprefix("thermal:")}
+
+
+@pytest.mark.parametrize(
+    ("invalid", "message"),
+    [
+        ("nan", "missing values"),
+        ("infinity", "finite generation"),
+        ("duplicate", "one row per hour"),
+        ("wrong-area", "does not belong"),
+        ("unknown-plant", "No SDOM thermal generator"),
+        ("missing-column", "missing columns"),
+    ],
+)
+def test_long_thermal_dispatch_rejects_invalid_attachment(invalid, message):
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    plant = next(system.get_components(SDOMThermalGenerator))
+    frame = pd.DataFrame(
+        {
+            "Hour": [1],
+            "Area": [plant.bus.area.name],
+            "Plant ID": [plant.name.removeprefix("thermal:")],
+            "Generation (MW)": [0.0],
+        }
+    )
+    if invalid == "nan":
+        frame["Generation (MW)"] = float("nan")
+    elif invalid == "infinity":
+        frame["Generation (MW)"] = float("inf")
+    elif invalid == "duplicate":
+        frame = pd.concat([frame, frame], ignore_index=True)
+    elif invalid == "wrong-area":
+        frame["Area"] = "not-the-owning-area"
+    elif invalid == "unknown-plant":
+        frame["Plant ID"] = "not-a-plant"
+    else:
+        frame = frame.drop(columns="Area")
+    with pytest.raises(ValueError, match=message):
+        add_results_to_system(system, OptimizationResults(thermal_generation_df=frame), run_id="invalid")
+
+
+@pytest.mark.parametrize("zonal", [False, True], ids=["copperplate", "zonal"])
+@pytest.mark.parametrize(
+    ("formulation", "hours"),
+    [("DailyBudgetUpperBoundFormulation", 24), ("MonthlyBudgetUpperBoundFormulation", 730)],
+)
+def test_hydro_summary_from_system_solve_survives_serialization_and_export(
+    tmp_path, formulation, *, hours, zonal
+):
+    """Persist full solved results, including zonal thermal dispatch and hydro."""
+    system = load_system_from_data(_reporting_data(formulation, zonal=zonal))
+    model = initialize_model_from_system(system, n_hours=hours).create_instance()
+    config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+    config["solve_keywords"].update(tee=False, report_timing=False, keepfiles=False)
+
+    results = run_solver(model, config)
+    assert results.is_optimal
+    expected = _hydro_rows(results.summary_df)
+    assert expected["Technology"].tolist() == ["Hydro", "Hydro"]
+    assert expected["Unit"].tolist() == ["TWh", "%"]
+    assert expected["Optimal Value"].gt(0).all()
+
+    add_results_to_system(system, results, run_id="hydro")
+    path = tmp_path / "hydro.json"
+    system.to_json(path, overwrite=True)
+    restored = System.from_json(path)
+    attributes = query_result_attributes(restored, run_id="hydro", attribute_type=SDOMSummaryMetricResult)
+    hydro_attributes = {
+        attribute.metric: attribute
+        for attribute in attributes
+        if attribute.technology == "Hydro" and attribute.metric in expected["Metric"].values
+    }
+    assert set(hydro_attributes) == {"Total Hydro curtailment", "Hydro curtailment percentage"}
+    assert all(attribute.scope == "system" for attribute in hydro_attributes.values())
+    assert hydro_attributes["Total Hydro curtailment"].unit == "TWh"
+    assert hydro_attributes["Hydro curtailment percentage"].unit == "%"
+
+    reconstructed = optimization_results_from_system(restored, run_id="hydro")
+    pd.testing.assert_frame_equal(_hydro_rows(reconstructed.summary_df), expected)
+    keys = ["Area", "Hour", "Plant ID"]
+    pd.testing.assert_frame_equal(
+        reconstructed.thermal_generation_df.sort_values(keys).reset_index(drop=True),
+        results.thermal_generation_df.sort_values(keys).reset_index(drop=True),
+    )
+    export_results(reconstructed, case="hydro", output_dir=str(tmp_path))
+    exported = pd.read_csv(tmp_path / "OutputSummary_hydro.csv")
+    pd.testing.assert_frame_equal(_hydro_rows(exported), expected)
+
+
+def test_zonal_summary_round_trip_distinguishes_system_and_area_scopes(tmp_path):
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    system_summary = pd.DataFrame(
+        {
+            "Metric": ["Total Hydro curtailment", "Hydro curtailment percentage"],
+            "Technology": ["Hydro", "Hydro"],
+            "Run": [1, 1],
+            "Optimal Value": [6.0, 25.0],
+            "Unit": ["TWh", "%"],
+        }
+    )
+    area_summary = pd.DataFrame(
+        {"Metric": ["Capacity"], "Technology": ["Thermal"], "Run": [1], "Optimal Value": [10.0], "Unit": ["MW"]}
+    )
+    results = OptimizationResults(
+        is_zonal=True, areas=["A1", "A2"], summary_df=system_summary, area_summary_df={"A1": area_summary}
+    )
+    add_results_to_system(system, results, run_id="scoped")
+    path = tmp_path / "scoped.json"
+    system.to_json(path, overwrite=True)
+
+    reconstructed = optimization_results_from_system(System.from_json(path), run_id="scoped")
+
+    pd.testing.assert_frame_equal(reconstructed.summary_df, system_summary)
+    assert set(reconstructed.area_summary_df) == {"A1"}
+    pd.testing.assert_frame_equal(reconstructed.area_summary_df["A1"], area_summary)
+
+
+def test_legacy_summary_without_explicit_scope_keeps_owner_based_area(tmp_path):
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    add_results_to_system(system, OptimizationResults(is_zonal=True, areas=["A1", "A2"]), run_id="legacy")
+    attribute = SDOMSummaryMetricResult(
+        run_id="legacy", row_order=0, metric="Capacity", technology="Thermal", optimal_value=10.0, unit="MW"
+    )
+    system.add_supplemental_attribute(system.get_component(SDOMArea, "A2"), attribute)
+
+    reconstructed = optimization_results_from_system(system, run_id="legacy")
+
+    assert reconstructed.summary_df.empty
+    assert set(reconstructed.area_summary_df) == {"A2"}
+    assert reconstructed.area_summary_df["A2"]["Optimal Value"].tolist() == [10.0]
+    path = tmp_path / "legacy.json"
+    system.to_json(path, overwrite=True)
+    restored = optimization_results_from_system(System.from_json(path), run_id="legacy")
+    assert restored.summary_df.empty
+    pd.testing.assert_frame_equal(restored.area_summary_df["A2"], reconstructed.area_summary_df["A2"])
 
 
 def _sample_results(data: dict) -> OptimizationResults:
@@ -136,7 +309,14 @@ def test_add_results_to_system_attaches_run_metadata_and_component_results():
     results = _sample_results(data)
     thermal = next(system.get_components(SDOMThermalGenerator))
     thermal_plant_id = thermal.name.removeprefix("thermal:")
-    results.thermal_generation_df = pd.DataFrame({"Hour": [1, 2], thermal_plant_id: [3.0, 4.0]})
+    results.thermal_generation_df = pd.DataFrame(
+        {
+            "Hour": [1, 2],
+            "Area": ["copperplate", "copperplate"],
+            "Plant ID": [thermal_plant_id, thermal_plant_id],
+            "Generation (MW)": [3.0, 4.0],
+        }
+    )
 
     add_results_to_system(
         system,

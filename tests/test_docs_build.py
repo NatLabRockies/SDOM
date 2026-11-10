@@ -129,6 +129,52 @@ def test_infrasys_documentation_is_linked_and_mermaid_is_enabled():
     assert "SDOMResultAttribute" in user_guide_text
 
 
+@pytest.mark.parametrize(
+    "formulation",
+    [
+        "DailyBudgetFormulation",
+        "DailyBudgetUpperBoundFormulation",
+        "MonthlyBudgetFormulation",
+        "MonthlyBudgetUpperBoundFormulation",
+    ],
+)
+def test_hydro_formulation_documentation_matches_registered_semantics(formulation):
+    """Keep documented period lengths and budget senses aligned with the model."""
+    from sdom.constants import HYDRO_FORMULATION_METADATA
+
+    source_dir = Path(__file__).parent.parent / "docs" / "source"
+    inputs = (source_dir / "user_guide" / "inputs.md").read_text(encoding="utf-8")
+    rows = [line for line in inputs.splitlines() if line.startswith(f"| hydro | {formulation} |")]
+    assert len(rows) == 1
+    metadata = HYDRO_FORMULATION_METADATA[formulation]
+    description = rows[0].split("|")[3]
+    assert f"{metadata.hours}-hour" in description
+    assert metadata.budget_sense is not None
+    assert metadata.budget_sense.replace("_", " ") in description
+    for path in [
+        source_dir / "user_guide" / "sdom_math_formulation.md",
+        source_dir / "api" / "models.md",
+        source_dir / "api" / "utilities.md",
+    ]:
+        assert formulation in path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("filename", ["running_and_outputs.md", "sdom_math_formulation.md"])
+def test_hydro_reporting_documentation_uses_exact_system_summary_schema(filename):
+    """Document both hydro rows with the same technology and units as export."""
+    source_dir = Path(__file__).parent.parent / "docs" / "source" / "user_guide"
+    text = (source_dir / filename).read_text(encoding="utf-8")
+    rows = [
+        tuple(cell.strip().strip("`") for cell in line.split("|")[1:-1])
+        for line in text.splitlines()
+        if line.startswith(("| `Total Hydro curtailment` |", "| `Hydro curtailment percentage` |"))
+    ]
+    assert rows == [
+        ("Total Hydro curtailment", "Hydro", "TWh"),
+        ("Hydro curtailment percentage", "Hydro", "%"),
+    ]
+
+
 def test_docs_build_html():
     """Test that documentation builds successfully.
     
@@ -181,6 +227,9 @@ def test_docs_build_html():
     # Check that index.html was created
     index_html = build_dir / "index.html"
     assert index_html.exists(), "index.html not generated"
+    hydro_html = (build_dir / "user_guide" / "sdom_math_formulation.html").read_text(encoding="utf-8")
+    for anchor in ["energy-budget-equality", "energy-budget-upper-bound", "hydro-curtailment-reporting"]:
+        assert f'id="{anchor}"' in hydro_html, f"Hydro documentation anchor not rendered: {anchor}"
 
 
 #@pytest.mark.slow

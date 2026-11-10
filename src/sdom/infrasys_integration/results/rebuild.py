@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from infrasys import System
 
@@ -335,6 +336,7 @@ def _rebuild_thermal_generation_results(system: System, results: OptimizationRes
     """
     by_area: dict[str | None, list[tuple[str, SDOMThermalGenerationResult]]] = {}
     for owner, attr in _iter_result_attributes(system, SDOMThermalGenerationResult, filters=filters):
+        assert isinstance(attr, SDOMThermalGenerationResult)
         plant = owner.name.removeprefix("thermal:") if isinstance(owner, SDOMThermalGenerator) else owner.name
         area = owner.bus.area.name if isinstance(owner, SDOMThermalGenerator) else None
         by_area.setdefault(area if results.is_zonal else None, []).append((plant, attr))
@@ -348,6 +350,7 @@ def _rebuild_thermal_generation_results(system: System, results: OptimizationRes
             frame_with_area.insert(1, "Area", area)
             frames.append(frame_with_area)
         else:
+            frame.insert(1, "Area", area if area is not None else "copperplate")
             frames.append(frame)
     if frames:
         results.thermal_generation_df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
@@ -370,16 +373,22 @@ def _thermal_entries_to_frame(entries: Iterable[tuple[str, SDOMThermalGeneration
     --------
     >>> frame = _thermal_entries_to_frame([("p", SDOMThermalGenerationResult(run_id="r", hours=[1], generation_mw=[2.0]))])
     >>> list(frame.columns)
-    ['Hour', 'p']
+    ['Hour', 'Plant ID', 'Generation (MW)']
     """
-    entries = list(entries)
+    entries = sorted(entries, key=lambda item: item[0])
     if not entries:
-        return pd.DataFrame()
-    hours = entries[0][1].hours
-    data: dict[str, Any] = {"Hour": hours}
-    for plant, attr in sorted(entries, key=lambda item: item[0]):
-        data[plant] = attr.generation_mw
-    return pd.DataFrame(data)
+        return pd.DataFrame(columns=pd.Index(["Hour", "Plant ID", "Generation (MW)"]))
+    frame = pd.DataFrame(
+        {
+            "Hour": np.concatenate([np.asarray(attr.hours, dtype=int) for _, attr in entries]),
+            "Plant ID": np.repeat(
+                np.asarray([plant for plant, _ in entries], dtype=object),
+                [len(attr.hours) for _, attr in entries],
+            ),
+            "Generation (MW)": np.concatenate([np.asarray(attr.generation_mw, dtype=float) for _, attr in entries]),
+        }
+    )
+    return frame.sort_values("Hour", kind="stable").reset_index(drop=True)
 
 
 def _rebuild_installed_capacity_results(system: System, results: OptimizationResults, *, filters: _ResultFilters) -> None:
@@ -474,9 +483,14 @@ def _rebuild_summary_results(system: System, results: OptimizationResults, *, fi
     rows: list[dict[str, Any]] = []
     rows_by_area: dict[str, list[dict[str, Any]]] = {}
     for owner, attr in _iter_result_attributes(system, SDOMSummaryMetricResult, filters=filters):
+        assert isinstance(attr, SDOMSummaryMetricResult)
         row = _summary_row(attr)
         row["__order"] = attr.row_order
-        area = owner.name if results.is_zonal and isinstance(owner, SDOMArea) else None
+        area = (
+            owner.name
+            if attr.scope != "system" and results.is_zonal and isinstance(owner, SDOMArea)
+            else None
+        )
         if area is None:
             rows.append(row)
         else:

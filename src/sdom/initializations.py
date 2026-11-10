@@ -5,6 +5,7 @@ import pandas as pd
 from pyomo.environ import Param, RangeSet, Set
 
 from .constants import (
+    HYDRO_FORMULATION_METADATA,
     IMPORTS_EXPORTS_NOT_MODEL,
     RUN_OF_RIVER_FORMULATION,
     VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP,
@@ -217,7 +218,7 @@ def initialize_sets( model, data, n_hours = 8760 ):
     initialize_thermal_sets(model.thermal, data)
    
     hydro_formulation = get_formulation(data, component = 'hydro')
-    if "Budget" in hydro_formulation:
+    if HYDRO_FORMULATION_METADATA[hydro_formulation].budget_sense is not None:
         n_hours_checked= check_n_hours(n_hours, VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP[hydro_formulation])
         model.h = RangeSet(1, n_hours_checked)
         model.storage.n_steps_modeled = Param( initialize = n_hours_checked )

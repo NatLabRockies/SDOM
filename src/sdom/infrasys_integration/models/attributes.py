@@ -566,6 +566,9 @@ class SDOMSummaryMetricResult(SDOMResultAttribute):
         Optimal value stored in the summary row.
     unit : str, optional
         Unit label for the row.
+    scope : {"system", "area"} or None, optional
+        Summary scope, independently of attribute ownership. None preserves
+        historical owner-based scoping for legacy attributes.
 
     Examples
     --------
@@ -582,6 +585,10 @@ class SDOMSummaryMetricResult(SDOMResultAttribute):
         Field(default=None, description="Summary optimal value."),
     ]
     unit: Annotated[str | None, Field(default=None, description="Unit label.")]
+    scope: Annotated[
+        Literal["system", "area"] | None,
+        Field(default=None, description="Summary scope; None preserves legacy owner-based scoping."),
+    ]
 
 
 class SDOMCurtailmentResult(SDOMResultAttribute):

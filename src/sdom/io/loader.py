@@ -255,7 +255,8 @@ def load_data(input_data_dir: str = ".\\Data\\") -> dict:
 
     if hydro_formulation != RUN_OF_RIVER_FORMULATION:
         logging.debug(
-            "- Hydro was set to MonthlyBudgetFormulation. Trying to load large hydro max/min data..."
+            "- Hydro was set to %s. Trying to load large hydro max/min data...",
+            hydro_formulation,
         )
 
         input_file_path = check_file_exists(

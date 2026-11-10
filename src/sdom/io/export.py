@@ -1,13 +1,14 @@
-"""Write modern result DataFrames and dispatch deprecated model exports."""
+"""Write structured optimization result DataFrames to CSV."""
 
 import logging
 import os
 
 from ..results import OptimizationResults
-from ._legacy_export import _export_from_model_legacy
 
 
-def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
+def export_results(
+    results: OptimizationResults, case: str | int, output_dir: str = "./results_pyomo/"
+) -> None:
     """Export optimization results to CSV files.
 
     Writes the results from an OptimizationResults object to CSV files in the
@@ -15,9 +16,9 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
 
     Parameters
     ----------
-    results : OptimizationResults or pyomo.environ.ConcreteModel
-        The optimization results object from run_solver(), or a solved model
-        for the deprecated direct-model export path.
+    results : OptimizationResults
+        Structured optimization results returned by run_solver() or
+        reconstructed from an Infrasys System.
     case : str or int
         Case identifier used in output filenames to distinguish between
         different scenarios or runs.
@@ -28,6 +29,13 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
     Returns
     -------
     None
+
+    Raises
+    ------
+    TypeError
+        If results is not an OptimizationResults instance. Legacy exports
+        directly from Pyomo models were deprecated and are no longer supported.
+        Invalid inputs are rejected before creating directories or writing files.
 
     Output Files
     ------------
@@ -47,11 +55,13 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
     OutputSummary_{case}.csv
         Summary metrics including: Total costs, Installed capacities by
         technology, Total generation by technology, Demand statistics,
-        Cost breakdowns (VRE, storage, thermal CAPEX/FOM/VOM).
+        Cost breakdowns (VRE, storage, thermal CAPEX/FOM/VOM), and system-wide
+        unused hydro budget energy (TWh and percentage, technology ``Hydro``).
 
     OutputThermalGeneration_{case}.csv
-        Disaggregated hourly thermal generation by plant (only if more than
-        one thermal plant exists).
+        Long individual dispatch with Hour, Area, Plant ID, and Generation
+        (MW) columns. Includes single-plant fleets and zero dispatch.
+        Copperplate uses area ``copperplate``; zonal rows use owning areas.
 
     OutputInterregionalExchanges_{case}.csv
         Hourly per-line interregional exchanges (PRD §2.4 schema). Emitted
@@ -61,7 +71,7 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
         flow_TF_MW, cap_FT_MW, cap_TF_MW, utilization_FT, utilization_TF``.
         Row count is ``|L| * n_hours``.
 
-    marginal_prices.csv
+    OutputMarginalPrices_{case}.csv
         Fixed-decision LP marginal prices for successful solves. Columns:
         ``hour, area_id, marginal_price_USD_per_MWh,
         generation_component_USD_per_MWh, congestion_component_USD_per_MWh,
@@ -70,37 +80,18 @@ def export_results(results, case: str, output_dir: str = "./results_pyomo/"):
 
     Notes
     -----
-    This function accepts either an OptimizationResults dataclass or a solved
-    Pyomo model (deprecated). Both paths retain their existing CSV schemas.
+    Export the result of ``run_solver(model, solver_config)``, not the raw model.
+    Marginal prices use a case-specific filename so exporting another case into
+    the same directory does not overwrite previously exported prices.
     """
+    if not isinstance(results, OptimizationResults):
+        raise TypeError(
+            "export_results() requires an OptimizationResults instance. "
+            "Legacy exports directly from Pyomo models were deprecated and are no longer supported. "
+            "Use results = run_solver(model, solver_config), then export_results(results, case, output_dir)."
+        )
     logging.info("Exporting SDOM results...")
     os.makedirs(output_dir, exist_ok=True)
-
-    # Handle both new OptimizationResults and legacy model input
-    if isinstance(results, OptimizationResults):
-        _export_from_results_object(results, case, output_dir)
-    else:
-        # Legacy support: assume it's a model object
-        logging.warning(
-            "export_results() received a model object instead of OptimizationResults. "
-            "This usage is deprecated. Please use the OptimizationResults from run_solver()."
-        )
-        _export_from_model_legacy(results, case, output_dir)
-
-
-def _export_from_results_object(results, case: str, output_dir: str):
-    """Export results from OptimizationResults object to CSV files.
-
-    Parameters
-    ----------
-    results : OptimizationResults
-        The optimization results object.
-    case : str
-        Case identifier for filenames.
-    output_dir : str
-        Output directory path.
-    """
-    logging.info("Exporting csv files containing SDOM results...")
 
     # Save generation results to CSV
     logging.debug("-- Saving generation results to CSV...")
@@ -157,6 +148,6 @@ def _export_from_results_object(results, case: str, output_dir: str):
     marginal_prices_df = getattr(results, "marginal_prices_df", None)
     if marginal_prices_df is not None and not marginal_prices_df.empty:
         marginal_prices_df.to_csv(
-            os.path.join(output_dir, "marginal_prices.csv"),
+            os.path.join(output_dir, f"OutputMarginalPrices_{case}.csv"),
             index=False,
         )

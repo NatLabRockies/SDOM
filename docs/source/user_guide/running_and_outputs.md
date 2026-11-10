@@ -227,23 +227,97 @@ Xpress installation directory or specified via environment variables.
 
 In the path specified by "output_dir", sdom will writhe the following output csv files:
 
+`export_results` accepts only `OptimizationResults`, including results
+reconstructed from an Infrasys System:
+
+```python
+results = run_solver(model, solver_config)
+export_results(results, case, output_dir)
+```
+
+Legacy direct-model exports were deprecated and have been removed. Passing a raw
+model or another unsupported object raises an explicit `TypeError` before any
+output directory is created or any files are written. Existing structured-result
+export arguments and CSV schemas are unchanged.
+
 | File name                          | Description                                              |
 |-------------------------------------|----------------------------------------------------------|
 | OutputGeneration_CASENAME.csv      | Hourly system generation results aggregated by technology, curtailment, imports/exports and Load. In zonal runs, this has exactly one row per hour. |
 | OutputGenerationPerArea_CASENAME.csv | Zonal-only hourly generation results with one row per area and hour. |
 | OutputStorage_CASENAME.csv         | Hourly storage operation results (charging/discharging and SOC). |
 | OutputSummary_CASENAME.csv         | Summary of key simulation results and statistics.        |
-| OutputThermalGeneration_CASENAME.csv | Hourly results for thermal generation plants.           |
+| OutputThermalGeneration_CASENAME.csv | Long individual thermal dispatch: `Hour`, `Area`, `Plant ID`, `Generation (MW)`. |
 | OutputInstalledPowerPlants_CASENAME.csv | Installed capacity for each individual power plant (Solar PV, Wind, Thermal). |
 | OutputInterregionalExchanges_CASENAME.csv | Zonal-only line flows (`line_id`, `from_area`, `to_area`, `hour`, signed and directional flows, directional capacity and utilization). |
-| marginal_prices.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
+| OutputMarginalPrices_CASENAME.csv | Fixed-decision LP hourly marginal prices. Copperplate has one `area_id=copperplate` row per hour; zonal runs have one row per area and hour. |
+
+The system summary (`results.get_summary_dataframe()` and
+`OutputSummary_CASENAME.csv`) includes these hydro rows:
+
+| Metric | Technology | Unit |
+| --- | --- | --- |
+| `Total Hydro curtailment` | `Hydro` | `TWh` |
+| `Hydro curtailment percentage` | `Hydro` | `%` |
+
+Hydro curtailment is unused period-budget energy, not necessarily water spill.
+It is the unscaled available budget minus actual dispatch over the effective,
+budget-rounded horizon. TWh equals unused MWh divided by $10^6$; the percentage
+is 100 times total unused energy divided by total budget. Zonal runs aggregate
+energy across areas before division, not area percentages. Equality budgets
+report zero within numerical tolerance, zero total budgets report `0%`, and
+run-of-river reports zero. The rows are system-wide, not additions to per-area
+summaries; existing VRE rows and units are unchanged. See
+[hydro curtailment reporting](sdom_math_formulation.md#hydro-curtailment-reporting)
+for the equations and residual-validation policy.
+
+### Individual thermal dispatch
+
+`OutputThermalGeneration_CASENAME.csv` and
+`results.get_thermal_generation_dataframe()` use the same long format in
+copperplate and zonal runs:
+
+```csv
+Hour,Area,Plant ID,Generation (MW)
+1,A1,T1,100.0
+2,A1,T1,0.0
+1,A2,T2,80.0
+2,A2,T2,90.0
+```
+
+Each owned plant has one row per modeled hour, including zero dispatch,
+zero-capacity plants, and areas with a single thermal plant. Copperplate uses
+`Area="copperplate"`; zonal rows name the owning area. There are no placeholder
+rows or plant columns for other areas. With $H$ hours and $P$ plants across the
+system, the table has $H P$ rows and four columns. No thermal CSV is emitted when
+there are no plants.
+
+This intentionally replaces the previous one-column-per-plant thermal schema.
+Other CSV schemas,
+including aggregate thermal generation, are unchanged. Read `Plant ID` as text
+when loading a CSV to preserve identifiers such as leading-zero numeric names:
+
+```python
+import pandas as pd
+
+thermal = pd.read_csv("OutputThermalGeneration_case.csv", dtype={"Plant ID": str})
+```
+
+For consumers requiring a wide view, pivot the desired area's rows:
+
+```python
+local = thermal.loc[thermal["Area"] == "A1"]
+wide = local.pivot(index="Hour", columns="Plant ID", values="Generation (MW)")
+```
+
+`results.area_thermal_generation_df[area]` contains the same long dispatch for
+one area with the redundant `Area` column omitted.
 
 ### Marginal Prices
 
 After every successful planning solve, SDOM clones the solved model, fixes its
 investment, capacity, and discrete decisions to the incumbent values, and
 re-solves the operational problem as a continuous LP with the configured
-solver. The resulting `marginal_prices.csv` contains the fixed-decision
+solver. The resulting `OutputMarginalPrices_CASENAME.csv` contains the fixed-decision
 operational LMPs rather than duals from the planning MIP.
 
 The CSV columns are `hour`, `area_id`, `marginal_price_USD_per_MWh`,

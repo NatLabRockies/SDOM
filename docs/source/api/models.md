@@ -76,6 +76,16 @@ these views.
 
 ## Hydropower Formulations
 
+`DailyBudgetFormulation` and `MonthlyBudgetFormulation` enforce period-energy
+equality. Select `DailyBudgetUpperBoundFormulation` or
+`MonthlyBudgetUpperBoundFormulation` when availability is an upper bound and
+unused energy is allowed, including when retaining the recently relaxed behavior
+of the existing names. Equality is never automatically relaxed. All four use the
+same hourly bounds and unscaled budgets, with fixed 24/730-hour periods and the
+existing horizon rounding. `RunOfRiverFormulation` remains fixed-profile dispatch.
+See the [hydro constraints and reporting equations](../user_guide/sdom_math_formulation.md#hydro-budget-constraints)
+and [input selection guidance](../user_guide/inputs.md#large-hydropower).
+
 ```{eval-rst}
 .. automodule:: sdom.models.formulations_hydro
    :members:

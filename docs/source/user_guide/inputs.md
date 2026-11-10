@@ -53,8 +53,10 @@ This file the user selects the modeling approach (formulation) for each major sy
 | Component | Formulation | Description | Units | Main use (math) |
 | --- | --- | --- | --- | --- |
 | hydro | RunOfRiverFormulation | Fixed hourly hydro profile | Not applicable; selector | [Fixed generation injections](sdom_math_formulation.md#fixed-generation-injections). |
-| hydro | MonthlyBudgetFormulation | Fixed 730-hour energy upper bounds | Not applicable; selector | [Hydro energy budget](sdom_math_formulation.md#energy-budget-upper-bound). |
-| hydro | DailyBudgetFormulation | 24-hour energy upper bounds | Not applicable; selector | [Hydro energy budget](sdom_math_formulation.md#energy-budget-upper-bound). |
+| hydro | MonthlyBudgetFormulation | Fixed 730-hour energy equality | Not applicable; selector | [Hydro energy equality](sdom_math_formulation.md#energy-budget-equality). |
+| hydro | DailyBudgetFormulation | 24-hour energy equality | Not applicable; selector | [Hydro energy equality](sdom_math_formulation.md#energy-budget-equality). |
+| hydro | MonthlyBudgetUpperBoundFormulation | Fixed 730-hour energy upper bound | Not applicable; selector | [Hydro energy upper bound](sdom_math_formulation.md#energy-budget-upper-bound). |
+| hydro | DailyBudgetUpperBoundFormulation | 24-hour energy upper bound | Not applicable; selector | [Hydro energy upper bound](sdom_math_formulation.md#energy-budget-upper-bound). |
 | Thermal | NoRampsDispatchFormulation | Legacy continuous dispatch; default if absent | Not applicable; selector | [Thermal dispatch limit](sdom_math_formulation.md#dispatch-limit). |
 | Thermal | NoRampsMinDispatchFormulation | Hourly fractions of total installed capacity | Not applicable; selector | [Hourly minimum dispatch](sdom_math_formulation.md#hourly-minimum-dispatch). |
 | Imports | NotModel | No imports modeled | Not applicable; selector | [External trade constraints](sdom_math_formulation.md#import-and-export-constraints) are disabled for imports. |
@@ -65,6 +67,15 @@ This file the user selects the modeling approach (formulation) for each major sy
 | Network | AreaTransportationModelNetwork | Multi-area transportation network | Not applicable; selector | [Per-area supply balance](zonal_math_formulation.md#per-area-supply-balance) and [network limits](zonal_math_formulation.md#network-constraints). |
 | Reserves | notModel | Disabled default; no reserve components | Not applicable; selector | [Capacity-margin equations](sdom_math_formulation.md#optional-hourly-capacity-margin) are disabled. |
 | Reserves | CapacityMarginFormulation | Deterministic hourly capacity margin | Not applicable; selector | [Hourly capacity margin](sdom_math_formulation.md#optional-hourly-capacity-margin). |
+
+Choose the existing daily/monthly names when the entire period energy budget
+must be dispatched. Choose the corresponding `UpperBound` name when availability
+is a ceiling and unused budget energy is allowed. If you relied on the recently
+relaxed inequality behavior of `DailyBudgetFormulation` or
+`MonthlyBudgetFormulation`, select `DailyBudgetUpperBoundFormulation` or
+`MonthlyBudgetUpperBoundFormulation`, respectively, to retain that behavior.
+Equality budgets are not automatically relaxed when infeasible. Upper-bound
+budgets do not prioritize hydro over wind or solar.
 
 `get_formulation` uses centrally registered defaults for missing Thermal,
 Network, and Reserves rows. An explicit API `default=` takes precedence.
@@ -178,18 +189,37 @@ This file provides the hourly generation time-series for hydropower plants. The 
 - **RunOfRiverFormulation:**  
     Hydropower generation is directly set to the values specified in the time-series. No optimization is performed; the model simply follows the provided hourly profile.
 
-- **Budget Formulations (MonthlyBudgetFormulation or DailyBudgetFormulation):**  
-    SDOM aggregates the time-series data into energy budgets over consecutive periods—24 hours for daily budgets and 730 hours for monthly budgets. These budgets define the total energy available for dispatch within each period, allowing SDOM to optimize the allocation of hydropower generation while respecting the specified limits.
-    Generation may be lower than the budget; unused energy is not carried into later periods. The budget is not scaled by `AlphaLargHy`, which scales the hourly minimum and maximum dispatch bounds instead. A budget above maximum possible generation is valid, but a budget below mandatory minimum generation is rejected before solving.
-    These budgets usually are outputs from long- and medium-term hydropower planning tools often based on Stochastic dual dynamic programming (SDDP). An example of open-source tool for this is [SimSEE](https://www.simsee.org/)
+- **Equality budgets (`MonthlyBudgetFormulation` or `DailyBudgetFormulation`):**
+    SDOM sums the reference profile over consecutive fixed periods: 24 hours for
+    daily budgets and 730 hours for monthly budgets, not calendar months. The
+    entire budget must be dispatched in each period; only its hourly allocation
+    is optimized. Select these names for mandatory period-energy delivery.
+
+- **Upper-bound budgets (`MonthlyBudgetUpperBoundFormulation` or `DailyBudgetUpperBoundFormulation`):**
+    The same period sums cap energy dispatch rather than requiring it. Select
+    these names when unused hydro availability is allowed, including when
+    retaining the recently relaxed behavior of the existing names.
+
+    All four budget choices use the unscaled profile: `AlphaLargHy` scales the
+    hourly minimum and maximum bounds, not the budget. Before solving, equality
+    budgets are checked against both summed scaled minimum and maximum dispatch;
+    upper-bound budgets are checked against the summed scaled minimum only.
+    Availability above maximum possible generation is valid only for upper-bound
+    budgets. These preliminary checks do not guarantee system-wide feasibility.
+    Requested horizons round up to complete budget periods. Unused energy does
+    not carry into later periods; no reservoir balance or slack is introduced.
+    These budgets usually are outputs from long- and medium-term hydropower planning tools often based on Stochastic dual dynamic programming (SDDP). Examples of open-source tools for this are [cobre](https://github.com/cobre-rs/cobre)and [SimSEE](https://www.simsee.org/)
 
 In summary, this file either serves as a fixed generation profile or as the basis for energy budgets, depending on the chosen hydro formulation.
+For budget formulations, reported [hydro curtailment](sdom_math_formulation.md#hydro-curtailment-reporting)
+is unused period-budget energy, not an hourly reference-profile shortfall or
+necessarily physical water spill.
 
 **CSV file columns:**
 | Field/Column | Description | Units | Expected type | Main use (math) |
 | --- | --- | --- | --- | --- |
-| `*Hour` | One-based hourly index grouped into complete budget periods when a budget formulation is selected. | Hour index; one-hour steps | int | $\mathcal H_b$ in the [energy budget](sdom_math_formulation.md#energy-budget-upper-bound). |
-| `LargeHydro` | Run-of-river profile or hourly availability values whose one-hour sums form period energy budgets. | MW; period sums are MWh | float | $\rho_h$ in [fixed generation injections](sdom_math_formulation.md#fixed-generation-injections) or $\epsilon_b$ in the [energy-budget upper bound](sdom_math_formulation.md#energy-budget-upper-bound). |
+| `*Hour` | One-based hourly index grouped into complete budget periods when a budget formulation is selected. | Hour index; one-hour steps | int | $\mathcal H_b$ in the [hydro budget constraints](sdom_math_formulation.md#hydro-budget-constraints). |
+| `LargeHydro` | Run-of-river profile or hourly availability values whose one-hour sums form period energy budgets. | MW; period sums are MWh | float | $\rho_h$ in [fixed generation injections](sdom_math_formulation.md#fixed-generation-injections) or $\epsilon_b$ in the [hydro budget constraints](sdom_math_formulation.md#hydro-budget-constraints). |
 
 **Budget Formulation Files** (if using Monthly/Daily budgets):
 - These files determine the lower and upper bounds for hydropower dispatch when Budget Formulations are used.

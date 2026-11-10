@@ -48,7 +48,7 @@ Exogenous time series scaled by activation parameters $\alpha$.
 
 | Notation       | Description                        | Units | Domain         |
 | -------------- | ---------------------------------- | ----- | -------------- |
-| $\rho_h$       | Run-of-river hydro generation      | MW    | $\mathbb{R}_+$ |
+| $\rho_h$       | Unscaled hydro reference profile   | MW    | $\mathbb{R}_+$ |
 | $\nu_h$        | Nuclear generation profile         | MW    | $\mathbb{R}_+$ |
 | $\omega_h$     | Other renewable generation profile | MW    | $\mathbb{R}_+$ |
 | $\alpha^{nuc}$ | Nuclear profile multiplier          | —     | $\mathbb{R}_+$ |
@@ -332,7 +332,7 @@ $\alpha^{nuc}\nu_h$ and $\alpha^{oth}\omega_h$, respectively. These terms
 have units of MW and are not new investment or dispatch variables.
 Their CSV profiles cannot be curtailed by the VRE curtailment variables.
 For dispatchable budget hydro, use the [hourly bounds](#hourly-bounds) and
-[energy-budget upper bound](#energy-budget-upper-bound) instead.
+[selected energy-budget relation](#hydro-budget-constraints) instead.
 
 ### System constraints
 
@@ -734,21 +734,46 @@ $$
 \alpha^{hyd} \; \underline{g}^{hyd}_h \;\leq\; G^{hyd}_h \;\leq\; \alpha^{hyd} \; \overline{g}^{hyd}_h
 $$
 
+#### Energy budget (equality)
+
+`DailyBudgetFormulation` and `MonthlyBudgetFormulation` require the full period
+energy budget to be dispatched:
+
+$$
+\forall\, b \in \mathcal{B}: \qquad
+\sum_{h \in \mathcal{H}_b} G^{hyd}_h = \epsilon_b,
+\qquad \epsilon_b=\sum_{h \in \mathcal{H}_b}\rho_h.
+$$
+
+Select these names for mandatory period-energy delivery. They retain historical
+equality semantics and do not introduce slack or automatic relaxation.
+
 #### Energy budget (upper bound)
 
-Total dispatchable hydro generation within each budget period must **not exceed** the available
-energy budget:
+`DailyBudgetUpperBoundFormulation` and `MonthlyBudgetUpperBoundFormulation`
+instead cap period dispatch:
 
 $$
 \forall\, b \in \mathcal{B}: \qquad
 \sum_{h \in \mathcal{H}_b} G^{hyd}_h \;\leq\; \epsilon_b
 $$
 
-Unused energy is allowed and is not carried into subsequent periods. Daily budgets use
-consecutive 24-hour periods; monthly budgets use fixed 730-hour periods, not calendar months.
-The budget is the unscaled sum of the input hydro profile; $\alpha^{hyd}$ applies only to
-the hourly dispatch bounds. Budgets below mandatory minimum generation remain infeasible,
-but budgets above maximum possible generation are valid.
+Select these names when unused availability is allowed. In particular, users
+relying on the recently relaxed inequality behavior of the existing daily/monthly
+names must choose their corresponding `UpperBound` names. This does not impose
+hydro preference relative to VRE or add an objective penalty.
+
+Both budget senses use consecutive 24-hour daily or fixed 730-hour monthly
+periods, not calendar months. Requested horizons round up to complete periods.
+The budget is the unscaled sum of the reference profile; $\alpha^{hyd}$ applies
+only to the unchanged hourly bounds. Unused energy does not carry into later
+periods, and no reservoir balance is introduced.
+
+Pre-solve checks require the budget to lie between summed scaled minimum and
+maximum dispatch for equality formulations. Upper-bound formulations require
+only that the budget cover summed scaled minimum dispatch; availability above
+summed maximum generation is allowed. These checks do not guarantee feasibility
+of the full system.
 
 **Symbols used in hydro budget constraints:**
 
@@ -764,6 +789,61 @@ but budgets above maximum possible generation are valid.
 | $\overline{g}^{hyd}_h$  | Parameter | Hourly hydro upper bound (MW)        |
 | $\epsilon_b$            | Parameter | Energy budget for period $b$ (MWh)   |
 | $G^{hyd}_h$             | Variable  | Dispatchable hydro generation (MW)   |
+
+#### Hydro curtailment reporting
+
+Hydro curtailment means **unused budget energy**, not necessarily physical water
+spill. For area $a$ and period $b$, let $B_{a,b}=\epsilon_{a,b}$ be the unscaled
+available budget, $E_{a,b}$ the actual dispatched energy, and $U_{a,b}$ the unused
+energy:
+
+$$
+B_{a,b}=\sum_{h\in\mathcal H_{a,b}}\rho_{a,h},\qquad
+E_{a,b}=\sum_{h\in\mathcal H_{a,b}}G^{hyd}_{a,h},\qquad
+U_{a,b}=B_{a,b}-E_{a,b}.
+$$
+
+The implicit timestep is one hour, so MW dispatch sums to MWh. Actual dispatch
+already reflects the hourly activation bounds; it is not multiplied by
+$\alpha^{hyd}_a$ again. Budget hydro may legitimately dispatch above its reference
+profile in an individual hour, so hourly profile-minus-dispatch differences are
+not hydro curtailment.
+
+Over all modeled areas and complete periods in the effective horizon:
+
+$$
+U^{sys}_{hyd}=\sum_{a\in\mathcal A}\sum_{b\in\mathcal B_a}U_{a,b},
+\qquad
+B^{sys}_{hyd}=\sum_{a\in\mathcal A}\sum_{b\in\mathcal B_a}B_{a,b}.
+$$
+
+$$
+\mathrm{HydroCurtailment}_{TWh}=\frac{U^{sys}_{hyd}}{10^6},\qquad
+\mathrm{HydroCurtailment}_{\%}=
+\begin{cases}
+100\,U^{sys}_{hyd}/B^{sys}_{hyd}, & B^{sys}_{hyd}>0,\\
+0, & B^{sys}_{hyd}=0.
+\end{cases}
+$$
+
+Copperplate has one area. Zonal percentages use aggregated energy, never an
+average of area percentages. The structured system summary and summary CSV
+contain:
+
+| Metric | Technology | Unit |
+| --- | --- | --- |
+| `Total Hydro curtailment` | `Hydro` | `TWh` |
+| `Hydro curtailment percentage` | `Hydro` | `%` |
+
+Each period is validated before normalization and aggregation, with tolerance
+`1e-3 + 5e-8 * max(abs(B), abs(E))` MWh. Material excess dispatch, or either
+material equality residual, raises an error rather than being clipped or
+cancelled against another period or area. Accepted equality residuals and tiny
+negative upper-bound residuals report zero; positive upper-bound unused energy
+is preserved even below tolerance. Run-of-river reports zero under its unchanged
+fixed-profile behavior. Existing VRE curtailment reporting and units are unchanged.
+These are calculations from existing dispatch, not new optimization variables
+or constraints.
 
 ### Legacy aggregate planning resiliency
 

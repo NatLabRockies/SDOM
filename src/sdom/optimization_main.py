@@ -30,6 +30,7 @@ from .constants import (
     AREA_TRANSPORTATION_MODEL_NETWORK,
     COPPER_PLATE_NETWORK,
     DEFAULT_AREA_ID,
+    HYDRO_FORMULATION_METADATA,
     IMPORTS_EXPORTS_NOT_MODEL,
     MW_TO_KW,
     NO_RAMPS_MIN_DISPATCH_FORMULATION,
@@ -38,7 +39,7 @@ from .constants import (
 )
 from .initializations import check_n_hours, initialize_params, initialize_sets
 from .io.formulations import get_formulation, get_network_formulation
-from .io.validation import validate_thermal_min_dispatch, validate_thermal_ownership
+from .io.validation import check_formulation, validate_thermal_min_dispatch, validate_thermal_ownership
 from .models.formulations_hydro import (
     add_hydro_budget_constraints,
     add_hydro_run_of_river_constraints,
@@ -109,10 +110,10 @@ def _is_memory_profiling_enabled() -> bool:
 def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
     """Raise when hydro budget bins cannot satisfy their hourly bounds.
 
-    Hydro budget constraints cap dispatch at the unscaled hourly budget
-    series total. The hourly bounds are scaled by ``AlphaLargHy`` in the
-    model, so their bin totals are scaled before comparison. Availability
-    above the maximum dispatch is allowed and may remain unused.
+    Equality budgets must lie between summed hourly minimum and maximum
+    dispatch. Upper-bound budgets need only cover the summed minimum.
+    Hourly bounds are scaled by ``AlphaLargHy``; budgets are unscaled.
+    These preliminary checks do not guarantee system-wide feasibility.
 
     Parameters
     ----------
@@ -126,16 +127,16 @@ def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
     Raises
     ------
     ValueError
-        If one or more hydro budgets are below their mandatory minimum
-        generation totals.
+        If a budget is below mandatory minimum generation, or an equality
+        budget exceeds maximum possible generation.
     """
     formulation = get_formulation(data, component="hydro")
-    if formulation == RUN_OF_RIVER_FORMULATION:
-        return
-    if formulation not in VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP:
+    check_formulation(formulation, HYDRO_FORMULATION_METADATA.keys())
+    metadata = HYDRO_FORMULATION_METADATA[formulation]
+    if metadata.budget_sense is None:
         return
 
-    interval = VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP[formulation]
+    interval = metadata.hours
     n_hours_checked = check_n_hours(n_hours, interval)
     alpha = float(data["scalars"].loc["AlphaLargHy"].Value)
     budget_by_hour = data["large_hydro_data"].set_index("*Hour")["LargeHydro"]
@@ -148,19 +149,28 @@ def _validate_hydro_budget_feasibility(data, *, n_hours, area_id=None):
         budget = float(budget_by_hour.loc[list(hours)].sum())
         minimum = alpha * float(minimum_by_hour.loc[list(hours)].sum())
         maximum = alpha * float(maximum_by_hour.loc[list(hours)].sum())
+        violation = None
         if budget < minimum:
+            violation = f"lower violation={minimum - budget:.6f} MWh"
+        elif metadata.budget_sense == "equality" and budget > maximum:
+            violation = f"upper violation={budget - maximum:.6f} MWh"
+        if violation is not None:
             infeasible_bins.append(
                 f"{formulation}, "
                 f"{'area ' + repr(area_id) + ', ' if area_id is not None else ''}"
                 f"bin {bin_index} (hours {start_hour}-{start_hour + interval - 1}): "
                 f"summed min={minimum:.6f} MWh, summed max={maximum:.6f} MWh, "
-                f"budget={budget:.6f} MWh, lower violation={minimum - budget:.6f} MWh"
+                f"budget={budget:.6f} MWh, {violation}"
             )
 
     if infeasible_bins:
+        requirement = (
+            "sum(min) <= budget <= sum(max)"
+            if metadata.budget_sense == "equality"
+            else "sum(min) <= availability budget"
+        )
         raise ValueError(
-            "Infeasible hydro budget input; each bin must satisfy "
-            "sum(min) <= availability budget:\n- "
+            f"Infeasible hydro budget input; each bin must satisfy {requirement}:\n- "
             + "\n- ".join(infeasible_bins)
         )
 
@@ -868,7 +878,7 @@ def _initialize_model_zonal(
     # applies, so budget-formulation hour adjustments stay consistent
     # between the per-area blocks and the top-level model.
     hydro_formulation = get_formulation(data, component="hydro")
-    if "Budget" in hydro_formulation:
+    if HYDRO_FORMULATION_METADATA[hydro_formulation].budget_sense is not None:
         n_hours_checked = check_n_hours(
             n_hours, VALID_HYDRO_FORMULATIONS_TO_BUDGET_MAP[hydro_formulation]
         )
