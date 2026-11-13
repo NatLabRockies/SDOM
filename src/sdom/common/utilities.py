@@ -1,9 +1,42 @@
-from pyomo.environ import value
-import pandas as pd
-import os
 import logging
+import math
+import os
+
+import pandas as pd
+from pyomo.environ import value
 
 _NO_VALUE = object()
+
+
+def parse_finite_float(raw, *, error_message: str) -> float:
+    """Convert a value to float, rejecting nonnumeric or nonfinite inputs.
+
+    Parameters
+    ----------
+    raw : object
+        Input accepted by ``float``. Finite negative and zero values are valid;
+        domain-specific bounds must be checked by the caller.
+    error_message : str
+        Diagnostic to use for conversion failures and nonfinite values.
+
+    Returns
+    -------
+    float
+        Converted finite value.
+
+    Raises
+    ------
+    ValueError
+        If conversion raises TypeError or ValueError, or the result is nonfinite.
+        Conversion errors are retained as the exception cause.
+    """
+    try:
+        result = float(raw)
+    except (TypeError, ValueError) as error:
+        raise ValueError(error_message) from error
+    if not math.isfinite(result):
+        raise ValueError(error_message)
+    return result
 
 
 def safe_pyomo_value(var):
