@@ -75,7 +75,8 @@ relaxed inequality behavior of `DailyBudgetFormulation` or
 `MonthlyBudgetFormulation`, select `DailyBudgetUpperBoundFormulation` or
 `MonthlyBudgetUpperBoundFormulation`, respectively, to retain that behavior.
 Equality budgets are not automatically relaxed when infeasible. Upper-bound
-budgets do not prioritize hydro over wind or solar.
+budgets alone do not prioritize hydro over wind or solar; optional
+[curtailment rates](#optional-curtailment-cost-scalars) can change dispatch preferences.
 
 `get_formulation` uses centrally registered defaults for missing Thermal,
 Network, and Reserves rows. An explicit API `default=` takes precedence.
@@ -389,6 +390,9 @@ This CSV file contains key parameters and their corresponding values for an ener
 | `r` | Discount rate for annualized capital costs; `0.06` means 6%. | Dimensionless annual rate | float | [Capital recovery factor](sdom_math_formulation.md#derived-quantities), used in the [cost objective](sdom_math_formulation.md#objective-function). |
 | `EUE_max` | Aggregate load-shedding energy limit in the legacy planning resiliency constraints, enabled by `with_resilience_constraints=True`; not an outage-evaluator probability input. | MWh | float | $EUE^{max}$ in the [legacy aggregate planning resiliency limit](sdom_math_formulation.md#legacy-aggregate-planning-resiliency). |
 | `capacity_marging_fraction` | Optional nonnegative capacity-margin fraction; default `0.0`. `0.04` requires generation capacity of at least 104% of gross hourly demand. Consumed only by `CapacityMarginFormulation`; applies separately in each zone. | Dimensionless fraction | float | $m$ in the [hourly capacity-margin requirement](sdom_math_formulation.md#optional-hourly-capacity-margin). |
+| `SolarCurtailmentCost` | Optional solar PV curtailment rate; default `0.0` when absent. | USD/MWh | finite float | $c^{solar}$ in [curtailment costs](sdom_math_formulation.md#curtailment-costs). |
+| `WindCurtailmentCost` | Optional wind curtailment rate; default `0.0` when absent. | USD/MWh | finite float | $c^{wind}$ in [curtailment costs](sdom_math_formulation.md#curtailment-costs). |
+| `HydroCurtailmentCost` | Optional unused upper-bound hydro budget rate; default `0.0` when absent. | USD/MWh | finite float | $c^{hydro}$ in [curtailment costs](sdom_math_formulation.md#curtailment-costs). |
 
 **Note:** Adjust parameter values as needed to reflect the specific scenario or assumptions for your energy system analysis.
 
@@ -402,6 +406,36 @@ AlphaLargHy,1.0
 AlphaOtheRe,1.0
 capacity_marging_fraction,0.04
 ```
+
+#### Optional curtailment-cost scalars
+
+Append any subset of these rows below the existing `Parameter,Value` header
+in `scalars.csv`, retaining all other rows (do not repeat the header):
+
+```csv
+SolarCurtailmentCost,5
+WindCurtailmentCost,10
+HydroCurtailmentCost,20
+```
+
+Each rate activates independently when nonzero; missing or exactly zero omits
+that technology's objective term. No formulation toggle is required. Supplied
+values must be numeric and finite: blank, nonnumeric, NaN, infinite, and duplicate
+entries raise an error naming the offending parameter during model construction.
+Finite negative rates are supported: they **reward curtailment** and may
+materially change investment and dispatch.
+
+Rates are global and shared by every zonal area, not area-specific inputs.
+Solar and wind rates multiply existing curtailed energy in MWh. Hydro rates
+apply only to `DailyBudgetUpperBoundFormulation` and
+`MonthlyBudgetUpperBoundFormulation`, using unused **unscaled period-budget**
+energy, not hourly profile shortfalls or water spill. Run-of-river and both
+equality-budget choices have zero hydro cost. Zero dispatch capability does
+not erase a positive available budget. Costs cover the effective modeled
+horizon, rounded to complete 24-hour or fixed 730-hour hydro periods;
+there is no extra annualization or kW conversion. See the
+[objective equations](sdom_math_formulation.md#curtailment-costs) and
+[individual output cost rows](running_and_outputs.md#curtailment-cost-totals).
 
 #### Optional capacity-margin scalar
 

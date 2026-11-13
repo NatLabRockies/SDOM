@@ -6,6 +6,7 @@ Run with: pytest tests/test_docs_build.py
 """
 
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -175,6 +176,34 @@ def test_hydro_reporting_documentation_uses_exact_system_summary_schema(filename
     ]
 
 
+@pytest.mark.parametrize("parameter", ["SolarCurtailmentCost", "WindCurtailmentCost", "HydroCurtailmentCost"])
+def test_curtailment_scalar_documentation_links_to_objective_equation(parameter):
+    source = Path(__file__).parent.parent / "docs" / "source" / "user_guide"
+    text = (source / "inputs.md").read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.startswith(f"| `{parameter}` |")]
+    assert len(rows) == 1
+    assert "USD/MWh" in rows[0]
+    assert "0.0" in rows[0]
+    links = re.findall(r"\]\(([^)]+)\)", rows[0])
+    assert "sdom_math_formulation.md#curtailment-costs" in links
+
+
+@pytest.mark.parametrize("filename", ["running_and_outputs.md", "sdom_math_formulation.md"])
+def test_curtailment_cost_documentation_uses_exact_summary_schema(filename):
+    source = Path(__file__).parent.parent / "docs" / "source" / "user_guide"
+    rows = [
+        tuple(cell.strip().strip("`") for cell in line.split("|")[1:-1])
+        for line in (source / filename).read_text(encoding="utf-8").splitlines()
+        if line.startswith(("| `Total Solar curtailment cost` |", "| `Total Wind curtailment cost` |",
+                            "| `Total Hydro curtailment cost` |"))
+    ]
+    assert rows == [
+        ("Total Solar curtailment cost", "Solar PV", "$US"),
+        ("Total Wind curtailment cost", "Wind", "$US"),
+        ("Total Hydro curtailment cost", "Hydro", "$US"),
+    ]
+
+
 def test_docs_build_html():
     """Test that documentation builds successfully.
     
@@ -228,7 +257,9 @@ def test_docs_build_html():
     index_html = build_dir / "index.html"
     assert index_html.exists(), "index.html not generated"
     hydro_html = (build_dir / "user_guide" / "sdom_math_formulation.html").read_text(encoding="utf-8")
-    for anchor in ["energy-budget-equality", "energy-budget-upper-bound", "hydro-curtailment-reporting"]:
+    for anchor in [
+        "energy-budget-equality", "energy-budget-upper-bound", "hydro-curtailment-reporting", "curtailment-costs"
+    ]:
         assert f'id="{anchor}"' in hydro_html, f"Hydro documentation anchor not rendered: {anchor}"
 
 

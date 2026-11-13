@@ -207,6 +207,15 @@ and units `TWh` / `%`. Explicit `scope` distinguishes system and area summaries
 even when both are attached to an area component. Legacy summary attributes
 without scope retain owner-based interpretation.
 
+Optional global curtailment scalars pass through the System-to-model interface.
+The signed `cost_breakdown["curtailment_cost"]` technology entries are preserved
+as generic `SDOMCostResult` attributes with `cost_type="curtailment_cost"`;
+system and area summary cost rows use `SDOMSummaryMetricResult`.
+JSON serialization, reconstruction, and standard CSV re-export retain these
+values and scopes without new result-container fields. Older stored results
+without curtailment costs remain supported. See the
+[cost contract](../api/results.md#accessing-cost-breakdown).
+
 ## Zonal workflow
 
 Use `initialize_model_from_system` for data whose network formulation and

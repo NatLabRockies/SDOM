@@ -42,6 +42,22 @@ Valid values:
 
 If `Network` is missing, SDOM defaults to `CopperPlateNetwork`.
 
+## Optional Curtailment Rates
+
+Use the global `SolarCurtailmentCost`, `WindCurtailmentCost`, and
+`HydroCurtailmentCost` rows in the existing `scalars.csv` (`Parameter,Value`).
+Each independently defaults to `0.0` USD/MWh and activates only when nonzero.
+The same rates apply to every area; no tagged scalar columns, area-specific
+rate files, or new formulation toggle are required. Empty resource fleets
+contribute zero. Hydro rates apply only to unused upper-bound period budgets.
+
+Supplied blank, nonnumeric, nonfinite, and duplicate rates fail with a
+parameter-naming error. Finite negative rates reward curtailment and may
+materially alter dispatch and investment. See
+[validation and append-only example](inputs.md#optional-curtailment-cost-scalars),
+[area objective contributions](zonal_math_formulation.md#objective), and
+[area/system cost reporting](running_and_outputs.md#curtailment-cost-totals).
+
 ## Optional Local Capacity Margin
 
 Add `Reserves,CapacityMarginFormulation` to `formulations.csv` and optionally
