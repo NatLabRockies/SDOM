@@ -1,5 +1,9 @@
 # Model Formulations
 
+See [Pyomo Model Blocks and Input Provenance](../user_guide/pyomo_model_structure.md)
+for the block hierarchy, field inventories, mathematical symbols, and CSV
+origins of model parameters.
+
 Implementation reference for the model formulation modules, including internal
 rule helpers. Each equation-bearing rule documents its implemented relationship
 in a NumPy-style `Notes` section, with symbol definitions and units.

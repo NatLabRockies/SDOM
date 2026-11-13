@@ -3,6 +3,11 @@
 This guide explains the internal structure of the SDOM Pyomo model for advanced users and developers.
 
 ## Model Architecture
+
+For the complete copperplate/zonal hierarchy, Mermaid field diagrams,
+Pyomo component types, mathematical symbols, and exact input-file/column
+provenance, see [Pyomo Model Blocks and Input Provenance](pyomo_model_structure.md).
+
 SDOM uses [pyomo](https://pyomo.readthedocs.io/en/stable/index.html) to write the optimization model.
 
 When you run
@@ -29,10 +34,12 @@ SDOM leverages on pyomo blocks to separate in different blocks the variables, pa
   - demand
   - nuclear
   - other_renewables
-- Optional blocks (These are created depending on the configuration provided by the user)
+- External-trade blocks (Always created; populated according to the formulation)
   - imports
   - exports
-  - resiliency
+- Optional blocks
+  - reserves: hourly capacity margin
+  - resiliency: empty legacy placeholder; shedding fields live on the host
 
 Using `pprint()` function, you'll be able to explore model objects in a simple way. If you run:
 
@@ -177,7 +184,7 @@ print(f"Hour 1 nuclear: {model.nuclear.ts_parameter[1]} MW")
 # VRE parameters
 solar_plant = list(model.pv.plants_set)[0]
 print(f"Solar plant {solar_plant} CAPEX: {model.pv.CAPEX_M[solar_plant]} $/kW")
-print(f"Solar plant {solar_plant} capacity: {model.pv.plant_max_capacity[solar_plant]} MW")
+print(f"Solar plant {solar_plant} capacity: {model.pv.max_capacity[solar_plant]} MW")
 
 # Storage parameters
 print(f"Li-Ion efficiency: {model.storage.data['Eff', 'Li-Ion']}")
@@ -191,7 +198,7 @@ Model decision variables:
 ```python
 from sdom.common.utilities import safe_pyomo_value
 
-# VRE installed capacity (continuous variables)
+# VRE installed capacity (derived expressions, not independent variables)
 for plant in model.pv.plants_set:
     capacity = safe_pyomo_value(model.pv.plant_installed_capacity[plant])
     print(f"Solar plant {plant}: {capacity:.2f} MW")
@@ -256,9 +263,9 @@ for constraint in model.component_objects(pyo.Constraint, active=True):
 
 Key constraint types:
 
-- **Energy Balance** (`system_energy_balance_rule`): Supply = Demand every hour
-- **Carbon Target** (`GenMix_constraint`): Clean energy ≥ target × total generation
-- **VRE Balance**: Generation ≤ CF × Capacity for each hour/plant
+- **Energy Balance** (`SupplyBalance`): Supply = Demand every hour
+- **Clean-Generation Target** (`GenMix_Share`): Clean energy ≥ target × total generation
+- **VRE Balance**: Aggregate generation + curtailment = CF-weighted installed capacity
 - **Storage Dynamics**: State of charge evolution constraints
 - **Storage Bounds**: SOC within [0, Energy Capacity]
 - **Thermal Bounds**: Generation within [Min, Max Capacity]
@@ -286,16 +293,16 @@ print(f"Inequality constraints: {counts['inequality']}")
 import pyomo.environ as pyo
 
 # Energy balance constraint (one per hour)
-balance_h1 = model.system_energy_balance[1]
+balance_h1 = model.SupplyBalance[1]
 print(f"Balance constraint hour 1: {balance_h1.expr}")
 
 # GenMix constraint
-genmix = model.GenMix_constraint
+genmix = model.GenMix_Share
 print(f"GenMix constraint: {genmix.expr}")
 
 # Storage SOC dynamics (example for hour 1, Li-Ion)
-if (1, 'Li-Ion') in model.storage.storage_charge_discharge_dynamics:
-    dynamics = model.storage.storage_charge_discharge_dynamics[1, 'Li-Ion']
+if (1, 'Li-Ion') in model.SOCBalance:
+    dynamics = model.SOCBalance[1, 'Li-Ion']
     print(f"Storage dynamics constraint: {dynamics.expr}")
 ```
 

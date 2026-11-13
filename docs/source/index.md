@@ -163,6 +163,7 @@ user_guide/infrasys_integration
 user_guide/resiliency
 user_guide/resiliency_math
 user_guide/exploring_model
+user_guide/pyomo_model_structure
 user_guide/sdom_math_formulation
 user_guide/zonal_math_formulation
 ```
