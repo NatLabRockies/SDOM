@@ -57,6 +57,8 @@ def export_results(
         technology, Total generation by technology, Demand statistics,
         Cost breakdowns (VRE, storage, thermal CAPEX/FOM/VOM), and system-wide
         unused hydro budget energy (TWh and percentage, technology ``Hydro``).
+        Includes individual Solar PV, Wind, and Hydro curtailment costs in
+        USD, including signed and inactive zero values, already in Total cost.
 
     OutputThermalGeneration_{case}.csv
         Long individual dispatch with Hour, Area, Plant ID, and Generation

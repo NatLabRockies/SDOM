@@ -238,6 +238,7 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
                 + bundle["cost_breakdown"]["fuel_cost"]["Thermal"]
                 + bundle["cost_breakdown"]["imports_cost"]
                 - bundle["cost_breakdown"]["exports_revenue"]
+                + sum(bundle["cost_breakdown"]["curtailment_cost"].values())
             ),
             capacity=bundle["capacity"],
             storage_capacity=bundle["storage_capacity"],

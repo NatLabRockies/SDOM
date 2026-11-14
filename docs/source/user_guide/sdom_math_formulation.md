@@ -190,7 +190,60 @@ multiplied by 1000. The [input tables](inputs.md) specify the CSV units.
 
 $$
 \min \; Z \;=\; Z^{pv} + Z^{wind} + Z^{bal} + Z^{stor} + Z^{trade}
++ Z^{curt,pv} + Z^{curt,wind} + Z^{curt,hyd}
 $$
+
+### Curtailment costs
+
+The optional scalar rates $c^{solar}$ (`SolarCurtailmentCost`), $c^{wind}$
+(`WindCurtailmentCost`), and $c^{hydro}$ (`HydroCurtailmentCost`) are global,
+finite, signed USD/MWh inputs, independently defaulting to zero.
+
+$$
+Z^{curt,pv}=c^{solar}\sum_{h\in\mathcal H}C^{pv}_h,\qquad
+Z^{curt,wind}=c^{wind}\sum_{h\in\mathcal H}C^{wind}_h.
+$$
+
+Only for `DailyBudgetUpperBoundFormulation` and
+`MonthlyBudgetUpperBoundFormulation`,
+
+$$
+Z^{curt,hyd}=c^{hydro}\sum_{b\in\mathcal B}
+\left(B_b-\sum_{h\in\mathcal H_b}G^{hyd}_h\right),\qquad
+B_b=\sum_{h\in\mathcal H_b}\rho_h.
+$$
+
+Run-of-river and daily/monthly equality-budget hydro contribute zero hydro
+curtailment cost regardless of the rate. Missing/zero rates omit the corresponding
+decision-dependent term; empty resource fleets contribute zero. A positive
+upper-bound hydro budget is still available energy even with zero dispatch
+capability. Negative rates reward curtailment and may materially alter
+investment and dispatch.
+
+These are linear expressions using existing variables, not new constraints
+or reservoir physics. Hydro uses unused period-budget energy, not hourly
+positive profile-minus-dispatch differences or physical spill. Keep the constant
+$c^{hydro}\sum_b B_b$: replacing it with only negative dispatch cost would
+change the objective value. The budget profile is unscaled; `AlphaLargHy`
+affects hourly bounds, not the budget or an additional scaling of dispatch.
+Periods remain complete 24-hour daily or fixed 730-hour monthly intervals,
+with the existing upward horizon rounding and no carryover.
+
+One-hour MW sums represent MWh. Rates multiply MWh directly, with no kW
+conversion or extra annualization. Contributions are USD over the effective
+modeled horizon, even when fixed investment terms are annualized.
+OutputSummary reports these same authoritative expressions:
+
+| Metric | Technology | Unit |
+| --- | --- | --- |
+| `Total Solar curtailment cost` | `Solar PV` | `$US` |
+| `Total Wind curtailment cost` | `Wind` | `$US` |
+| `Total Hydro curtailment cost` | `Hydro` | `$US` |
+
+`Total cost` includes them exactly once. Costs preserve signs and explicit zeros.
+Existing [energy/percentage reporting](#hydro-curtailment-reporting) and its
+feasibility checks remain distinct: reporting tolerances never modify the
+mathematical objective or clip its signed contributions.
 
 ### PV cost
 
@@ -761,7 +814,9 @@ $$
 Select these names when unused availability is allowed. In particular, users
 relying on the recently relaxed inequality behavior of the existing daily/monthly
 names must choose their corresponding `UpperBound` names. This does not impose
-hydro preference relative to VRE or add an objective penalty.
+hydro preference relative to VRE or add an objective penalty by itself.
+The optional [curtailment rates](#curtailment-costs) can add technology-specific
+costs and change those preferences.
 
 Both budget senses use consecutive 24-hour daily or fixed 730-hour monthly
 periods, not calendar months. Requested horizons round up to complete periods.

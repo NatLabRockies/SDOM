@@ -56,7 +56,11 @@ class OptimizationResults:
     generation_totals : dict
         Total generation by technology.
     cost_breakdown : dict
-        Detailed cost breakdown (CAPEX, OPEX, FOM, VOM).
+        Detailed cost breakdown (CAPEX, OPEX, FOM, VOM), including signed
+        modeled-horizon USD ``curtailment_cost`` keyed by Solar PV, Wind, Hydro.
+        The same nested category is present in ``area_cost_breakdown`` for
+        zonal results and already included once in ``total_cost``.
+        Older stored dictionaries without this additive category remain valid.
     attribute_units : dict[str, str]
         Display units for public result-attribute dictionaries. This metadata
         is optional for directly constructed and legacy deserialized results.

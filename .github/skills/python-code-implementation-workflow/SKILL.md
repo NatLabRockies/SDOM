@@ -26,6 +26,8 @@ Reusable workflow for implementing Python code with predictable quality and test
 - Use at most 2 mandatory positional arguments per function.
 - Make all remaining parameters keyword-only.
 - Preserve backward compatibility for public APIs unless explicitly approved.
+- Keep all module and package imports at module scope, never inside functions or methods. Follow PEP 8: place imports after the module docstring and any `__future__` imports, before module globals and constants; group standard-library, third-party, and local imports separately with blank lines, and use separate lines for separate module imports.
+- Keep each Python script or module at or below 1,500 lines. Before creating or extending a file beyond this limit, or adding code to an already oversized file, stop and present module-splitting or refactoring options and their trade-offs to the user. Discuss the options and obtain approval for the approach before proceeding.
 
 ## Performance Defaults (Vectorization-First)
 
@@ -87,6 +89,8 @@ def function_name(
 2. Confirm no behavior regressions in touched areas.
 3. Verify API compatibility and call-site impact.
 4. Add or update NumPy-style docstrings for changed public functions.
+5. Confirm imports are at module scope and follow PEP 8 placement and grouping.
+6. Check Python file lengths; confirm any work exceeding the 1,500-line limit followed the required user discussion and approval.
 
 ## Patterns and Anti-patterns
 
@@ -165,6 +169,8 @@ df = pd.DataFrame(rows)
 - All new/changed signatures follow max-2-positional and keyword-only rules.
 - Tests cover normal, edge, and error behavior for modified logic.
 - Public API compatibility is preserved or explicitly documented.
+- Imports are at module scope and follow PEP 8.
+- Python files stay within 1,500 lines, or the user has discussed the options and approved the approach before work exceeding the limit proceeds.
 
 ## Return Summary Format
 ```markdown

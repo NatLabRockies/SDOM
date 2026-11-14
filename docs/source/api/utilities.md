@@ -2,6 +2,16 @@
 
 Helper functions and utilities used throughout SDOM.
 
+## Numeric Input Utilities
+
+```{eval-rst}
+.. autofunction:: sdom.common.utilities.parse_finite_float
+```
+
+This helper converts numeric inputs and rejects NaN, infinity, and conversion
+failures with the caller's diagnostic. It accepts signed finite values; optional
+defaults, duplicate checks, and domain-specific bounds remain with the caller.
+
 ## Pyomo Utilities
 
 ```{eval-rst}

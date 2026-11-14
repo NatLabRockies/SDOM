@@ -270,6 +270,36 @@ summaries; existing VRE rows and units are unchanged. See
 [hydro curtailment reporting](sdom_math_formulation.md#hydro-curtailment-reporting)
 for the equations and residual-validation policy.
 
+### Curtailment cost totals
+
+System and per-area summaries add these rows with the unchanged columns
+`Metric`, `Technology`, `Run`, `Optimal Value`, and `Unit`. The standard
+`OutputSummary_CASENAME.csv` exporter includes the system rows automatically.
+
+| Metric | Technology | Unit |
+| --- | --- | --- |
+| `Total Solar curtailment cost` | `Solar PV` | `$US` |
+| `Total Wind curtailment cost` | `Wind` | `$US` |
+| `Total Hydro curtailment cost` | `Hydro` | `$US` |
+
+Each Optimal Value is the corresponding objective expression in USD over the
+effective modeled horizon, not an annualized or per-MWh rate. All three rows
+are emitted, including zeros for omitted/zero rates, absent resources, and
+inapplicable hydro formulations. Negative rates produce signed costs; values
+are not clamped or converted to absolute amounts. System costs sum area costs,
+not percentages or averages. **Total cost already includes these contributions;
+do not add them again.**
+
+Cost reporting uses collected model expressions, not rounded summary energy.
+Enabled missing or nonfinite expression values raise an explicit error.
+Existing VRE MWh and hydro TWh/percentage metrics and their numerical-feasibility
+checks remain unchanged. In particular, a reported TWh value is not directly
+multipliable by a USD/MWh rate without multiplying by $10^6$, and tiny reporting
+normalizations do not alter objective expressions. Hydro cost means unused
+unscaled upper-bound period budgets, not water spill or hourly clipping.
+See [curtailment equations](sdom_math_formulation.md#curtailment-costs) and
+[structured cost access](../api/results.md#accessing-cost-breakdown).
+
 ### Individual thermal dispatch
 
 `OutputThermalGeneration_CASENAME.csv` and

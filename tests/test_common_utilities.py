@@ -5,8 +5,22 @@ from __future__ import annotations
 import warnings
 
 import pandas as pd
+import pytest
 
-from sdom.common.utilities import concatenate_dataframes
+from sdom.common.utilities import concatenate_dataframes, parse_finite_float
+
+
+@pytest.mark.parametrize(("raw", "expected"), [(-3, -3.0), (0, 0.0), (4.5, 4.5), ("2.5", 2.5)])
+def test_parse_finite_float_accepts_numeric_inputs_without_domain_bounds(raw, expected):
+    assert parse_finite_float(raw, error_message="Invalid rate") == expected
+
+
+@pytest.mark.parametrize("raw", [None, "", "nonnumeric", float("nan"), float("inf"), -float("inf")])
+def test_parse_finite_float_rejects_invalid_inputs_with_caller_diagnostic(raw):
+    message = "SolarCurtailmentCost must be numeric and finite."
+    with pytest.raises(ValueError) as raised:
+        parse_finite_float(raw, error_message=message)
+    assert str(raised.value) == message
 
 
 def test_concatenate_dataframes_empty_metric_returns_copy_without_warning():

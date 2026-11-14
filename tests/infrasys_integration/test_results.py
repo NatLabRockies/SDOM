@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import fields
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -11,6 +12,7 @@ import pytest
 infrasys = pytest.importorskip("infrasys")
 pytest.importorskip("r2x_core")
 
+from test_curtailment_costs import METRICS, RATES, TECHNOLOGIES, assign_dispatch, collect, cost_data  # noqa: E402
 from test_hydro_curtailment_results import _hydro_rows, _reporting_data  # noqa: E402
 
 from sdom import export_results, get_default_solver_config_dict, load_data, run_solver  # noqa: E402
@@ -42,6 +44,51 @@ from sdom.infrasys_integration.results import (  # noqa: E402
 from sdom.results import OptimizationResults  # noqa: E402
 
 System = infrasys.System
+
+
+@pytest.mark.parametrize("zonal", [False, True])
+@pytest.mark.parametrize("signed", [False, True])
+def test_curtailment_costs_forward_through_system_and_persist_without_new_fields(tmp_path, zonal, signed):
+    rates = tuple(zip(RATES, (-5, 10, -20) if signed else (5, 10, 20), strict=True))
+    system = load_system_from_data(cost_data(rates=rates, zonal=zonal))
+    model = initialize_model_from_system(system, n_hours=24).create_instance()
+    assign_dispatch(model)
+    results = collect(model)
+    expected = dict(zip(TECHNOLOGIES, (-240, 720, -2880) if signed else (240, 720, 2880), strict=True))
+    if zonal:
+        expected = dict(zip(TECHNOLOGIES, (-480, 1440, -15360) if signed else (480, 1440, 15360), strict=True))
+    assert results.cost_breakdown["curtailment_cost"] == expected
+
+    add_results_to_system(system, results, run_id="curtailment")
+    costs = query_result_attributes(system, run_id="curtailment", attribute_type=SDOMCostResult)
+    system_costs = {
+        attr.technology: attr.value
+        for attr in costs
+        if isinstance(attr, SDOMCostResult) and attr.cost_type == "curtailment_cost" and attr.area is None
+    }
+    assert system_costs == expected
+    path = tmp_path / "curtailment.json"
+    system.to_json(path, overwrite=True)
+    reconstructed = optimization_results_from_system(System.from_json(path), run_id="curtailment")
+    assert reconstructed.cost_breakdown == results.cost_breakdown
+    assert reconstructed.area_cost_breakdown == results.area_cost_breakdown
+    pd.testing.assert_frame_equal(reconstructed.summary_df, results.summary_df)
+    for area, summary in results.area_summary_df.items():
+        pd.testing.assert_frame_equal(reconstructed.area_summary_df[area], summary)
+    export_results(reconstructed, case="curtailment", output_dir=str(tmp_path))
+    exported = pd.read_csv(tmp_path / "OutputSummary_curtailment.csv")
+    assert exported.loc[exported["Metric"].isin(METRICS), "Optimal Value"].tolist() == list(expected.values())
+
+
+def test_legacy_cost_dictionary_without_curtailment_survives_round_trip(tmp_path):
+    system = load_system_from_data(load_data(str(Path(__file__).resolve().parents[2] / "Data" / "no_exchange_run_of_river")))
+    results = OptimizationResults(cost_breakdown={"capex": {"Solar PV": 12.0}})
+    add_results_to_system(system, results, run_id="legacy-costs")
+    path = tmp_path / "legacy-costs.json"
+    system.to_json(path, overwrite=True)
+    restored = optimization_results_from_system(System.from_json(path), run_id="legacy-costs")
+    assert restored.cost_breakdown == results.cost_breakdown
+    assert restored.summary_df.empty
 
 
 @pytest.mark.parametrize("zonal", [False, True], ids=["copperplate", "zonal"])

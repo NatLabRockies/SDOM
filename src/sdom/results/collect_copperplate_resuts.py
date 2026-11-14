@@ -8,7 +8,7 @@ import pandas as pd
 
 from ..common.utilities import safe_pyomo_value
 from ..constants import MW_TO_KW
-from ._values import _value_or_nan
+from ._values import _collect_curtailment_costs, _value_or_nan
 from .collect_individual_host_results import _collect_thermal_generation_dataframe
 from .containers import _RESULT_ATTRIBUTE_UNITS, OptimizationResults
 from .hydro import _collect_hydro_budget_energy
@@ -19,10 +19,9 @@ def _collect_results_copperplate(model, solver_result, *, case_name: str = "run"
     """Collect results from a solved single-area copper-plate model.
 
     This is the historical body of :func:`collect_results_from_model`
-    extracted verbatim into a private helper so the new dispatcher can route
-    here unchanged for the legacy path. **Do not modify this body without
-    updating ``tests/test_zonal_legacy_regression.py``** — it locks the
-    objective and per-technology values produced by this function.
+    extracted into a private helper for the legacy path. Existing costs
+    remain unchanged; ``curtailment_cost`` adds signed Solar PV, Wind, and
+    Hydro contributions in modeled-horizon USD, already included in total cost.
 
     Parameters mirror :func:`collect_results_from_model`.
     """
@@ -196,6 +195,7 @@ def _collect_results_copperplate(model, solver_result, *, case_name: str = "run"
         "fuel_cost": fuel_cost,
         "imports_cost": imports_cost,
         "exports_revenue": exports_revenue,
+        "curtailment_cost": _collect_curtailment_costs(model),
     }
 
     # ----------------------------------------------------------------------------------

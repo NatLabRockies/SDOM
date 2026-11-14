@@ -122,6 +122,29 @@ line_congestion_duals_df = results.get_line_congestion_duals_dataframe()
 
 ### Accessing Cost Breakdown
 
+`cost_breakdown["curtailment_cost"]` contains signed modeled-horizon USD values
+keyed by `"Solar PV"`, `"Wind"`, and `"Hydro"`. In zonal results the same mapping
+is present under `area_cost_breakdown[area_id]["curtailment_cost"]`, and the
+system values sum the areas. These authoritative model-expression values are
+already included once in `total_cost`. Inactive contributions are explicit
+zeros; enabled missing or nonfinite values fail collection.
+
+```python
+costs = results.cost_breakdown["curtailment_cost"]
+solar_curtailment_usd = costs["Solar PV"]
+if results.is_zonal:
+    area_hydro_usd = results.area_cost_breakdown[results.areas[0]]["curtailment_cost"]["Hydro"]
+```
+
+System and area summaries include `Total Solar curtailment cost` (`Solar PV`),
+`Total Wind curtailment cost` (`Wind`), and `Total Hydro curtailment cost`
+(`Hydro`), all with unit `$US`. Missing/zero rates and absent or inapplicable
+resources yield zero rows. See the [exact output contract](../user_guide/running_and_outputs.md#curtailment-cost-totals).
+Existing result-container signatures are unchanged; older results lacking this
+category remain supported and retain their stored costs and summaries.
+Generic Infrasys cost/summary attachment, JSON serialization, reconstruction,
+and CSV re-export preserve the new mapping and rows, including area scope.
+
 ```python
 # CAPEX by technology
 capex = results.cost_breakdown["capex"]
@@ -189,7 +212,7 @@ print(f"Binary Variables: {problem_info['Number of binary variables']}")
 ### Cost Breakdown
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `cost_breakdown` | dict | Nested dict with 'capex', 'power_capex', 'energy_capex', 'fom', 'vom', 'fuel_cost', 'imports_cost', 'exports_revenue' |
+| `cost_breakdown` | dict | Nested dict with 'capex', 'power_capex', 'energy_capex', 'fom', 'vom', 'fuel_cost', 'imports_cost', 'exports_revenue', 'curtailment_cost' |
 
 ### DataFrames
 | Attribute | Type | Description |

@@ -6,7 +6,7 @@ import pandas as pd
 
 from ..common.utilities import safe_pyomo_value
 from ..constants import MW_TO_KW
-from ._values import _value_or_nan, _value_or_zero
+from ._values import _collect_curtailment_costs, _value_or_nan, _value_or_zero
 from .hydro import _collect_hydro_budget_energy
 
 
@@ -83,7 +83,9 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
         - ``storage_tech_list`` : list of storage tech identifiers.
         - ``generation_totals`` : dict by technology (incl. each storage tech).
         - ``cost_breakdown`` : dict (``capex``, ``power_capex``, ``energy_capex``,
-          ``fom``, ``vom``, ``fuel_cost``, ``imports_cost``, ``exports_revenue``).
+          ``fom``, ``vom``, ``fuel_cost``, ``imports_cost``, ``exports_revenue``,
+          and additive ``curtailment_cost`` keyed by Solar PV, Wind, Hydro).
+          Signed curtailment costs are authoritative model expressions in USD.
         - ``hydro_budget_energy`` : tuple of budget and unused energy in MWh,
           validated independently for each period.
         - ``generation_df``, ``storage_df``, ``thermal_generation_df``,
@@ -335,6 +337,7 @@ def _collect_host_metrics(host, hours, *, case_name: str = "run") -> dict:
         "fuel_cost": fuel_cost,
         "imports_cost": imports_cost,
         "exports_revenue": exports_revenue,
+        "curtailment_cost": _collect_curtailment_costs(host),
     }
 
     # Generation DataFrame -------------------------------------------------

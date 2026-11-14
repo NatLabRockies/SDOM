@@ -6,3 +6,6 @@ AlphaLargHy,1
 AlphaOtheRe,1
 r,0.06
 EUE_max,0
+SolarCurtailmentCost,0
+WindCurtailmentCost,0
+HydroCurtailmentCost,0

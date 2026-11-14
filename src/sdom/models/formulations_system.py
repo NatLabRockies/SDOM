@@ -3,6 +3,8 @@
 from pyomo.core import Constraint, Expression
 from pyomo.environ import quicksum
 
+from ..common.utilities import parse_finite_float
+from ..constants import HYDRO_FORMULATION_METADATA
 from ..io.formulations import get_formulation
 from .formulations_imports_exports import add_imports_exports_cost
 from .formulations_storage import add_storage_fixed_costs, add_storage_variable_costs
@@ -18,6 +20,77 @@ from .formulations_vre import add_vre_fixed_costs
 ####################################################################################|
 # ------------------------------- Objective Function -------------------------------|
 ####################################################################################|
+
+def _curtailment_rate(scalars, parameter: str) -> float:
+    """Read an optional finite rate, rejecting duplicate or malformed entries."""
+    entries = scalars.loc[scalars.index == parameter, "Value"]
+    if entries.empty:
+        return 0.0
+    if len(entries) != 1:
+        raise ValueError(f"{parameter} must appear at most once in scalars.")
+    return parse_finite_float(
+        entries.iloc[0], error_message=f"{parameter} must be numeric and finite."
+    )
+
+
+def add_curtailment_cost_expressions(host, data) -> None:
+    """Attach signed modeled-horizon curtailment costs to each technology.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area with initialized VRE expressions and hydro dispatch.
+    data : dict
+        Inputs with optional global scalar rates in USD/MWh and hydro metadata.
+
+    Raises
+    ------
+    ValueError
+        If a supplied rate is duplicate, nonnumeric, or nonfinite.
+
+    Notes
+    -----
+    Missing/zero rates omit the decision-dependent term. Inactive contributions
+    are constant zero expressions. Negative rates reward curtailment.
+    Upper-bound hydro uses the unscaled budget profile over the complete
+    effective horizon, retaining its constant availability term. One-hour MW
+    sums are MWh; no annualization, alpha scaling, or reporting tolerance applies.
+    """
+    solar, wind, hydro = (
+        _curtailment_rate(data["scalars"], parameter)
+        for parameter in ("SolarCurtailmentCost", "WindCurtailmentCost", "HydroCurtailmentCost")
+    )
+    for block, rate in ((host.pv, solar), (host.wind, wind)):
+        block.curtailment_cost_expr = Expression(
+            expr=rate * block.total_curtailment if rate != 0 and len(block.plants_set) else 0.0
+        )
+    metadata = HYDRO_FORMULATION_METADATA[get_formulation(data, component="hydro")]
+    host.hydro.curtailment_cost_expr = Expression(
+        expr=hydro * quicksum(
+            host.hydro.ts_parameter[h] - host.hydro.generation[h] for h in host.h
+        ) if hydro != 0 and metadata.budget_sense == "upper_bound" else 0.0
+    )
+
+
+def curtailment_cost_rule(host):
+    """Return the sum of the three existing technology cost expressions.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area with curtailment cost expressions.
+
+    Returns
+    -------
+    pyomo.core.expr.numeric_expr.NumericValue
+        Signed curtailment cost in USD over the effective modeled horizon.
+    """
+    return (
+        host.pv.curtailment_cost_expr
+        + host.wind.curtailment_cost_expr
+        + host.hydro.curtailment_cost_expr
+    )
+
 
 def objective_rule(model):
     r"""Return the copperplate investment-and-dispatch objective expression.
@@ -39,7 +112,8 @@ def objective_rule(model):
        Z=Z^{vre,fixed}+Z^{stor,fixed}+Z^{bal,fixed}
        +Z^{bal,var}+Z^{stor,var}
        +\sum_{h\in\mathcal H}
-       (c^{imp}_h\iota_h-c^{exp}_h\xi_h).
+       (c^{imp}_h\iota_h-c^{exp}_h\xi_h)
+       +Z^{curt,pv}+Z^{curt,wind}+Z^{curt,hyd}.
 
     Fixed terms include annualized CAPEX and annual fixed O&M (USD/year).
     Variable terms are modeled-horizon fuel and O&M costs (USD), with
@@ -47,7 +121,9 @@ def objective_rule(model):
     in MW; prices :math:`c^{imp}_h` / :math:`c^{exp}_h` are USD/MWh.
     Export revenue is subtracted. Variable costs are not rescaled for short
     horizons, so the total represents annual cost only for a full-year run.
-    No hydro, nuclear, other-renewables, reserve, or curtailment cost is added.
+    Optional technology-specific curtailment costs are modeled-horizon USD
+    contributions, including unused upper-bound hydro budgets. No nuclear,
+    other-renewables, or reserve operating cost is added.
     """
     # Annual Fixed Costs
     fixed_costs = (
@@ -67,7 +143,7 @@ def objective_rule(model):
 
     imports_exports_costs = add_imports_exports_cost(model)
 
-    return fixed_costs + variable_costs + imports_exports_costs
+    return fixed_costs + variable_costs + imports_exports_costs + curtailment_cost_rule(model)
 
 
 ####################################################################################|

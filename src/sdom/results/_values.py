@@ -5,8 +5,38 @@ from collections.abc import Iterable
 
 import numpy as np
 from pyomo.core.base.var import IndexedVar
+from pyomo.environ import value as pyo_value
 
 from ..common.utilities import safe_pyomo_value
+
+
+def _collect_curtailment_costs(host) -> dict[str, float]:
+    """Extract authoritative signed costs, rejecting unavailable expressions.
+
+    Parameters
+    ----------
+    host : pyomo.core.base.block.BlockData
+        System or area with technology curtailment cost expressions. Inactive
+        contributions have constant zero expressions by construction.
+
+    Returns
+    -------
+    dict of str to float
+        Solar PV, Wind, and Hydro costs in modeled-horizon USD.
+
+    Raises
+    ------
+    ValueError
+        If an expression is missing, uninitialized, or nonfinite.
+    """
+    costs = {}
+    for technology, block in (("Solar PV", host.pv), ("Wind", host.wind), ("Hydro", host.hydro)):
+        expression = getattr(block, "curtailment_cost_expr", None)
+        amount = pyo_value(expression, exception=False) if expression is not None else None
+        if amount is None or not math.isfinite(amount):
+            raise ValueError(f"Missing or nonfinite curtailment cost for {host.name}, {technology}: {amount!r}")
+        costs[technology] = float(amount)
+    return costs
 
 
 def _sum_initialized_dispatch(

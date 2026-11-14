@@ -66,7 +66,13 @@ from .models.formulations_storage import (
     add_storage_variable_costs,
     add_storage_variables,
 )
-from .models.formulations_system import add_system_constraints, add_system_expressions, objective_rule
+from .models.formulations_system import (
+    add_curtailment_cost_expressions,
+    add_system_constraints,
+    add_system_expressions,
+    curtailment_cost_rule,
+    objective_rule,
+)
 from .models.formulations_thermal import (
     add_thermal_constraints,
     add_thermal_expressions,
@@ -180,14 +186,11 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
 
     - **Legacy fast path** (``Network = CopperPlateNetwork`` and
       ``len(data["areas"]) == 1``): delegates to
-      :func:`_initialize_model_copperplate`, which is the historical model
-      body preserved verbatim. This guarantees bit-identical objective
-      values for every legacy data folder (locked by
-      ``tests/test_zonal_legacy_regression.py``).
+      :func:`_initialize_model_copperplate`. Omitted or zero optional
+      curtailment rates preserve the legacy objective.
     - **Per-area Block path** (``Network = AreaTransportationModelNetwork``
-      or ``len(data["areas"]) > 1``): not yet implemented in this commit;
-      will be wired in commit #9b together with the builder refactor that
-      lets each ``add_*`` consume a per-area data slice.
+      or ``len(data["areas"]) > 1``): builds technology blocks for each
+      area, including costs at the shared global curtailment rates.
 
     Parameters
     ----------
@@ -211,10 +214,11 @@ def initialize_model(data, n_hours=8760, with_resilience_constraints=False, mode
 
     Raises
     ------
+    ValueError
+        If a supplied curtailment rate is duplicate, nonnumeric, or nonfinite,
+        or enabled input validation fails.
     NotImplementedError
-        When the per-area Block path is required (zonal data or
-        ``Network = AreaTransportationModelNetwork``). This branch lands
-        in commit #9b.
+        For zonal resiliency or external imports/exports, which are unsupported.
     """
     logging.info("[%s] Starting Pyomo model instantiation step.", _timestamp_now())
 
@@ -372,6 +376,7 @@ def _initialize_model_copperplate(data, *, n_hours=8760, with_resilience_constra
 
     # System expressions
     profiler.measure_step("Add system expressions", add_system_expressions, model)
+    profiler.measure_step("Add curtailment costs", add_curtailment_cost_expressions, model, data)
 
     # -------------------------------- Objective function -------------------------------
     logging.info("Adding objective function to the model...")
@@ -503,6 +508,8 @@ def _build_per_area_data_slice(data, area_id):
         hydro = _zero_optional_time_series(
             data, data_key="large_hydro_data", column_name="LargeHydro"
         )
+        hydro["LargeHydro_Max"] = 0.0
+        hydro["LargeHydro_Min"] = 0.0
     hydro_max = None
     hydro_min = None
     if hydro is not None:
@@ -625,6 +632,7 @@ def _build_one_area(area_block, data_slice, *, n_hours, with_resilience_constrai
 
     logging.debug(f"[area={a}] -- Adding hydropower generation variables...")
     add_hydro_variables(area_block)
+    add_curtailment_cost_expressions(area_block, data_slice)
 
     # Skip imports/exports variables/expressions — guarded above.
     if get_formulation(data_slice, component="Imports") != IMPORTS_EXPORTS_NOT_MODEL:
@@ -727,7 +735,18 @@ def _add_zonal_genmix_constraint(model):
 
 
 def _zonal_objective_rule(model):
-    """Aggregate cost objective across areas plus ``Z^trans = 0``."""
+    """Sum area fixed, variable, and curtailment costs plus ``Z^trans = 0``.
+
+    Parameters
+    ----------
+    model : pyomo.environ.ConcreteModel
+        Zonal model with initialized area cost expressions and network.
+
+    Returns
+    -------
+    pyomo.core.expr.numeric_expr.NumericValue
+        Objective including each area's signed curtailment costs exactly once.
+    """
     fixed = sum(
         add_vre_fixed_costs(model.area[a])
         + add_storage_fixed_costs(model.area[a])
@@ -740,7 +759,8 @@ def _zonal_objective_rule(model):
         for a in model.A
     )
     transmission = network_transmission_cost_rule(model)
-    return fixed + variable + transmission
+    curtailment = sum(curtailment_cost_rule(model.area[a]) for a in model.A)
+    return fixed + variable + transmission + curtailment
 
 
 def _initialize_model_zonal(

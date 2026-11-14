@@ -8,6 +8,15 @@ from ._values import _sum_initialized_dispatch
 from .containers import OptimizationResults
 
 
+def _curtailment_cost_metrics(cost_breakdown: dict) -> list[tuple[str, dict, str]]:
+    """Return additive cost rows; older result dictionaries imply zero costs."""
+    costs = cost_breakdown.get("curtailment_cost", {})
+    return [
+        (f"Total {label} curtailment cost", {technology: costs.get(technology, 0.0)}, "$US")
+        for label, technology in (("Solar", "Solar PV"), ("Wind", "Wind"), ("Hydro", "Hydro"))
+    ]
+
+
 def _build_metric_summary(total_cost: float, metrics: list[tuple[str, dict, str]]) -> pd.DataFrame:
     """Build ordered summary rows in a single DataFrame construction."""
     # Total cost
@@ -38,7 +47,8 @@ def _build_summary_dataframe(model, results: OptimizationResults, storage_tech_l
     -------
     pandas.DataFrame
         Ordered metrics with columns Metric, Technology, Run, Optimal Value,
-        and Unit, constructed without progressively concatenating tables.
+        and Unit, including three signed technology curtailment costs in USD.
+        These costs are already included in Total cost and are not added again.
 
     Raises
     ------
@@ -157,6 +167,7 @@ def _build_summary_dataframe(model, results: OptimizationResults, storage_tech_l
                 "MWh",
             ),
             ("VRE curtailment percentage", {"All": total_vre_curtailment_pct}, "%"),
+            *_curtailment_cost_metrics(results.cost_breakdown),
         ],
     )
 
@@ -178,7 +189,8 @@ def _build_zonal_summary_dataframe(
     -------
     pandas.DataFrame
         Summary rows matching the existing CSV and plotting schema, constructed
-        from ordered metric groups in a single DataFrame.
+        from ordered metric groups in a single DataFrame. Technology curtailment
+        costs sum the collected area contributions, without double counting.
     """
     storage_capacity = results.storage_capacity
     cost_breakdown = results.cost_breakdown
@@ -248,6 +260,7 @@ def _build_zonal_summary_dataframe(
                 "MWh",
             ),
             ("VRE curtailment percentage", {"All": total_curtailment / total_vre * 100 if total_vre > 0 else 0.0}, "%"),
+            *_curtailment_cost_metrics(cost_breakdown),
         ],
     )
 

@@ -6,12 +6,17 @@ Run with: pytest tests/test_docs_build.py
 """
 
 import os
+import re
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
+import pandas as pd
 import pytest
+from pyomo.environ import Block, Expression, Param, Var
+
+from sdom import initialize_model, load_data
 
 
 def test_docs_directory_exists():
@@ -175,6 +180,98 @@ def test_hydro_reporting_documentation_uses_exact_system_summary_schema(filename
     ]
 
 
+@pytest.mark.parametrize("parameter", ["SolarCurtailmentCost", "WindCurtailmentCost", "HydroCurtailmentCost"])
+def test_curtailment_scalar_documentation_links_to_objective_equation(parameter):
+    source = Path(__file__).parent.parent / "docs" / "source" / "user_guide"
+    text = (source / "inputs.md").read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.startswith(f"| `{parameter}` |")]
+    assert len(rows) == 1
+    assert "USD/MWh" in rows[0]
+    assert "0.0" in rows[0]
+    links = re.findall(r"\]\(([^)]+)\)", rows[0])
+    assert "sdom_math_formulation.md#curtailment-costs" in links
+
+
+@pytest.mark.parametrize("filename", ["running_and_outputs.md", "sdom_math_formulation.md"])
+def test_curtailment_cost_documentation_uses_exact_summary_schema(filename):
+    source = Path(__file__).parent.parent / "docs" / "source" / "user_guide"
+    rows = [
+        tuple(cell.strip().strip("`") for cell in line.split("|")[1:-1])
+        for line in (source / filename).read_text(encoding="utf-8").splitlines()
+        if line.startswith(("| `Total Solar curtailment cost` |", "| `Total Wind curtailment cost` |",
+                            "| `Total Hydro curtailment cost` |"))
+    ]
+    assert rows == [
+        ("Total Solar curtailment cost", "Solar PV", "$US"),
+        ("Total Wind curtailment cost", "Wind", "$US"),
+        ("Total Hydro curtailment cost", "Hydro", "$US"),
+    ]
+
+
+def test_pyomo_diagrams_use_standard_markdown_mermaid_fences():
+    """Expose diagrams to Markdown preview Mermaid renderers as language fences."""
+    markdown_it = pytest.importorskip("markdown_it", reason="Install documentation dependencies with uv sync --group docs")
+    root = Path(__file__).resolve().parents[1]
+    reference = (root / "docs" / "source" / "user_guide" / "pyomo_model_structure.md").read_text(
+        encoding="utf-8"
+    )
+    diagrams = [
+        token for token in markdown_it.MarkdownIt().parse(reference)
+        if token.type == "fence" and token.content.startswith("flowchart ")
+    ]
+    assert diagrams, "No model diagrams found"
+    assert {token.info for token in diagrams} == {"mermaid"}
+
+
+@pytest.mark.parametrize("scenario", ["copperplate", "enabled-copperplate", "zonal"])
+def test_pyomo_block_reference_covers_constructed_fields(scenario):
+    """Verify documented ownership and field types against real model construction."""
+    root = Path(__file__).resolve().parents[1]
+    reference = (root / "docs" / "source" / "user_guide" / "pyomo_model_structure.md").read_text(
+        encoding="utf-8"
+    )
+    folder = "zonal_test" if scenario == "zonal" else "exchange_hydro_daily_budget_multiple_balancing_p95"
+    data = load_data(str(root / "Data" / folder))
+    if scenario != "copperplate":
+        data["formulations"].loc[data["formulations"]["Component"] == "Thermal", "Formulation"] = (
+            "NoRampsMinDispatchFormulation"
+        )
+        data["thermal_min_dispatch_fraction"] = pd.DataFrame(
+            {"Hour": range(1, 8761), **{str(plant): 0.1 for plant in data["thermal_data"]["Plant_id"]}}
+        )
+        data["formulations"] = pd.concat(
+            [data["formulations"], pd.DataFrame({"Component": ["Reserves"], "Formulation": ["CapacityMarginFormulation"]})],
+            ignore_index=True,
+        )
+    model = initialize_model(data, n_hours=24, with_resilience_constraints=scenario == "enabled-copperplate")
+    for block in [model, *model.component_data_objects(Block, descend_into=True)]:
+        if block is model:
+            title = "Zonal root" if scenario == "zonal" else "Host"
+        elif block.parent_component().local_name == "area":
+            title = "Host"
+        elif block.local_name in ("pv", "wind"):
+            title = "PV and wind"
+        elif block.local_name == "other_renewables":
+            title = "Other renewables"
+        else:
+            title = block.local_name.capitalize()
+        section = re.search(rf"(?ms)^## {re.escape(title)}\n(.*?)(?=^## |\Z)", reference)
+        assert section is not None, f"Missing block section: {title}"
+        documented = {
+            (field.split("[", 1)[0], kind)
+            for field, kind in re.findall(r"^\| `([^`]+)` \| (Param|Var|Expression) \|", section[1], re.MULTILINE)
+        }
+        actual = {
+            (member.local_name, kind.__name__)
+            for kind in (Param, Var, Expression)
+            for member in block.component_objects(kind, descend_into=False)
+        }
+        assert actual <= documented, f"Undocumented fields in {block.name}: {actual - documented}"
+        if hasattr(block, "properties_set") and hasattr(block, "data"):
+            entries = set(re.findall(r'^\| `data\["([^"]+)",', section[1], re.MULTILINE))
+            assert set(block.properties_set) <= entries
+
+
 def test_docs_build_html():
     """Test that documentation builds successfully.
     
@@ -228,8 +325,15 @@ def test_docs_build_html():
     index_html = build_dir / "index.html"
     assert index_html.exists(), "index.html not generated"
     hydro_html = (build_dir / "user_guide" / "sdom_math_formulation.html").read_text(encoding="utf-8")
-    for anchor in ["energy-budget-equality", "energy-budget-upper-bound", "hydro-curtailment-reporting"]:
+    for anchor in [
+        "energy-budget-equality", "energy-budget-upper-bound", "hydro-curtailment-reporting", "curtailment-costs"
+    ]:
         assert f'id="{anchor}"' in hydro_html, f"Hydro documentation anchor not rendered: {anchor}"
+    structure_html = (build_dir / "user_guide" / "pyomo_model_structure.html").read_text(encoding="utf-8")
+    for anchor in ["composition-and-conventions", "host", "pv-and-wind", "storage", "resiliency", "zonal-root"]:
+        assert f'id="{anchor}"' in structure_html
+    assert len(re.findall(r'<pre\s+class="mermaid"', structure_html)) == 15
+    assert 'href="user_guide/pyomo_model_structure.html"' in index_html.read_text(encoding="utf-8")
 
 
 #@pytest.mark.slow

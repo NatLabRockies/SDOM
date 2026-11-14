@@ -163,8 +163,21 @@ The carbon-free target remains system-wide (not per area). It is built as top-le
 Zonal objective is the sum of area costs plus a transmission placeholder:
 
 $$
-\min Z = \sum_{a \in \mathcal{A}} \left(Z^{fixed}_a + Z^{variable}_a\right) + Z^{trans}
+\min Z = \sum_{a \in \mathcal{A}} \left(Z^{fixed}_a + Z^{variable}_a
++ Z^{curt,pv}_a + Z^{curt,wind}_a + Z^{curt,hyd}_a\right) + Z^{trans}
 $$
+
+Each area's [curtailment contributions](sdom_math_formulation.md#curtailment-costs)
+use the same global optional solar, wind, and hydro rates in USD/MWh.
+Hydro cost applies only to unused unscaled daily/monthly upper-bound budgets.
+The period constant is retained; alpha scales hourly hydro bounds only.
+Missing/zero rates, absent resources, and inapplicable hydro contribute zero.
+Negative rates reward curtailment and remain signed in the objective and reports.
+
+System cost rows are the sum of corresponding area costs, each counted once,
+not averages or recomputations from percentages. Area and system summaries
+include all three technology rows in modeled-horizon USD; Total cost already
+includes them. No variables, constraints, or transmission changes are added.
 
 Current implementation uses:
 

@@ -1,10 +1,9 @@
 """Model hourly capacity margins with deliverable storage and zonal exchanges."""
 
-import math
-
 from pyomo.core.base.block import ScalarBlock
 from pyomo.environ import Constraint, NonNegativeReals, Param, Var, quicksum, sqrt
 
+from ..common.utilities import parse_finite_float
 from ..io.formulations import get_formulation
 
 adequacy_duration_hours = 1
@@ -81,12 +80,10 @@ def add_capacity_margin_constraints(host, data: dict) -> None:
 
     name = "capacity_marging_fraction"
     raw = data["scalars"].loc[name, "Value"] if name in data["scalars"].index else 0.0
-    try:
-        margin = float(raw)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"{name} must be a finite nonnegative fraction; got {raw!r}") from error
-    if not math.isfinite(margin) or margin < 0:
-        raise ValueError(f"{name} must be a finite nonnegative fraction; got {raw!r}")
+    error_message = f"{name} must be a finite nonnegative fraction; got {raw!r}"
+    margin = parse_finite_float(raw, error_message=error_message)
+    if margin < 0:
+        raise ValueError(error_message)
 
     block = ScalarBlock()
     host.add_component("reserves", block)
