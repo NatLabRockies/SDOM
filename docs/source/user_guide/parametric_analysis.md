@@ -54,65 +54,80 @@ requirement — see
 [Safe importing of main module](https://docs.python.org/3/library/multiprocessing.html#the-spawn-and-forkserver-start-methods).
 ```
 
-The input data for this example is available in
-`Data/no_exchange_run_of_river/` and pre-generated results (CSV files and
-figures) are stored under `Data/no_exchange_run_of_river/results/`.
+This repository example uses the two-area `Data/zonal_test/` fixture over
+**168 hours (seven days)**, matching the strict `DailyBudgetFormulation`
+case in `tests/test_zonal_daily_hydro_budget.py`. Its temporary input copy
+adds profile-based hourly hydro maximum bounds and zero minimum bounds;
+the canonical run-of-river fixture remains unchanged. This is an integration
+fixture, not a calibrated real-world study.
+
+Run from a repository checkout with development dependencies installed:
+
+```bash
+uv run python scripts/generate_zonal_documentation_examples.py
+```
+
+The [generation script](https://github.com/NatLabRockies/SDOM/blob/main/scripts/generate_zonal_documentation_examples.py)
+runs the complete example below, checks that all 12 cases are optimal, and
+refreshes the published plots and their
+[numeric provenance](../_static/parametric_example/provenance.json).
+All CSVs and complete per-case plot packs are written locally under
+`results/zonal_documentation_168h/`.
 
 ```python
 import logging
-import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from scripts.generate_zonal_documentation_examples import prepare_zonal_inputs
 from sdom import configure_logging, get_default_solver_config_dict, load_data
-from sdom.parametric import ParametricStudy
 from sdom.analytic_tools import plot_parametric_results
+from sdom.parametric import ParametricStudy
 
 
 def main():
     configure_logging(level=logging.INFO)
 
-    # ── Load data ─────────────────────────────────────────────────────────────
-    data_dir   = "./Data/no_exchange_run_of_river/"
-    output_dir = "./Data/no_exchange_run_of_river/results/"
+    with TemporaryDirectory(prefix="sdom_zonal_example_") as temporary:
+        data_dir = prepare_zonal_inputs(
+            Path("Data") / "zonal_test", Path(temporary) / "inputs"
+        )
+        data = load_data(str(data_dir))
+        solver_cfg = get_default_solver_config_dict(
+            solver_name="highs", executable_path=""
+        )
+        solver_cfg["solve_keywords"].update(
+            tee=False, report_timing=False, keepfiles=False
+        )
+        study = ParametricStudy(
+            base_data=data,
+            solver_config=solver_cfg,
+            n_hours=168,
+            output_dir=str(Path("results") / "zonal_documentation_168h"),
+            n_cores=3,
+        )
+        study.add_scalar_sweep("scalars", "GenMix_Target", [0.0, 0.8, 1.0])
+        study.add_storage_factor_sweep("P_Capex", [1.0, 0.7])
+        study.add_ts_sweep("load_data", [1.0, 1.4])
+        results = study.run()
 
-    data       = load_data(data_dir)
-    solver_cfg = get_default_solver_config_dict(solver_name="highs", executable_path="")
-
-    # ── Build study ───────────────────────────────────────────────────────────
-    study = ParametricStudy(
-        base_data=data,
-        solver_config=solver_cfg,
-        n_hours=96,
-        output_dir=output_dir,
-        n_cores=3,
-    )
-
-    # Sweep 1 — GenMix_Target scalar (carbon-free target)
-    study.add_scalar_sweep("scalars", "GenMix_Target", [0.0, 0.8, 1.0])
-
-    # Sweep 2 — Storage power CAPEX factor (all technologies scaled uniformly)
-    study.add_storage_factor_sweep("P_Capex", [1.0, 0.7])
-
-    # Sweep 3 — Load/demand scaling
-    study.add_ts_sweep("load_data", [1.0, 1.4])
-
-    # ── Run — 3 × 2 × 2 = 12 cases in parallel ───────────────────────────────
-    results = study.run()
-
-    # ── Plot cross-case comparisons + per-case figures ────────────────────────
+    failed = [r for r in results if not r.is_optimal]
+    if len(results) != 12 or failed:
+        raise RuntimeError(
+            f"Expected 12 optimal cases; got {len(results)} results "
+            f"and {len(failed)} unsuccessful cases."
+        )
     plot_parametric_results(
         study,
         results,
-        group_by=["GenMix_Target", "P_Capex"],   # x-axis clusters
-        hue_by="load_data",                       # bars within each cluster
+        group_by=["GenMix_Target", "P_Capex"],
+        hue_by="load_data",
         max_cases_per_figure=36,
         plot_per_case=True,
     )
 
-    # ── Console summary ───────────────────────────────────────────────────────
-    successful = [r for r in results if r.is_optimal]
-    failed     = [r for r in results if not r.is_optimal]
-    print(f"Total: {len(results)}  |  Optimal: {len(successful)}  |  Failed: {len(failed)}")
-    for r in successful:
+    print(f"Total: {len(results)} | Optimal: {len(results)} | Failed: 0")
+    for r in results:
         print(f"  cost={r.total_cost:>15,.0f}  status={r.solver_status}")
 
 
@@ -126,7 +141,10 @@ if __name__ == "__main__":
 ## Sample results of this example
 
 The figures below are the actual outputs obtained by running the example above
-(12 cases: `GenMix_Target` × 3, `P_Capex` × 2, `load` × 2).
+(12 cases: `GenMix_Target` × 3, `P_Capex` × 2, `load` × 2) over 168 hours
+with two zones. Generation and curtailment energy totals cover the modeled
+seven days; capacity decisions remain in MW. The objective includes the
+model's investment and operating costs and is not a weekly operating-cost bill.
 
 ### Cross-case sensitivity plots
 
@@ -159,13 +177,37 @@ The sample below is from case `GenMix_Target=1.0 | P_Capex×1.0 | load×1.0`.
 
 ![Capacity and generation donuts](../_static/parametric_example/case_plots/capacity_generation_donuts.png)
 
-**Hourly dispatch heatmap — VRE generation**
+**Hourly dispatch heatmap — system VRE generation over seven days**
 
 ![Heatmap — VRE generation](../_static/parametric_example/case_plots/heatmap_vre_generation.png)
 
-**Hourly dispatch heatmap — net load**
+**Hourly dispatch heatmap — system net load over seven days**
 
 ![Heatmap — net load](../_static/parametric_example/case_plots/heatmap_net_load.png)
+
+**Installed power capacity by zone**
+
+![Installed power capacity by zone](../_static/parametric_example/case_plots/area_capacity_stacks_power.png)
+
+**System load duration curve**
+
+Each system metric has a separate standalone figure. Points retain their original
+hour-of-day colors, with interpolated 5%, 50%, and 95% duration markers.
+
+![System load duration curve](../_static/parametric_example/case_plots/duration_curve_system_load.png)
+
+**Solar + wind curtailment percentage by zone**
+
+Each panel independently sorts one zone's hourly percentages; both share the
+00-23 hour color scale.
+
+![Zonal curtailment percentage duration curves](../_static/parametric_example/case_plots/duration_curve_zonal_vre_curtailment_pct.png)
+
+**Signed interregional flows over seven days**
+
+The sign retains the line's defined direction; this is not zonal net interchange.
+
+![Signed line-flow heatmap](../_static/parametric_example/case_plots/line_flow_heatmap.png)
 
 Each optimal per-case plot directory also includes the applicable duration
 curves. Copperplate cases produce thermal-generation, load, net-load, and combined

@@ -57,7 +57,7 @@ An illustrative figure below shows the flow from inputs to optimization results,
 
 - **Spatial Resolution:** Fine-grained representation of VRE sources (e.g., solar, wind) captures geographic diversity and enhances system fidelity.
 
-- **Copper Plate Modeling:** SDOM Model neglects transmission constraints to keep the model tractable from the computational standpoint. Future SDOM releases should include inter-regional transmission constraints.
+- **Network Formulations:** Choose a copperplate model with one system balance, or a zonal transportation model with per-area balances and signed interregional flows constrained by directional line capacities.
 
 - **Fixed Generation Profiles:** Nuclear, hydropower, and other fixed-generation resources (e.g., biomass and geothermal) are represented with time-series inputs. Hydropower is configurable as run-of-river or as flexible daily- and monthly-budget operations through the hydro-budget formulations.
 
@@ -76,16 +76,21 @@ An illustrative figure below shows the flow from inputs to optimization results,
 
 ## Optimization Scope
 📉
-SDOM performs cost minimization across a 1-year operation window using a copper plate assumption—i.e., no internal transmission constraints—making it computationally efficient while capturing major cost drivers. Conventional generators are used as balancing resources, and storage technologies serve to meet carbon or renewable penetration goals.
+SDOM performs cost minimization across an hourly operation window, with configurable horizons selected through `n_hours`. Copperplate and zonal transportation formulations are supported. Conventional generators are used as balancing resources, and storage technologies serve to meet carbon or renewable penetration goals.
 
-## Notes on Model Expansion
-While SDOM currently supports a 1-year horizon, multiyear analyses could provide deeper insights into how interannual variability affects storage needs. Chronological, simulation-based approaches are better suited for this but present significant computational challenges—especially at hourly resolution. Extending SDOM to support multiyear optimization is left as future work.
 
 ## Sample Results
 
-The figures below show example outputs from a 3-dimensional parametric study
-(3 carbon-free targets × 2 storage CAPEX factors × 2 load scaling factors = 12 cases)
-run against the `Data/no_exchange_run_of_river/` dataset included in this repository.
+The figures below show a **168-hour (seven-day), two-zone study** based on
+[`Data/zonal_test`](Data/zonal_test), using the strict daily hydro-budget setup
+from [the zonal regression tests](tests/test_zonal_daily_hydro_budget.py).
+The study retains three carbon-free targets, two storage power-CAPEX factors,
+and two load scaling factors: **12 cases**.
+
+These are integration-test fixtures, not a calibrated real-world power-system
+study. Dispatch and generation totals cover the modeled seven days, not a full year.
+See the [worked example and results](docs/source/user_guide/parametric_analysis.md#sample-results-of-this-example)
+for reproduction instructions and [numeric provenance](docs/source/_static/parametric_example/provenance.json).
 
 **Installed capacity by technology across all cases**
 
@@ -95,7 +100,7 @@ run against the `Data/no_exchange_run_of_river/` dataset included in this reposi
 
 ![Generation comparison](docs/source/_static/parametric_example/sensitivity_plots/generation_comparison.png)
 
-**VRE curtailment across all cases**
+**Solar + wind curtailment across all cases (modeled-horizon energy)**
 
 ![Curtailment — absolute](docs/source/_static/parametric_example/sensitivity_plots/curtailment_absolute.png)
 
@@ -103,9 +108,29 @@ run against the `Data/no_exchange_run_of_river/` dataset included in this reposi
 
 ![Capacity and generation donuts](docs/source/_static/parametric_example/case_plots/capacity_generation_donuts.png)
 
-**Hourly dispatch heatmap — net load**
+**Hourly dispatch heatmap — system net load over seven days**
 
 ![Heatmap — net load](docs/source/_static/parametric_example/case_plots/heatmap_net_load.png)
+
+**System load duration curve — one standalone figure for this metric**
+
+![System load duration curve](docs/source/_static/parametric_example/case_plots/duration_curve_system_load.png)
+
+**Solar + wind curtailment percentage — one panel per zone**
+
+![Zonal curtailment percentage duration curves](docs/source/_static/parametric_example/case_plots/duration_curve_zonal_vre_curtailment_pct.png)
+
+Regenerate the published examples from a repository checkout with its development
+dependencies installed:
+
+```bash
+uv run python scripts/generate_zonal_documentation_examples.py
+```
+
+The script solves all 12 cases with HiGHS, saves CSVs and complete plot packs under
+`results/zonal_documentation_168h/`, and refreshes documentation images only after
+all cases solve optimally. It prepares a temporary copy of the inputs and does not
+modify the canonical test dataset.
 
 # GETTING STARTED WITH SDOM
 ## System Setup and Prerequisites 

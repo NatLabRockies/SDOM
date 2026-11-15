@@ -407,7 +407,7 @@ figures in one call.
 |---|---|
 | `capacity_donut.png` | Installed capacity by technology (donut chart) |
 | `capacity_generation_donuts.png` | Side-by-side capacity and total generation donuts |
-| `heatmap_<column>.png` | One 365×24 hourly dispatch heatmap per generation technology |
+| `heatmap_<column>.png` | One hourly dispatch heatmap per eligible generation column, spanning the modeled days |
 | `duration_curve_total_thermal_generation.png` | Descending hourly total thermal generation (copperplate) |
 | `duration_curve_load.png` | Descending hourly load (copperplate) |
 | `duration_curve_net_load.png` | Descending hourly net load (copperplate) |
@@ -493,31 +493,77 @@ Both parameters are optional but at least one must be provided, otherwise a
 
 ### Full workflow example
 
+This repository-only example reproduces the **168-hour, two-zone strict daily
+hydro-budget case** from `tests/test_zonal_daily_hydro_budget.py`. Run from a
+repository checkout with development dependencies installed. The preparation
+helper copies `Data/zonal_test/` into a temporary directory, adds the tested
+hydro bounds, and leaves the canonical inputs unchanged.
+
 ```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from scripts.generate_zonal_documentation_examples import prepare_zonal_inputs
 from sdom import (
     load_data, initialize_model, run_solver,
     export_results, get_default_solver_config_dict,
 )
 from sdom.analytic_tools import plot_results
 
-OUTPUT_DIR = "./results_pyomo/base_scenario/"
+OUTPUT_DIR = str(Path("results") / "zonal_168h")
 
-data        = load_data("./Data/no_exchange_run_of_river/")
-model       = initialize_model(data, n_hours=8760)
-solver_cfg  = get_default_solver_config_dict(solver_name="highs", executable_path="")
-results     = run_solver(model, solver_cfg)
+with TemporaryDirectory(prefix="sdom_zonal_example_") as temporary:
+    input_dir = prepare_zonal_inputs(
+        Path("Data") / "zonal_test", Path(temporary) / "inputs"
+    )
+    data = load_data(str(input_dir))
+    model = initialize_model(data, n_hours=168)
+    solver_cfg = get_default_solver_config_dict(solver_name="highs", executable_path="")
+    solver_cfg["solve_keywords"].update(tee=False, report_timing=False, keepfiles=False)
+    results = run_solver(model, solver_cfg, case_name="zonal_168h")
 
-if results.is_optimal:
-    # Export CSV tables
-    export_results(results, case="base_scenario", output_dir=OUTPUT_DIR)
+if not results.is_optimal:
+    raise RuntimeError(f"Optimization failed: {results.termination_condition}")
 
-    # Generate plots alongside the CSV outputs
-    plot_results(results, output_dir=OUTPUT_DIR)
+export_results(results, case="zonal_168h", output_dir=OUTPUT_DIR)
+plot_results(results, output_dir=OUTPUT_DIR)
 
-    print(f"Total cost : ${results.total_cost:,.0f}")
-    print(f"Solar PV   : {results.total_cap_pv:.1f} MW")
-    print(f"Wind       : {results.total_cap_wind:.1f} MW")
+print(f"Model objective : ${results.total_cost:,.0f}")
+print(f"Solar PV        : {results.total_cap_pv:.1f} MW")
+print(f"Wind            : {results.total_cap_wind:.1f} MW")
 ```
+
+### Seven-day zonal plot examples
+
+These images are from the base case (`GenMix_Target=1.0`, storage power-CAPEX
+factor `1.0`, load factor `1.0`) of the
+[168-hour zonal sensitivity example](parametric_analysis.md#sample-results-of-this-example).
+They use integration-test inputs, not a calibrated real-world power system.
+Generation totals cover seven days, not a full year.
+
+**System capacity and generation mix**
+
+![System capacity and generation mix](../_static/parametric_example/case_plots/capacity_generation_donuts.png)
+
+**System net-load heatmap: seven days of hourly observations**
+
+![Seven-day system net-load heatmap](../_static/parametric_example/case_plots/heatmap_net_load.png)
+
+**System net-load duration curve: one figure for this metric**
+
+![System net-load duration curve](../_static/parametric_example/case_plots/duration_curve_system_net_load.png)
+
+**Per-zone load duration curves: independent sorting and one shared hour colorbar**
+
+![Per-zone load duration curves](../_static/parametric_example/case_plots/duration_curve_zonal_load.png)
+
+**Per-zone available marginal prices**
+
+![Zonal marginal-price duration curves](../_static/parametric_example/case_plots/duration_curve_zonal_marginal_prices.png)
+
+**Signed flow duration curves: one panel per line**
+
+![Signed line-flow duration curves](../_static/parametric_example/case_plots/duration_curve_interregional_signed_flows.png)
 
 ---
 
