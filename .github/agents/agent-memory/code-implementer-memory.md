@@ -4,6 +4,15 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Hour-Colored Duration Curves (#107, 2026-11-15)
+
+- Duration preparation now pairs numeric values with original stored hours before validation and stable descending sorting. Positions span 0-100% (`100*i/(N-1)`); singleton positions are 0%. Hour colors use `(stored_hour-1)%24`, `jet`, and shared `Normalize(0, 23)`. References at 5%, 50%, and 95% use linear interpolation on descending duration positions, not ascending quantiles.
+- Shared axis rendering serves standalone and independently sorted zonal/line subplot grids (at most two columns, unused odd-count axes removed, one hour colorbar). Existing price/flow filenames remain, with panels replacing overlays; signed values are unchanged.
+- Solar-plus-wind hourly curtailment comes solely from collected generation/curtailment columns. Availability is generation plus curtailment; zero availability yields zero percent. Compute system percentages from system hourly sums, never zonal percentage averages. Hydro is excluded. New suffixes are `vre_curtailment_mw` and `vre_curtailment_pct`, with `system_`/`zonal_` scope prefixes; zonal load/thermal/net-load/import/export panels use `zonal_` prefixes.
+- Per-zone plotting uses the public `get_generation_dataframe()` accessor (with the existing legacy result-frame fallback). `plot_results` signature, result collection, CSVs, optimization, heatmaps, and non-per-case parametric behavior are unchanged. Optional invalid data logs explicit diagnostics without suppressing eligible figures.
+- TDD: nine expected failures before implementation. Plotting and copperplate/zonal parametric regressions: 174 passed; both documentation build tests passed. Real 96-hour copperplate and 24-hour zonal figures were visually inspected, including legends, reference markers, shared colorbars, signed flows, and per-zone layouts.
+- The duration helper passes Ruff formatting/lint and ty. Other changed files retain their exact baseline Ruff findings (33 total); broader analytic-tools type checking has 10 pre-existing findings in unchanged executable code. Keep `UV_NO_SYNC=true` for validation in shared environments: plain `uv run` updates the pre-existing project-version mismatch in `uv.lock`; do not include that unrelated lockfile change.
+
 ## Summary Performance and Solver-Free Benchmarks (2026-11-09)
 
 - Preserve the summary-building section comments (average power capacity, imports/exports totals, storage charging, costs, and curtailment) when batching DataFrame construction.
