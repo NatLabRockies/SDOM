@@ -62,8 +62,11 @@ def plot_results(
     - ``capacity_generation_donuts.png`` — side-by-side capacity + generation donuts
     - ``heatmap_{col}.png``        — hourly dispatch heatmaps for all generation
       columns in the generation DataFrame
-        - ``duration_curve_*.png``     — applicable curves for thermal generation,
-            load, net load, imports, exports, flows, and available marginal prices
+        - ``duration_curve_*.png``     — hour-colored scatter duration curves for
+            thermal generation, load, net load, imports, exports, solar + wind
+            curtailment (MW and %), signed flows, and available marginal prices.
+            Zonal results include system curves and separate per-zone subplot
+            figures; flows use per-line panels and prices use per-zone panels.
         - ``heatmap_marginal_price.png`` — available copperplate marginal prices
         - ``area_generation_stacks.png`` — annual generation by area for zonal results
         - ``area_capacity_stacks_power.png`` — installed power capacity by area for
@@ -82,6 +85,15 @@ def plot_results(
     plots_dir:
         Explicit directory where plots are saved.  Takes priority over
         *output_dir*.
+
+    Notes
+    -----
+    Duration axes span 0-100%, with linearly interpolated 5%, 50%, and 95%
+    reference markers. Hour-of-day coloring uses ``(stored_hour - 1) % 24``
+    and a shared 00-23 color scale. Curtailment percentages divide combined
+    solar and wind curtailment by combined availability (generation plus
+    curtailment); zero availability gives 0%. Zonal system percentages use
+    ratios of summed hourly quantities, not averages of zonal percentages.
 
     Raises
     ------

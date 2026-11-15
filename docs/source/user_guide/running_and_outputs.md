@@ -407,24 +407,51 @@ figures in one call.
 |---|---|
 | `capacity_donut.png` | Installed capacity by technology (donut chart) |
 | `capacity_generation_donuts.png` | Side-by-side capacity and total generation donuts |
-| `heatmap_<column>.png` | One 365×24 hourly dispatch heatmap per generation technology |
+| `heatmap_<column>.png` | One hourly dispatch heatmap per eligible generation column, spanning the modeled days |
 | `duration_curve_total_thermal_generation.png` | Descending hourly total thermal generation (copperplate) |
 | `duration_curve_load.png` | Descending hourly load (copperplate) |
 | `duration_curve_net_load.png` | Descending hourly net load (copperplate) |
 | `duration_curve_imports.png`, `duration_curve_exports.png` | Descending imports or exports when the corresponding generation column is available |
+| `duration_curve_vre_curtailment_mw.png`, `duration_curve_vre_curtailment_pct.png` | Combined solar + wind curtailment in MW and % (copperplate) |
 | `duration_curve_marginal_price.png` | Descending available copperplate marginal prices; omitted when pricing is unavailable |
 | `heatmap_marginal_price.png` | Available copperplate marginal prices by actual hour; omitted for fewer than 24 priced hours |
 | `duration_curve_system_total_thermal_generation.png`, `duration_curve_system_load.png`, `duration_curve_system_net_load.png` | Descending system-level thermal generation, load, and net load for zonal results |
-| `duration_curve_interregional_signed_flows.png` | Independently ranked signed flows for each interregional line when zonal exchange data is available |
-| `duration_curve_zonal_marginal_prices.png` | Independently ranked available marginal prices for each zone |
+| `duration_curve_system_imports.png`, `duration_curve_system_exports.png` | System external imports and exports for zonal results, when available |
+| `duration_curve_system_vre_curtailment_mw.png`, `duration_curve_system_vre_curtailment_pct.png` | System combined solar + wind curtailment in MW and % for zonal results |
+| `duration_curve_zonal_total_thermal_generation.png`, `duration_curve_zonal_load.png`, `duration_curve_zonal_net_load.png` | One independently sorted panel per zone, in a separate figure for each metric |
+| `duration_curve_zonal_imports.png`, `duration_curve_zonal_exports.png` | External imports and exports in per-zone panels, when available |
+| `duration_curve_zonal_vre_curtailment_mw.png`, `duration_curve_zonal_vre_curtailment_pct.png` | Combined solar + wind curtailment in per-zone panels, in MW and % |
+| `duration_curve_interregional_signed_flows.png` | Independently sorted signed flows in one panel per line; original line directions are preserved |
+| `duration_curve_zonal_marginal_prices.png` | Available marginal prices in one panel per zone; no zonal system-price curve |
 | `area_generation_stacks.png` | Annual generation by area, stacked by technology, in zonal results |
 | `area_capacity_stacks_power.png` | Installed power capacity by area in zonal results |
 | `line_flow_heatmap.png` | Signed interregional line flow by hour when zonal exchange data is available |
 
-Duration curves use descending numeric observations with ranks starting at 1 on
-the x-axis (`Duration-curve position`). Generation and flow curves use MW;
-marginal-price curves use USD/MWh. Missing, empty, or non-numeric optional
-data produces a warning and omits only the affected figure.
+Duration curves are scatter points without connecting lines. Values are sorted
+descending on a `Duration (%)` axis: observation `i` (zero-based) among `N > 1`
+observations is at `100 * i / (N - 1)`, so maximum and minimum lie at 0% and 100%.
+A single observation lies at 0%. Distinct reference markers and legends show
+linearly interpolated values at 5%, 50%, and 95% duration, not ascending
+distribution percentiles.
+
+Points retain their original hour-of-day colors after sorting, using Matplotlib's
+`jet` colormap and `(stored_hour - 1) % 24`. SDOM hours 1 and 25 are 00:00;
+hours 24 and 8760 are 23:00. Every figure has one 00-23 hour colorbar; zonal and
+line figures have at most two columns and a shared normalization across panels.
+Generation and flow curves use MW; marginal-price curves use USD/MWh, preserving
+negative prices and signed flows.
+
+Curtailment includes solar and wind only, not hydro. Hourly curtailment MW is
+solar curtailment plus wind curtailment. Availability is solar and wind generation
+plus their curtailment (equivalently installed capacities times hourly capacity
+factors). Percentage curves use `100 * curtailment_MW / availability_MW`, retaining
+zero-availability hours at 0%. System percentages divide summed hourly
+curtailment across zones by summed hourly availability, never average zonal
+percentages. Calculations precede sorting.
+
+Missing, empty, or invalid optional data produces a warning and omits only the
+affected figure or panel. Invalid value/hour pairs are discarded together;
+eligible generation, price, and flow figures remain independent.
 
 ### Basic usage
 
@@ -466,31 +493,77 @@ Both parameters are optional but at least one must be provided, otherwise a
 
 ### Full workflow example
 
+This repository-only example reproduces the **168-hour, two-zone strict daily
+hydro-budget case** from `tests/test_zonal_daily_hydro_budget.py`. Run from a
+repository checkout with development dependencies installed. The preparation
+helper copies `Data/zonal_test/` into a temporary directory, adds the tested
+hydro bounds, and leaves the canonical inputs unchanged.
+
 ```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from scripts.generate_zonal_documentation_examples import prepare_zonal_inputs
 from sdom import (
     load_data, initialize_model, run_solver,
     export_results, get_default_solver_config_dict,
 )
 from sdom.analytic_tools import plot_results
 
-OUTPUT_DIR = "./results_pyomo/base_scenario/"
+OUTPUT_DIR = str(Path("results") / "zonal_168h")
 
-data        = load_data("./Data/no_exchange_run_of_river/")
-model       = initialize_model(data, n_hours=8760)
-solver_cfg  = get_default_solver_config_dict(solver_name="highs", executable_path="")
-results     = run_solver(model, solver_cfg)
+with TemporaryDirectory(prefix="sdom_zonal_example_") as temporary:
+    input_dir = prepare_zonal_inputs(
+        Path("Data") / "zonal_test", Path(temporary) / "inputs"
+    )
+    data = load_data(str(input_dir))
+    model = initialize_model(data, n_hours=168)
+    solver_cfg = get_default_solver_config_dict(solver_name="highs", executable_path="")
+    solver_cfg["solve_keywords"].update(tee=False, report_timing=False, keepfiles=False)
+    results = run_solver(model, solver_cfg, case_name="zonal_168h")
 
-if results.is_optimal:
-    # Export CSV tables
-    export_results(results, case="base_scenario", output_dir=OUTPUT_DIR)
+if not results.is_optimal:
+    raise RuntimeError(f"Optimization failed: {results.termination_condition}")
 
-    # Generate plots alongside the CSV outputs
-    plot_results(results, output_dir=OUTPUT_DIR)
+export_results(results, case="zonal_168h", output_dir=OUTPUT_DIR)
+plot_results(results, output_dir=OUTPUT_DIR)
 
-    print(f"Total cost : ${results.total_cost:,.0f}")
-    print(f"Solar PV   : {results.total_cap_pv:.1f} MW")
-    print(f"Wind       : {results.total_cap_wind:.1f} MW")
+print(f"Model objective : ${results.total_cost:,.0f}")
+print(f"Solar PV        : {results.total_cap_pv:.1f} MW")
+print(f"Wind            : {results.total_cap_wind:.1f} MW")
 ```
+
+### Seven-day zonal plot examples
+
+These images are from the base case (`GenMix_Target=1.0`, storage power-CAPEX
+factor `1.0`, load factor `1.0`) of the
+[168-hour zonal sensitivity example](parametric_analysis.md#sample-results-of-this-example).
+They use integration-test inputs, not a calibrated real-world power system.
+Generation totals cover seven days, not a full year.
+
+**System capacity and generation mix**
+
+![System capacity and generation mix](../_static/parametric_example/case_plots/capacity_generation_donuts.png)
+
+**System net-load heatmap: seven days of hourly observations**
+
+![Seven-day system net-load heatmap](../_static/parametric_example/case_plots/heatmap_net_load.png)
+
+**System net-load duration curve: one figure for this metric**
+
+![System net-load duration curve](../_static/parametric_example/case_plots/duration_curve_system_net_load.png)
+
+**Per-zone load duration curves: independent sorting and one shared hour colorbar**
+
+![Per-zone load duration curves](../_static/parametric_example/case_plots/duration_curve_zonal_load.png)
+
+**Per-zone available marginal prices**
+
+![Zonal marginal-price duration curves](../_static/parametric_example/case_plots/duration_curve_zonal_marginal_prices.png)
+
+**Signed flow duration curves: one panel per line**
+
+![Signed line-flow duration curves](../_static/parametric_example/case_plots/duration_curve_interregional_signed_flows.png)
 
 ---
 

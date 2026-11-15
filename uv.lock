@@ -1666,7 +1666,7 @@ wheels = [
 
 [[package]]
 name = "sdom"
-version = "0.2.12"
+version = "0.2.14"
 source = { editable = "." }
 dependencies = [
     { name = "highspy" },

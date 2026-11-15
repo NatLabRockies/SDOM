@@ -12,6 +12,8 @@ import os
 import tempfile
 from types import SimpleNamespace
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -209,7 +211,7 @@ class TestDurationCurves:
 
         monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", fake_save)
         _plot_duration_curve(
-            pd.Series([5.0, 3.0], index=[1, 2]),
+            _prepare_duration_series(pd.Series([5.0, 3.0]), pd.Series([1, 2])),
             title="Duration curve",
             y_label="MW",
             output_path=str(tmp_path / "duration_curve.png"),
@@ -223,17 +225,19 @@ class TestDurationCurves:
         assert ax.get_yticklabels()[0].get_size() == expected_size
         plt.close(captured["fig"])
 
-    def test_prepare_duration_series_sorts_values_and_creates_one_based_ranks(self):
-        series = _prepare_duration_series(pd.Series([2, "bad", 5, 3]))
+    def test_prepare_duration_series_sorts_values_and_preserves_hours(self):
+        series = _prepare_duration_series(
+            pd.Series([2, "bad", 5, 3]), pd.Series([1, 24, 25, 8760])
+        )
 
         assert series is not None
-        assert series.tolist() == [5.0, 3.0, 2.0]
-        assert series.index.tolist() == [1, 2, 3]
-        assert series.index.name == "Duration-curve position"
+        assert series["value"].tolist() == [5.0, 3.0, 2.0]
+        assert series["hour"].tolist() == [0, 23, 0]
+        assert series["position"].tolist() == [0, 50, 100]
 
     def test_prepare_duration_series_returns_none_for_empty_or_non_numeric_data(self):
-        assert _prepare_duration_series(pd.Series([], dtype=object)) is None
-        assert _prepare_duration_series(pd.Series(["bad", None])) is None
+        assert _prepare_duration_series(pd.Series([], dtype=object), pd.Series([], dtype=float)) is None
+        assert _prepare_duration_series(pd.Series(["bad", None]), pd.Series([1, 24])) is None
 
     def test_plot_duration_curves_creates_copperplate_outputs_and_skips_unavailable_prices(
         self, tmp_path
@@ -264,6 +268,8 @@ class TestDurationCurves:
             "duration_curve_net_load.png",
             "duration_curve_imports.png",
             "duration_curve_exports.png",
+            "duration_curve_vre_curtailment_mw.png",
+            "duration_curve_vre_curtailment_pct.png",
             "duration_curve_marginal_price.png",
             "heatmap_marginal_price.png",
         }
@@ -357,7 +363,7 @@ class TestDurationCurves:
         assert ax.collections[0].get_array()[0] == pytest.approx(15.0)
         plt.close(captured["fig"])
 
-    def test_grouped_duration_curves_use_independent_color_and_linestyle_cycles(
+    def test_grouped_duration_curves_use_two_column_panels_and_shared_colorbar(
         self, tmp_path, monkeypatch
     ):
         import matplotlib.pyplot as plt
@@ -372,6 +378,7 @@ class TestDurationCurves:
             {
                 "area_id": [f"A{index}" for index in range(5)],
                 "price": [float(index) for index in range(5)],
+                "hour": [1, 24, 25, 8760, 2],
             }
         )
 
@@ -383,12 +390,134 @@ class TestDurationCurves:
             y_label="USD/MWh",
             output_path=str(tmp_path / "prices.png"),
         )
-        lines = captured["fig"].axes[0].get_lines()
-        assert len(lines) == 5
-        assert captured["fig"].axes[0].get_legend() is not None
-        assert len({line.get_color() for line in lines}) > 1
-        assert len({line.get_linestyle() for line in lines}) > 1
+        axes = captured["fig"].axes
+        assert len(axes) == 6
+        for ax in axes[:-1]:
+            assert not ax.get_lines()
+            assert ax.get_subplotspec().get_gridspec().ncols == 2
+            assert ax.collections[0].get_clim() == (0, 23)
+            assert ax.get_legend() is not None
+            assert ax.collections[0].get_offsets()[0, 0] == 0
+            np.testing.assert_allclose(
+                [reference.get_offsets()[0, 1] for reference in ax.collections[1:]],
+                [ax.collections[0].get_offsets()[0, 1]] * 3,
+            )
+        assert axes[-1].get_ylabel() == "Hour of day"
         plt.close(captured["fig"])
+
+
+def test_duration_scatter_hour_colors_and_interpolated_references(tmp_path, monkeypatch):
+    captured = []
+    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: captured.append(fig))
+    series = _prepare_duration_series(
+        pd.Series([10, -10, 30, 20]), pd.Series([1, 24, 25, 8760])
+    )
+    _plot_duration_curve(series, title="Prices", y_label="USD/MWh", output_path=str(tmp_path / "price.png"))
+    fig = captured[0]
+    ax, colorbar = fig.axes
+    points = ax.collections[0]
+    np.testing.assert_allclose(points.get_offsets(), [[0, 30], [100 / 3, 20], [200 / 3, 10], [100, -10]])
+    np.testing.assert_array_equal(points.get_array(), [0, 23, 0, 23])
+    assert points.cmap.name == "jet"
+    assert points.get_clim() == (0, 23)
+    assert ax.get_xlabel() == "Duration (%)"
+    assert not ax.get_lines()
+    assert colorbar.get_ylim() == (0, 23)
+    assert colorbar.get_yticklabels()[0].get_text() == "00"
+    assert colorbar.get_yticklabels()[-1].get_text() == "23"
+    references = ax.collections[1:]
+    np.testing.assert_allclose([point.get_offsets()[0] for point in references], [[5, 28.5], [50, 15], [95, -7]])
+    assert len({point.get_paths()[0].vertices.tobytes() for point in references}) == 3
+    labels = [text.get_text() for text in ax.get_legend().get_texts()]
+    assert labels == ["5%: 28.50 USD/MWh", "50%: 15.00 USD/MWh", "95%: -7.00 USD/MWh"]
+    plt.close(fig)
+
+
+def test_duration_invalid_hours_are_dropped_with_aligned_values(caplog):
+    series = _prepare_duration_series(
+        pd.Series([10, 100, 20, np.inf, 50]), pd.Series([24, "bad", 1, 25, np.nan])
+    )
+    assert series["value"].tolist() == [20, 10]
+    assert series["hour"].tolist() == [0, 23]
+    assert "discard" in caplog.text.lower()
+
+
+def test_curtailment_hourly_calculation_excludes_hydro_and_retains_zero(tmp_path, monkeypatch):
+    figures = {}
+    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: figures.setdefault(os.path.basename(path), fig))
+    frame = pd.DataFrame({
+        "Hour": [1, 2, 3],
+        "Solar PV Generation (MW)": [10, 0, 5],
+        "Wind Generation (MW)": [20, 0, 15],
+        "Solar PV Curtailment (MW)": [5, 0, 10],
+        "Wind Curtailment (MW)": [5, 0, 10],
+        "Hydro Curtailment (MW)": [1000, 1000, 1000],
+    })
+    plot_duration_curves(SimpleNamespace(is_zonal=False), generation_df=frame, plots_dir=str(tmp_path))
+    np.testing.assert_allclose(figures["duration_curve_vre_curtailment_mw.png"].axes[0].collections[0].get_offsets()[:, 1], [20, 10, 0])
+    np.testing.assert_allclose(figures["duration_curve_vre_curtailment_pct.png"].axes[0].collections[0].get_offsets()[:, 1], [50, 25, 0])
+    for fig in figures.values():
+        plt.close(fig)
+
+
+@pytest.mark.parametrize("data", [
+    pd.DataFrame(),
+    pd.DataFrame({"area_id": ["A1"], "price": [10]}),
+    pd.DataFrame({"area_id": ["A1"], "price": ["bad"], "hour": [1]}),
+])
+def test_duration_optional_groups_skip_unavailable_observations(data, tmp_path, caplog):
+    assert not _plot_grouped_duration_curves(
+        data, group_column="area_id", value_column="price",
+        title="Prices", y_label="USD/MWh", output_path=str(tmp_path / "prices.png"),
+    )
+    assert "skipping" in caplog.text
+    assert not (tmp_path / "prices.png").exists()
+
+
+def test_duration_invalid_group_does_not_suppress_eligible_panel(tmp_path, monkeypatch, caplog):
+    captured = []
+    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: captured.append(fig))
+    assert _plot_grouped_duration_curves(
+        pd.DataFrame({"area_id": ["A1", "A2"], "price": ["bad", -10], "hour": [1, 24]}),
+        group_column="area_id", value_column="price", title="Prices",
+        y_label="USD/MWh", output_path=str(tmp_path / "prices.png"),
+    )
+    assert captured[0].axes[0].get_title() == "A2"
+    assert len(captured[0].axes) == 2
+    assert "skipping group" in caplog.text
+    plt.close(captured[0])
+
+
+def test_parametric_per_case_inherits_duration_scatter_contract(tmp_path, monkeypatch):
+    study = SimpleNamespace(
+        case_metadata=[{"case_name": "case_1", "case_index": 0, "sweep": 1.0}],
+        output_dir=str(tmp_path),
+    )
+    result = _FakeResult()
+    figures = {}
+
+    def capture(fig, path):
+        figures[os.path.basename(path)] = fig
+
+    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", capture)
+    monkeypatch.setattr(
+        "sdom.analytic_tools._parametric._extract_cost_series",
+        lambda summary_df: ({"Thermal": 1.0}, {"Thermal": 1.0}),
+    )
+    plot_parametric_results(study, [result], group_by="sweep", plot_per_case=True)
+    for filename in (
+        "duration_curve_total_thermal_generation.png",
+        "duration_curve_vre_curtailment_mw.png",
+        "duration_curve_vre_curtailment_pct.png",
+    ):
+        ax = figures[filename].axes[0]
+        assert not ax.lines
+        assert ax.get_xlabel() == "Duration (%)"
+        assert ax.collections[0].cmap.name == "jet"
+        assert ax.collections[0].get_clim() == (0, 23)
+        assert len(ax.get_legend().get_texts()) == 3
+    for fig in figures.values():
+        plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
