@@ -412,19 +412,46 @@ figures in one call.
 | `duration_curve_load.png` | Descending hourly load (copperplate) |
 | `duration_curve_net_load.png` | Descending hourly net load (copperplate) |
 | `duration_curve_imports.png`, `duration_curve_exports.png` | Descending imports or exports when the corresponding generation column is available |
+| `duration_curve_vre_curtailment_mw.png`, `duration_curve_vre_curtailment_pct.png` | Combined solar + wind curtailment in MW and % (copperplate) |
 | `duration_curve_marginal_price.png` | Descending available copperplate marginal prices; omitted when pricing is unavailable |
 | `heatmap_marginal_price.png` | Available copperplate marginal prices by actual hour; omitted for fewer than 24 priced hours |
 | `duration_curve_system_total_thermal_generation.png`, `duration_curve_system_load.png`, `duration_curve_system_net_load.png` | Descending system-level thermal generation, load, and net load for zonal results |
-| `duration_curve_interregional_signed_flows.png` | Independently ranked signed flows for each interregional line when zonal exchange data is available |
-| `duration_curve_zonal_marginal_prices.png` | Independently ranked available marginal prices for each zone |
+| `duration_curve_system_imports.png`, `duration_curve_system_exports.png` | System external imports and exports for zonal results, when available |
+| `duration_curve_system_vre_curtailment_mw.png`, `duration_curve_system_vre_curtailment_pct.png` | System combined solar + wind curtailment in MW and % for zonal results |
+| `duration_curve_zonal_total_thermal_generation.png`, `duration_curve_zonal_load.png`, `duration_curve_zonal_net_load.png` | One independently sorted panel per zone, in a separate figure for each metric |
+| `duration_curve_zonal_imports.png`, `duration_curve_zonal_exports.png` | External imports and exports in per-zone panels, when available |
+| `duration_curve_zonal_vre_curtailment_mw.png`, `duration_curve_zonal_vre_curtailment_pct.png` | Combined solar + wind curtailment in per-zone panels, in MW and % |
+| `duration_curve_interregional_signed_flows.png` | Independently sorted signed flows in one panel per line; original line directions are preserved |
+| `duration_curve_zonal_marginal_prices.png` | Available marginal prices in one panel per zone; no zonal system-price curve |
 | `area_generation_stacks.png` | Annual generation by area, stacked by technology, in zonal results |
 | `area_capacity_stacks_power.png` | Installed power capacity by area in zonal results |
 | `line_flow_heatmap.png` | Signed interregional line flow by hour when zonal exchange data is available |
 
-Duration curves use descending numeric observations with ranks starting at 1 on
-the x-axis (`Duration-curve position`). Generation and flow curves use MW;
-marginal-price curves use USD/MWh. Missing, empty, or non-numeric optional
-data produces a warning and omits only the affected figure.
+Duration curves are scatter points without connecting lines. Values are sorted
+descending on a `Duration (%)` axis: observation `i` (zero-based) among `N > 1`
+observations is at `100 * i / (N - 1)`, so maximum and minimum lie at 0% and 100%.
+A single observation lies at 0%. Distinct reference markers and legends show
+linearly interpolated values at 5%, 50%, and 95% duration, not ascending
+distribution percentiles.
+
+Points retain their original hour-of-day colors after sorting, using Matplotlib's
+`jet` colormap and `(stored_hour - 1) % 24`. SDOM hours 1 and 25 are 00:00;
+hours 24 and 8760 are 23:00. Every figure has one 00-23 hour colorbar; zonal and
+line figures have at most two columns and a shared normalization across panels.
+Generation and flow curves use MW; marginal-price curves use USD/MWh, preserving
+negative prices and signed flows.
+
+Curtailment includes solar and wind only, not hydro. Hourly curtailment MW is
+solar curtailment plus wind curtailment. Availability is solar and wind generation
+plus their curtailment (equivalently installed capacities times hourly capacity
+factors). Percentage curves use `100 * curtailment_MW / availability_MW`, retaining
+zero-availability hours at 0%. System percentages divide summed hourly
+curtailment across zones by summed hourly availability, never average zonal
+percentages. Calculations precede sorting.
+
+Missing, empty, or invalid optional data produces a warning and omits only the
+affected figure or panel. Invalid value/hour pairs are discarded together;
+eligible generation, price, and flow figures remain independent.
 
 ### Basic usage
 

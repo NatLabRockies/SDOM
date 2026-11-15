@@ -168,16 +168,30 @@ The sample below is from case `GenMix_Target=1.0 | P_Capex×1.0 | load×1.0`.
 ![Heatmap — net load](../_static/parametric_example/case_plots/heatmap_net_load.png)
 
 Each optimal per-case plot directory also includes the applicable duration
-curves. Copperplate cases produce thermal-generation, load, and net-load
-curves, plus conditional imports, exports, and marginal-price curves. They
+curves. Copperplate cases produce thermal-generation, load, net-load, and combined
+solar + wind curtailment (MW and %) curves, plus conditional imports, exports,
+and marginal-price curves. They
 also produce the copperplate marginal-price heatmap when at least 24 priced
 hours are available. Zonal cases produce system thermal-generation, load, and
-net-load curves; interregional signed-flow and zonal marginal-price curves;
+net-load, external import/export, and combined solar + wind curtailment curves,
+with separate system and per-zone subplot figures for each metric;
+per-line signed-flow and per-zone marginal-price subplot figures;
 annual generation and installed-capacity stacks by area; and a signed
 line-flow heatmap when exchange data is available. These are individual case
 artifacts only; they are not cross-case comparison curves. Set
 ``plot_per_case=False`` to suppress all per-case plots, including duration
 curves, copperplate price heatmaps, and zonal per-area figures.
+
+Per-case duration curves inherit the single-run scatter contract: descending
+values on a 0-100% `Duration (%)` axis, `jet` colors retaining each observation's
+original hour of day, and interpolated 5%, 50%, and 95% reference markers.
+Zonal/line grids have at most two columns and one shared 00-23 colorbar.
+Hourly curtailment percentages use combined solar + wind availability; zero
+availability stays at 0%, and system percentages use ratios of hourly sums
+rather than averages of zonal percentages. See
+[generated figures](running_and_outputs.md#generated-figures) for the full
+filename inventory and numerical definitions. Cross-case sensitivity plots
+are unchanged.
 
 ---
 

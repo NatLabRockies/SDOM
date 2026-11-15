@@ -11,6 +11,7 @@ available.
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 
 import matplotlib
 
@@ -251,6 +252,15 @@ def test_plot_results_creates_default_zonal_specific_plots(zonal_results, tmp_pa
         "area_generation_stacks.png",
         "area_capacity_stacks_power.png",
         "line_flow_heatmap.png",
+        "duration_curve_system_vre_curtailment_mw.png",
+        "duration_curve_system_vre_curtailment_pct.png",
+        "duration_curve_zonal_total_thermal_generation.png",
+        "duration_curve_zonal_load.png",
+        "duration_curve_zonal_net_load.png",
+        "duration_curve_zonal_imports.png",
+        "duration_curve_zonal_exports.png",
+        "duration_curve_zonal_vre_curtailment_mw.png",
+        "duration_curve_zonal_vre_curtailment_pct.png",
     }
     assert expected <= {path.name for path in tmp_path.iterdir()}
 
@@ -317,3 +327,61 @@ def test_duration_curves_create_zonal_outputs_with_signed_flows_and_prices(tmp_p
         "duration_curve_zonal_marginal_prices.png",
     }
     assert expected <= {path.name for path in tmp_path.iterdir()}
+
+
+def test_duration_curve_zonal_inventory_ratios_and_independent_signed_panels(tmp_path, monkeypatch):
+    from sdom.analytic_tools._duration_curves import plot_duration_curves
+
+    frames = []
+    for area, generation, curtailment in (("A1", 10, 10), ("A2", 90, 0), ("A3", 0, 0)):
+        frames.append(pd.DataFrame({
+            "Area": [area] * 2, "Hour": [1, 24],
+            "All Thermal Generation (MW)": [10, 20],
+            "Load (MW)": [40, 30], "Net Load (MW)": [15, -5],
+            "Imports (MW)": [3, 0], "Exports (MW)": [0, 2],
+            "Solar PV Generation (MW)": [generation, 0],
+            "Wind Generation (MW)": [0, 0],
+            "Solar PV Curtailment (MW)": [curtailment, 0],
+            "Wind Curtailment (MW)": [0, 0],
+        }))
+    zonal_frame = pd.concat(frames, ignore_index=True)
+    system_frame = zonal_frame.drop(columns="Area").groupby("Hour", as_index=False).sum()
+    result = SimpleNamespace(
+        is_zonal=True,
+        get_generation_dataframe=lambda: zonal_frame.copy(),
+        marginal_prices_df=pd.DataFrame({
+            "area_id": ["A1", "A1", "A2", "A2", "A3", "A3"],
+            "hour": [1, 24] * 3, "pricing_status": ["available"] * 6,
+            "marginal_price_USD_per_MWh": [-5, 10, 30, -20, 0, -1],
+        }),
+        interregional_exchanges_df=pd.DataFrame({
+            "line_id": ["L1", "L1", "L2", "L2", "L3", "L3"],
+            "hour": [1, 24] * 3, "flow_signed_MW": [-5, 4, 9, -10, -1, 0],
+        }),
+    )
+    figures = {}
+    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: figures.setdefault(os.path.basename(path), fig))
+    plot_duration_curves(result, generation_df=system_frame, plots_dir=str(tmp_path))
+    metrics = ["total_thermal_generation", "load", "net_load", "imports", "exports", "vre_curtailment_mw", "vre_curtailment_pct"]
+    expected = {f"duration_curve_{scope}_{metric}.png" for scope in ("system", "zonal") for metric in metrics}
+    expected |= {"duration_curve_interregional_signed_flows.png", "duration_curve_zonal_marginal_prices.png"}
+    assert set(figures) == expected
+    system_points = figures["duration_curve_system_vre_curtailment_pct.png"].axes[0].collections[0]
+    np.testing.assert_allclose(system_points.get_offsets()[:, 1], [100 * 10 / 110, 0])
+    for filename in expected:
+        fig = figures[filename]
+        panels = fig.axes[:-1]
+        assert len(panels) == (1 if "_system_" in filename else 3)
+        for ax in panels:
+            assert ax.get_subplotspec().get_gridspec().ncols <= 2
+            assert not ax.lines
+            assert ax.collections[0].get_clim() == (0, 23)
+            assert ax.collections[0].norm is panels[0].collections[0].norm
+            assert ax.get_xlabel() == "Duration (%)"
+    for filename, expected_values in (
+        ("duration_curve_interregional_signed_flows.png", [[4, -5], [9, -10], [0, -1]]),
+        ("duration_curve_zonal_marginal_prices.png", [[10, -5], [30, -20], [0, -1]]),
+    ):
+        for ax, values in zip(figures[filename].axes[:-1], expected_values, strict=True):
+            np.testing.assert_allclose(ax.collections[0].get_offsets()[:, 1], values)
+    np.testing.assert_allclose(figures["duration_curve_zonal_vre_curtailment_pct.png"].axes[0].collections[0].get_offsets()[:, 1], [50, 0])

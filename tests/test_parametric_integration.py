@@ -63,6 +63,8 @@ _EXPECTED_PER_CASE_PLOTS = [
     "duration_curve_total_thermal_generation.png",
     "duration_curve_load.png",
     "duration_curve_net_load.png",
+    "duration_curve_vre_curtailment_mw.png",
+    "duration_curve_vre_curtailment_pct.png",
 ]
 # At least one heatmap must also be present (column names are dynamic)
 
