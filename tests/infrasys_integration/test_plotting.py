@@ -225,6 +225,30 @@ def test_plot_system_results_requires_existing_run(tmp_path):
         plot_system_results(system, run_id="missing", output_dir=tmp_path)
 
 
+def test_plot_system_results_forwards_area_and_page_controls(tmp_path, monkeypatch):
+    system = load_system_from_data(load_data("Data/zonal_test"))
+    add_results_to_system(system, _zonal_results(), run_id="selected")
+    calls = []
+
+    def capture(results, **kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr("sdom.infrasys_integration.plotting.plot_results", capture)
+    monkeypatch.setattr(
+        "sdom.infrasys_integration.plotting._plot_zonal_system_results",
+        lambda results, **kwargs: calls.append(kwargs),
+    )
+    plot_system_results(
+        system, run_id="selected", output_dir=tmp_path,
+        areas=["A2"], page_size="slide_4_3", max_panels_per_page=2,
+    )
+
+    assert calls[0]["areas"] == ["A2"]
+    assert calls[0]["page_size"] == "slide_4_3"
+    assert calls[0]["max_panels_per_page"] == 2
+    assert calls[1]["areas"] == ["A2"]
+
+
 def test_plot_system_parametric_results_builds_chunked_sensitivity_plots(tmp_path):
     """System parametric plot wrapper should rebuild every attached case."""
     system = load_system_from_data(load_data("Data/no_exchange_run_of_river"))

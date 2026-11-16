@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional
 
 import matplotlib.pyplot as plt
@@ -22,7 +23,8 @@ from ._colors import (
     get_technology_color_map,
     infer_storage_technologies,
 )
-from ._duration_curves import plot_duration_curves
+from ._duration_curves import plot_duration_curves, result_areas
+from ._layout import LayoutOptions, PageSize
 from ._utils import save_figure
 from ._zonal import (
     plot_area_capacity_stacks,
@@ -53,6 +55,12 @@ def plot_results(
     result: "OptimizationResults",
     output_dir: Optional[str] = None,
     plots_dir: Optional[str] = None,
+    *,
+    areas: Sequence[str] | None = None,
+    page_size: PageSize = "slide_16_9",
+    max_panels_per_page: int | None = None,
+    ncols: int | None = None,
+    panel_aspect: float = 2.2,
 ) -> None:
     """Generate and save all standard plots for a single SDOM optimization run.
 
@@ -85,6 +93,24 @@ def plot_results(
     plots_dir:
         Explicit directory where plots are saved.  Takes priority over
         *output_dir*.
+    areas : sequence of str or None, optional
+        Ordered subset for area generation/capacity plots, zonal duration
+        panels and the combined LMP overlay. None includes all zones.
+        System aggregates and transmission-line plots are never filtered.
+        Explicit selections require zonal results and unique known IDs.
+    page_size : str or tuple of float, optional
+        Maximum grouped-duration and price-comparison canvas, including
+        decorations. Presets: ``slide_16_9`` (default), ``slide_4_3``,
+        ``a4_landscape``, ``letter_landscape``; custom dimensions are inches.
+        Other plots, including existing system single-panel figures, are unchanged.
+    max_panels_per_page : int or None, optional
+        Positive grouped-panel ceiling. None derives capacity automatically,
+        respecting 14 pt text and minimum data-axis dimensions.
+    ncols : int or None, optional
+        Exact grouped column count; None selects automatically.
+    panel_aspect : float, optional
+        Preferred data-axis width divided by height, default 2.2.
+        Readability and the page envelope take precedence.
 
     Notes
     -----
@@ -97,9 +123,11 @@ def plot_results(
 
     Raises
     ------
-    Warning
-        If neither *output_dir* nor *plots_dir* is provided, or if the result
-        is not optimal.
+    ValueError
+        If the output directory, area selection or layout options are invalid,
+        or a complete readable overlay legend cannot fit.
+    FileExistsError
+        If pagination conflicts with unowned old figure files.
     """
     if not result.is_optimal:
         logger.warning(
@@ -110,6 +138,12 @@ def plot_results(
         return
 
     resolved_plots_dir = _resolve_plots_dir(output_dir, plots_dir)
+    LayoutOptions(page_size, max_panels_per_page, ncols, panel_aspect).plan(1)
+    selected = None
+    if getattr(result, "is_zonal", False):
+        selected = result_areas(result, areas=areas)
+    elif areas is not None:
+        raise ValueError("areas is only supported for zonal results; omit it for copperplate results.")
 
     _plot_capacity_donut(result, resolved_plots_dir)
     _plot_capacity_generation_donuts(result, resolved_plots_dir)
@@ -124,14 +158,21 @@ def plot_results(
         result,
         generation_df=generation_df,
         plots_dir=resolved_plots_dir,
+        areas=selected,
+        page_size=page_size,
+        max_panels_per_page=max_panels_per_page,
+        ncols=ncols,
+        panel_aspect=panel_aspect,
     )
     if getattr(result, "is_zonal", False):
         plot_area_generation_stacks(
             result,
+            areas=selected,
             save_path=os.path.join(resolved_plots_dir, "area_generation_stacks.png"),
         )
         plot_area_capacity_stacks(
             result,
+            areas=selected,
             mode="power",
             save_path=os.path.join(
                 resolved_plots_dir, "area_capacity_stacks_power.png"

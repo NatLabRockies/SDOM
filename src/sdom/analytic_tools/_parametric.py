@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from matplotlib.artist import Artist
 import numpy as np
 import pandas as pd
+from matplotlib.artist import Artist
 
 from ._colors import (
     HUE_COLORS,
@@ -25,6 +26,7 @@ from ._colors import (
     get_technology_order,
     infer_storage_technologies,
 )
+from ._layout import PageSize
 from ._single import plot_results
 from ._utils import ensure_dir
 
@@ -85,6 +87,12 @@ def plot_parametric_results(
     output_dir: Optional[str] = None,
     max_cases_per_figure: int = _MAX_CASES_PER_FIGURE,
     plot_per_case: bool = True,
+    *,
+    areas: Sequence[str] | None = None,
+    page_size: PageSize = "slide_16_9",
+    max_panels_per_page: int | None = None,
+    ncols: int | None = None,
+    panel_aspect: float = 2.2,
 ) -> None:
     """Generate sensitivity-analysis plots from a completed :class:`~sdom.parametric.study.ParametricStudy` run.
 
@@ -122,6 +130,18 @@ def plot_parametric_results(
         If ``True`` (default), also generate individual single-case plots
         (capacity donut, generation donut, heatmaps, and duration curves) for
         every optimal case.
+    areas : sequence of str or None, optional
+        Ordered zonal subset forwarded to each per-case plot pack; None
+        includes all zones. Cross-case system summaries remain unchanged.
+    page_size : str or tuple of float, optional
+        Per-case grouped-duration page preset or dimensions in inches,
+        as in :func:`plot_results`. Default is ``slide_16_9``.
+    max_panels_per_page : int or None, optional
+        Per-case grouped-panel ceiling, independent of max_cases_per_figure.
+    ncols : int or None, optional
+        Exact per-case grouped column count, or automatic.
+    panel_aspect : float, optional
+        Per-case preferred data-axis width/height ratio, default 2.2.
 
     Raises
     ------
@@ -247,7 +267,10 @@ def plot_parametric_results(
             case_plots_dir = os.path.join(
                 resolved_output_dir, meta_entry["case_name"], "plots"
             )
-            plot_results(result, plots_dir=case_plots_dir)
+            plot_results(
+                result, plots_dir=case_plots_dir, areas=areas, page_size=page_size,
+                max_panels_per_page=max_panels_per_page, ncols=ncols, panel_aspect=panel_aspect,
+            )
 
     # -----------------------------------------------------------------------
     # Cross-case sensitivity plots

@@ -8,16 +8,31 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.cm import ScalarMappable
 from matplotlib.collections import PathCollection
 from matplotlib.colors import Normalize
+from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 
-from ._colors import get_heatmap_cmap
-from ._utils import save_figure
+from ._colors import HUE_COLORS, get_heatmap_cmap
+from ._layout import (
+    FONT_SIZE,
+    LayoutError,
+    LayoutOptions,
+    PageLayout,
+    PageSize,
+    page_dimensions,
+    validate_page,
+    wrap_text,
+)
+from ._utils import resolve_areas, save_figure, save_figure_pages
 
 if TYPE_CHECKING:
     from ..results import OptimizationResults
@@ -100,6 +115,7 @@ def _render_duration_axis(
     title: str,
     y_label: str,
     norm: Normalize,
+    panel: bool = False,
 ) -> PathCollection:
     """Render hourly scatter observations and interpolated duration references."""
     scatter = ax.scatter(
@@ -123,11 +139,19 @@ def _render_duration_axis(
             zorder=3,
             label=f"{position}%: {value:.2f} {y_label}",
         )
-    _format_duration_curve_axes(ax, y_label=y_label)
     ax.set_xlim(0, 100)
-    ax.set_title(title)
     ax.grid(alpha=0.25)
-    ax.legend(loc="best", fontsize=_DURATION_CURVE_FONT_SIZE)
+    if panel:
+        ax.tick_params(axis="both", labelsize=FONT_SIZE)
+        ax.set_xticks([0, 50, 100])
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(-3, 4), useOffset=False)
+        ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE)
+        ax.set_title(title, fontsize=FONT_SIZE, pad=8)
+    else:
+        _format_duration_curve_axes(ax, y_label=y_label)
+        ax.set_title(title)
+        ax.legend(loc="best", fontsize=_DURATION_CURVE_FONT_SIZE)
     return scatter
 
 
@@ -153,6 +177,241 @@ def _plot_duration_curve(
     save_figure(fig, output_path)
 
 
+@dataclass(frozen=True)
+class DurationPanel:
+    """Keep group identity and availability separate from numeric observations."""
+
+    name: str
+    series: pd.DataFrame | None
+    status: str
+    stored_count: int
+
+
+def result_areas(result: OptimizationResults, *, areas: Sequence[str] | None = None) -> list[str]:
+    """Resolve area selection from metadata, with observed IDs for legacy results."""
+    inventory = list(getattr(result, "areas", ()))
+    if not inventory:
+        observed: set[str] = set()
+        for attribute, column in (("generation_df", "Area"), ("marginal_prices_df", "area_id")):
+            frame = getattr(result, attribute, pd.DataFrame())
+            if column in frame:
+                observed.update(frame[column].dropna().astype(str))
+        inventory = sorted(observed)
+    else:
+        inventory = sorted(inventory)
+    return resolve_areas(inventory, areas=areas)
+
+
+def _prepare_panels(
+    data: pd.DataFrame,
+    *,
+    group_column: str,
+    value_column: str,
+    groups: Sequence[str] | None = None,
+) -> list[DurationPanel]:
+    """Prepare groups once, retaining explicit missing and unavailable panels."""
+    if groups is None:
+        if group_column not in data or value_column not in data:
+            logger.warning(
+                "duration curves: missing '%s' or '%s'; skipping figure.", group_column, value_column
+            )
+            return []
+        groups = sorted(data[group_column].dropna().unique())
+    grouped = (
+        {str(name): frame for name, frame in data.groupby(group_column, sort=False)}
+        if group_column in data
+        else {}
+    )
+    panels = []
+    for name in groups:
+        frame = grouped.get(name, pd.DataFrame())
+        stored_count = len(frame)
+        status = "Missing data"
+        if value_column == "marginal_price_USD_per_MWh":
+            if "pricing_status" not in frame or not (frame["pricing_status"] == "available").any():
+                status = "Prices unavailable"
+                frame = frame.iloc[:0]
+            else:
+                frame = frame.loc[frame["pricing_status"] == "available"]
+        series = _prepare_frame_series(frame, column=value_column) if not frame.empty else None
+        if series is None:
+            logger.warning("duration curves: %s for group %r (%s).", status.lower(), name, value_column)
+        panels.append(DurationPanel(name, series, status, stored_count))
+    return panels
+
+
+def _grouped_page(
+    panels: list[DurationPanel],
+    layout: PageLayout,
+    *,
+    page_index: int,
+    title: str,
+    y_label: str,
+) -> plt.Figure:
+    """Render one bounded page with numeric references outside the data rectangles."""
+    fig = plt.figure(figsize=(layout.width, layout.height), dpi=144)
+    try:
+        fig.suptitle(title, fontsize=18, y=1 - 0.18 / layout.height, va="top")
+        fig.text(
+            0.5,
+            1 - 0.55 / layout.height,
+            f"Page {page_index + 1}/{len(layout.pages)} | independent y scales",
+            fontsize=FONT_SIZE,
+            ha="center",
+            va="center",
+        )
+        norm = Normalize(0, 23)
+        for index, panel_index in enumerate(layout.pages[page_index]):
+            item = panels[panel_index]
+            bounds = layout.bounds(index)
+            ax = fig.add_axes(bounds)
+            ax.set_gid(item.name)
+            wrapped = wrap_text(item.name, figure=fig, width=layout.panel_width)
+            if item.series is None:
+                ax.set_title(wrapped, fontsize=FONT_SIZE, pad=8)
+                ax.set_xlim(0, 100)
+                ax.set_xticks([0, 50, 100])
+                ax.set_yticks([])
+                ax.tick_params(labelsize=FONT_SIZE)
+                ax.text(
+                    0.5,
+                    0.5,
+                    item.status,
+                    fontsize=FONT_SIZE,
+                    ha="center",
+                    va="center",
+                    transform=ax.transAxes,
+                )
+                continue
+            _render_duration_axis(ax, item.series, title=wrapped, y_label=y_label, norm=norm, panel=True)
+            labels = []
+            references = []
+            for position in (5, 50, 95):
+                value = np.interp(position, item.series["position"], item.series["value"])
+                references.append(value)
+                label = f"{value:.2f}"
+                labels.append(label if len(label) <= 12 else f"{value:.2e}")
+            legend = fig.legend(
+                handles=list(ax.collections[1:]),
+                labels=labels,
+                ncol=3,
+                fontsize=FONT_SIZE,
+                loc="center",
+                bbox_to_anchor=(bounds[0] + bounds[2] / 2, bounds[1] - 0.56 / layout.height),
+                frameon=False,
+                columnspacing=0.55,
+                handlelength=0.9,
+                handletextpad=0.3,
+                borderpad=0,
+            )
+            if legend.get_window_extent().width > layout.panel_width * fig.dpi:
+                for text, value in zip(legend.get_texts(), references, strict=True):
+                    text.set_text(f"{value:.2e}")
+            note = "All zero" if (item.series["value"] == 0).all() else ""
+            if len(item.series) < item.stored_count:
+                note = f"Valid/stored: {len(item.series)}/{item.stored_count}"
+            if note:
+                ax.text(
+                    0.03,
+                    0.94,
+                    note,
+                    fontsize=FONT_SIZE,
+                    va="top",
+                    transform=ax.transAxes,
+                    bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 1},
+                )
+        fig.text(
+            0.10 / layout.width,
+            0.53,
+            f"Value and references ({y_label})",
+            rotation=90,
+            fontsize=FONT_SIZE,
+            ha="center",
+            va="center",
+        )
+        fig.text(0.5, 1.17 / layout.height, _DURATION_X_LABEL, fontsize=FONT_SIZE, ha="center", va="center")
+        keys = [
+            Line2D(
+                [],
+                [],
+                color="black",
+                marker=marker,
+                markerfacecolor="white",
+                linestyle="none",
+                markersize=8,
+                label=f"{position}% duration",
+            )
+            for position, marker in ((5, "D"), (50, "s"), (95, "^"))
+        ]
+        fig.legend(
+            handles=keys,
+            loc="center",
+            bbox_to_anchor=(0.5, 0.84 / layout.height),
+            fontsize=FONT_SIZE,
+            ncol=3,
+            frameon=False,
+            borderpad=0,
+        )
+        bar_width = min(4.4, layout.width * 0.4)
+        bar_left = (layout.width - bar_width - 1.6) / 2
+        bar_ax = fig.add_axes(
+            (bar_left / layout.width, 0.34 / layout.height, bar_width / layout.width, 0.12 / layout.height)
+        )
+        colorbar = fig.colorbar(
+            ScalarMappable(norm=norm, cmap="jet"),
+            cax=bar_ax,
+            orientation="horizontal",
+            ticks=[0, 6, 12, 18, 23],
+        )
+        colorbar.set_ticklabels(["00", "06", "12", "18", "23"])
+        colorbar.ax.tick_params(labelsize=FONT_SIZE, length=3)
+        fig.text(
+            (bar_left + bar_width + 0.15) / layout.width,
+            0.4 / layout.height,
+            "Hour of day",
+            fontsize=FONT_SIZE,
+            ha="left",
+            va="center",
+        )
+        validate_page(fig)
+        return fig
+    finally:
+        plt.close(fig)
+
+
+def _save_grouped_panels(
+    panels: list[DurationPanel],
+    *,
+    title: str,
+    y_label: str,
+    output_path: str,
+    options: LayoutOptions,
+) -> None:
+    """Reflow measured labels by tightening capacity, without shrinking fonts."""
+    capacity = None
+    while True:
+        layout = options.plan(len(panels), capacity=capacity)
+        try:
+            save_figure_pages(
+                _grouped_figures(panels, layout, title=title, y_label=y_label),
+                output_path,
+                page_count=len(layout.pages),
+            )
+            return
+        except LayoutError:
+            if layout.capacity == 1:
+                raise
+            capacity = layout.capacity - 1
+
+
+def _grouped_figures(
+    panels: list[DurationPanel], layout: PageLayout, *, title: str, y_label: str
+) -> Iterator[plt.Figure]:
+    """Render one owned page at a time for bounded working memory."""
+    for page_index in range(len(layout.pages)):
+        yield _grouped_page(panels, layout, page_index=page_index, title=title, y_label=y_label)
+
+
 def _plot_grouped_duration_curves(
     data: pd.DataFrame,
     *,
@@ -161,55 +420,16 @@ def _plot_grouped_duration_curves(
     title: str,
     y_label: str,
     output_path: str,
+    groups: Sequence[str] | None = None,
+    options: LayoutOptions | None = None,
 ) -> bool:
-    """Save independently sorted group panels with a shared hour colorbar."""
-    if group_column not in data or value_column not in data:
-        logger.warning(
-            "duration curves: missing '%s' or '%s'; skipping '%s'.",
-            group_column,
-            value_column,
-            os.path.basename(output_path),
-        )
-        return False
-
-    panels = {}
-    for group_name, group_data in data.groupby(group_column, sort=True):
-        series = _prepare_frame_series(group_data, column=value_column)
-        if series is None:
-            logger.warning(
-                "duration curves: no numeric values for '%s' group '%s'; skipping group.",
-                value_column,
-                group_name,
-            )
-            continue
-        panels[str(group_name)] = series
-
+    """Save all group identities on bounded pages with a consistent hour color scale."""
+    panels = _prepare_panels(data, group_column=group_column, value_column=value_column, groups=groups)
     if not panels:
-        logger.warning(
-            "duration curves: no numeric '%s' data; skipping '%s'.",
-            value_column,
-            os.path.basename(output_path),
-        )
         return False
-
-    n_columns = min(2, len(panels))
-    n_rows = (len(panels) + n_columns - 1) // n_columns
-    fig, grid = plt.subplots(
-        n_rows,
-        n_columns,
-        figsize=(7 * n_columns + 1, 5 * n_rows),
-        squeeze=False,
-        layout="constrained",
+    _save_grouped_panels(
+        panels, title=title, y_label=y_label, output_path=output_path, options=options or LayoutOptions()
     )
-    axes = list(grid.flat)
-    norm = Normalize(0, 23)
-    for ax, (name, series) in zip(axes, panels.items(), strict=False):
-        scatter = _render_duration_axis(ax, series, title=name, y_label=y_label, norm=norm)
-    for ax in axes[len(panels) :]:
-        fig.delaxes(ax)
-    fig.suptitle(title)
-    _add_hour_colorbar(fig, scatter, axes=axes[: len(panels)])
-    save_figure(fig, output_path)
     return True
 
 
@@ -272,6 +492,8 @@ def _plot_generation_metrics(
     *,
     scope: str,
     plots_dir: str,
+    groups: Sequence[str] | None = None,
+    options: LayoutOptions | None = None,
 ) -> None:
     """Save each generation metric for copperplate, system, or zonal scope."""
     if generation_df.empty:
@@ -289,6 +511,8 @@ def _plot_generation_metrics(
                 title=f"Zonal {title.lower()} duration curves",
                 y_label=unit,
                 output_path=os.path.join(plots_dir, filename),
+                groups=groups,
+                options=options,
             )
         else:
             _plot_generation_duration_curve(
@@ -313,6 +537,111 @@ def _available_prices(price_df: pd.DataFrame, *, area_id: str | None = None) -> 
         prices["marginal_price_USD_per_MWh"], errors="coerce"
     )
     return prices.dropna(subset=["marginal_price_USD_per_MWh"])
+
+
+def _plot_price_comparison(
+    panels: list[DurationPanel],
+    *,
+    inventory: Sequence[str],
+    options: LayoutOptions,
+    output_path: str,
+) -> None:
+    """Overlay independently sorted prices, using area identity rather than hour colors."""
+    if not panels:
+        return
+    width, height = page_dimensions(options.page_size)
+    fig, ax = plt.subplots(figsize=(width, height), dpi=144)
+    try:
+        styles = ("-", "--", ":", "-.")
+        if len(inventory) > len(HUE_COLORS) * len(styles):
+            logger.warning(
+                "LMP overlay has %d areas; color/style combinations repeat. "
+                "Use areas=... or the zonal panels for unambiguous individual comparisons.",
+                len(inventory),
+            )
+        handles = []
+        labels = []
+        for item in panels:
+            index = inventory.index(item.name)
+            color = HUE_COLORS[index % len(HUE_COLORS)]
+            style = styles[index % len(styles)]
+            if item.series is None:
+                handles.append(Line2D([], [], color=color, linestyle=style, linewidth=2))
+                labels.append(f"{item.name} ({item.status.lower()})")
+            else:
+                (line,) = ax.plot(
+                    item.series["position"],
+                    item.series["value"],
+                    color=color,
+                    linestyle=style,
+                    linewidth=2,
+                    label=item.name,
+                    marker="o" if len(item.series) == 1 else None,
+                )
+                handles.append(line)
+                labels.append(item.name)
+        ax.set_xlim(0, 100)
+        ax.set_xlabel(_DURATION_X_LABEL, fontsize=FONT_SIZE)
+        ax.set_ylabel("USD/MWh", fontsize=FONT_SIZE)
+        ax.tick_params(labelsize=FONT_SIZE)
+        ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.grid(alpha=0.25)
+        fig.suptitle(
+            "Marginal-price duration curves - independently sorted",
+            fontsize=18,
+            y=1 - 0.18 / height,
+            va="top",
+        )
+        if not ax.lines:
+            ax.set_yticks([])
+            ax.text(
+                0.5,
+                0.5,
+                "Marginal prices unavailable",
+                fontsize=FONT_SIZE,
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
+        for columns in range(len(panels), 0, -1):
+            legend = fig.legend(
+                handles=handles,
+                labels=labels,
+                fontsize=FONT_SIZE,
+                ncol=columns,
+                loc="lower center",
+                bbox_to_anchor=(0.5, 0.02),
+                frameon=False,
+            )
+            fig.canvas.draw()
+            box = legend.get_window_extent()
+            if box.width / fig.dpi > width - 0.5:
+                legend.remove()
+                continue
+            bottom = box.y1 / fig.dpi + 0.65
+            if height - 0.85 - bottom < 1.2:
+                legend.remove()
+                continue
+            y_bounds = ax.yaxis.get_tightbbox()
+            left = max(0.85, y_bounds.width / fig.dpi + 0.15 if y_bounds is not None else 0.85)
+            ax.set_position(
+                (
+                    left / width,
+                    bottom / height,
+                    (width - left - 0.3) / width,
+                    (height - 0.85 - bottom) / height,
+                )
+            )
+            validate_page(fig)
+            save_figure(fig, output_path, tight=False)
+            return
+        raise LayoutError(
+            "The complete marginal-price overlay legend cannot fit at 14 pt. "
+            "Select fewer areas=... or choose a larger page_size; no areas were omitted."
+        )
+    finally:
+        plt.close(fig)
 
 
 def _plot_marginal_price_heatmap(prices: pd.DataFrame, *, output_path: str) -> bool:
@@ -360,6 +689,7 @@ def _plot_copperplate_duration_curves(
     *,
     generation_df: pd.DataFrame,
     plots_dir: str,
+    options: LayoutOptions,
 ) -> None:
     """Save copperplate duration curves and optional marginal-price figures."""
     _plot_generation_metrics(generation_df, scope="", plots_dir=plots_dir)
@@ -381,6 +711,12 @@ def _plot_copperplate_duration_curves(
         output_path=os.path.join(plots_dir, "duration_curve_marginal_price.png"),
     )
     _plot_marginal_price_heatmap(prices, output_path=os.path.join(plots_dir, "heatmap_marginal_price.png"))
+    _plot_price_comparison(
+        [DurationPanel("copperplate", price_series, "", len(prices))],
+        inventory=["copperplate"],
+        options=options,
+        output_path=os.path.join(plots_dir, "duration_curve_system_marginal_prices.png"),
+    )
 
 
 def _plot_zonal_duration_curves(
@@ -388,6 +724,8 @@ def _plot_zonal_duration_curves(
     *,
     generation_df: pd.DataFrame,
     plots_dir: str,
+    areas: Sequence[str],
+    options: LayoutOptions,
 ) -> None:
     """Save system and grouped zonal duration curves."""
     _plot_generation_metrics(generation_df, scope="system", plots_dir=plots_dir)
@@ -398,7 +736,9 @@ def _plot_zonal_duration_curves(
             "duration curves: per-zone generation data unavailable; skipping zonal generation panels."
         )
     else:
-        _plot_generation_metrics(zonal_generation, scope="zonal", plots_dir=plots_dir)
+        _plot_generation_metrics(
+            zonal_generation, scope="zonal", plots_dir=plots_dir, groups=areas, options=options
+        )
     _plot_grouped_duration_curves(
         getattr(result, "interregional_exchanges_df", pd.DataFrame()),
         group_column="line_id",
@@ -406,15 +746,32 @@ def _plot_zonal_duration_curves(
         title="Interregional signed flows duration curve",
         y_label="MW",
         output_path=os.path.join(plots_dir, "duration_curve_interregional_signed_flows.png"),
+        groups=sorted(
+            line["line_id"] if isinstance(line, dict) else line for line in getattr(result, "lines", ())
+        )
+        or None,
+        options=options,
     )
-    _plot_grouped_duration_curves(
-        _available_prices(getattr(result, "marginal_prices_df", pd.DataFrame())),
+    panels = _prepare_panels(
+        getattr(result, "marginal_prices_df", pd.DataFrame()),
         group_column="area_id",
         value_column="marginal_price_USD_per_MWh",
-        title="Zonal marginal prices duration curve",
-        y_label="USD/MWh",
-        output_path=os.path.join(plots_dir, "duration_curve_zonal_marginal_prices.png"),
+        groups=areas,
     )
+    if panels:
+        _save_grouped_panels(
+            panels,
+            title="Zonal marginal prices duration curves",
+            y_label="USD/MWh",
+            options=options,
+            output_path=os.path.join(plots_dir, "duration_curve_zonal_marginal_prices.png"),
+        )
+        _plot_price_comparison(
+            panels,
+            inventory=result_areas(result),
+            options=options,
+            output_path=os.path.join(plots_dir, "duration_curve_system_marginal_prices.png"),
+        )
 
 
 def plot_duration_curves(
@@ -422,6 +779,11 @@ def plot_duration_curves(
     *,
     generation_df: pd.DataFrame,
     plots_dir: str,
+    areas: Sequence[str] | None = None,
+    page_size: PageSize = "slide_16_9",
+    max_panels_per_page: int | None = None,
+    ncols: int | None = None,
+    panel_aspect: float = 2.2,
 ) -> None:
     """Generate duration curves for a single optimal result.
 
@@ -433,18 +795,39 @@ def plot_duration_curves(
         System-level hourly generation data used for generation duration curves.
     plots_dir : str
         Destination directory for figure files.
+    areas : sequence of str or None, optional
+        Ordered zonal subset, including the combined price comparison. None
+        includes all zones; full-system aggregates and transmission lines
+        remain unchanged. Not applicable to copperplate results.
+    page_size : str or tuple of float, optional
+        Standard page preset or maximum (width, height) in inches.
+    max_panels_per_page : int or None, optional
+        Positive upper bound on grouped panels per page; None is automatic.
+    ncols : int or None, optional
+        Exact grouped column count; None chooses automatically.
+    panel_aspect : float, optional
+        Preferred data-axis width/height ratio, subordinate to readability.
 
     Notes
     -----
     Scatter colors retain original hour of day, ``(Hour - 1) % 24``, using
     ``jet`` normalized to 00-23. Descending observations span 0-100% duration
     (a single observation is at 0%); reference values at 5%, 50%, and 95%
-    are linearly interpolated on that axis. Zonal and line figures use at
-    most two columns with one shared colorbar. Solar-plus-wind percentages
+    are linearly interpolated on that axis. Zonal and line figures use
+    bounded pages, 14 pt text and a shared hour scale. Solar-plus-wind percentages
     divide hourly curtailment by generation plus curtailment, with zero at
     zero availability; system values use summed hourly quantities.
     """
+    options = LayoutOptions(page_size, max_panels_per_page, ncols, panel_aspect)
+    options.plan(1)
     if getattr(result, "is_zonal", False):
-        _plot_zonal_duration_curves(result, generation_df=generation_df, plots_dir=plots_dir)
+        selected = result_areas(result, areas=areas)
+        _plot_zonal_duration_curves(
+            result, generation_df=generation_df, plots_dir=plots_dir, areas=selected, options=options
+        )
     else:
-        _plot_copperplate_duration_curves(result, generation_df=generation_df, plots_dir=plots_dir)
+        if areas is not None:
+            raise ValueError("areas is only supported for zonal results; omit it for copperplate results.")
+        _plot_copperplate_duration_curves(
+            result, generation_df=generation_df, plots_dir=plots_dir, options=options
+        )

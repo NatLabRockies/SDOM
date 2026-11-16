@@ -363,17 +363,19 @@ class TestDurationCurves:
         assert ax.collections[0].get_array()[0] == pytest.approx(15.0)
         plt.close(captured["fig"])
 
-    def test_grouped_duration_curves_use_two_column_panels_and_shared_colorbar(
+    def test_grouped_duration_curves_use_bounded_panels_and_shared_colorbar(
         self, tmp_path, monkeypatch
     ):
         import matplotlib.pyplot as plt
 
         captured = {}
 
-        def fake_save(fig, output_path):
+        def fake_save(fig, output_path, **kwargs):
             captured["fig"] = fig
+            with open(output_path, "wb") as stream:
+                stream.write(b"preview")
 
-        monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", fake_save)
+        monkeypatch.setattr("matplotlib.figure.Figure.savefig", fake_save)
         data = pd.DataFrame(
             {
                 "area_id": [f"A{index}" for index in range(5)],
@@ -394,15 +396,15 @@ class TestDurationCurves:
         assert len(axes) == 6
         for ax in axes[:-1]:
             assert not ax.get_lines()
-            assert ax.get_subplotspec().get_gridspec().ncols == 2
             assert ax.collections[0].get_clim() == (0, 23)
-            assert ax.get_legend() is not None
             assert ax.collections[0].get_offsets()[0, 0] == 0
             np.testing.assert_allclose(
                 [reference.get_offsets()[0, 1] for reference in ax.collections[1:]],
                 [ax.collections[0].get_offsets()[0, 1]] * 3,
             )
-        assert axes[-1].get_ylabel() == "Hour of day"
+        assert axes[-1].get_xlim() == (0, 23)
+        assert any(text.get_text() == "Hour of day" for text in captured["fig"].texts)
+        np.testing.assert_allclose(captured["fig"].get_size_inches(), [40 / 3, 7.5])
         plt.close(captured["fig"])
 
 
@@ -442,6 +444,131 @@ def test_duration_invalid_hours_are_dropped_with_aligned_values(caplog):
     assert "discard" in caplog.text.lower()
 
 
+def test_zonal_price_overlay_and_panels_honor_area_selection(tmp_path, monkeypatch):
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    prices = pd.DataFrame({
+        "area_id": ["B", "B", "A", "A", "C", "C"],
+        "hour": [1, 24] * 3,
+        "pricing_status": ["available"] * 6,
+        "marginal_price_USD_per_MWh": [10, -10, 30, 20, 0, 0],
+    })
+    result = SimpleNamespace(is_zonal=True, areas=["A", "B", "C"], marginal_prices_df=prices)
+    before = prices.copy(deep=True)
+    plot_duration_curves(result, generation_df=pd.DataFrame(), plots_dir=str(tmp_path))
+    full_styles = {
+        line.get_label(): (line.get_color(), line.get_linestyle())
+        for line in figures["duration_curve_system_marginal_prices.png"].axes[0].lines
+    }
+
+    plot_duration_curves(
+        result, generation_df=pd.DataFrame(), plots_dir=str(tmp_path), areas=["B", "A"]
+    )
+
+    panel = figures["duration_curve_zonal_marginal_prices.png"]
+    assert [ax.get_gid() for ax in panel.axes[:-1]] == ["B", "A"]
+    overlay = figures["duration_curve_system_marginal_prices.png"].axes[0]
+    assert [line.get_label() for line in overlay.lines] == ["B", "A"]
+    np.testing.assert_array_equal(overlay.lines[0].get_xdata(), [0, 100])
+    np.testing.assert_array_equal(overlay.lines[0].get_ydata(), [10, -10])
+    np.testing.assert_array_equal(overlay.lines[1].get_ydata(), [30, 20])
+    assert len({(line.get_color(), line.get_linestyle()) for line in overlay.lines}) == 2
+    assert {
+        line.get_label(): (line.get_color(), line.get_linestyle()) for line in overlay.lines
+    } == {name: full_styles[name] for name in ["B", "A"]}
+    pd.testing.assert_frame_equal(before, prices)
+
+
+def test_omitted_areas_keeps_missing_prices_and_all_zones(tmp_path, monkeypatch):
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    result = SimpleNamespace(
+        is_zonal=True,
+        areas=["A", "B"],
+        marginal_prices_df=pd.DataFrame({
+            "area_id": ["A", "B"], "hour": [1, 1],
+            "pricing_status": ["available", "unavailable"],
+            "marginal_price_USD_per_MWh": [0.0, np.nan],
+        }),
+    )
+
+    plot_duration_curves(result, generation_df=pd.DataFrame(), plots_dir=str(tmp_path))
+
+    panel = figures["duration_curve_zonal_marginal_prices.png"]
+    assert [ax.get_gid() for ax in panel.axes[:-1]] == ["A", "B"]
+    np.testing.assert_array_equal(panel.axes[0].collections[0].get_offsets()[:, 1], [0])
+    assert not panel.axes[1].collections
+    assert any("unavailable" in text.get_text().lower() for text in panel.axes[1].texts)
+    legend = figures["duration_curve_system_marginal_prices.png"].legends[0]
+    assert any("B" in text.get_text() and "unavailable" in text.get_text() for text in legend.get_texts())
+    assert figures["duration_curve_system_marginal_prices.png"].axes[0].lines[0].get_marker() != "None"
+
+
+@pytest.mark.parametrize("areas", [[], ["A", "A"], ["unknown"], "A"])
+def test_plot_results_rejects_bad_area_selection_before_writing(areas, tmp_path):
+    result = SimpleNamespace(is_optimal=True, is_zonal=True, areas=["A", "B"])
+    with pytest.raises(ValueError, match=r"area|Unknown"):
+        plot_results(result, plots_dir=str(tmp_path), areas=areas)
+    assert not list(tmp_path.iterdir())
+
+
+def test_area_subset_does_not_change_system_aggregates_or_line_groups(tmp_path, monkeypatch):
+    figures = {}
+    bar_areas = []
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    def area_plot(result, *, areas, **kwargs):
+        bar_areas.append(areas)
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    monkeypatch.setattr("sdom.analytic_tools._single._plot_capacity_donut", lambda *args: None)
+    monkeypatch.setattr("sdom.analytic_tools._single._plot_capacity_generation_donuts", lambda *args: None)
+    monkeypatch.setattr("sdom.analytic_tools._single._plot_heatmaps", lambda *args: None)
+    monkeypatch.setattr("sdom.analytic_tools._single.plot_area_generation_stacks", area_plot)
+    monkeypatch.setattr("sdom.analytic_tools._single.plot_area_capacity_stacks", area_plot)
+    monkeypatch.setattr("sdom.analytic_tools._single.plot_line_flow_heatmap", lambda *args, **kwargs: None)
+    zonal = pd.DataFrame({
+        "Area": ["A", "A", "B", "B"], "Hour": [1, 2, 1, 2],
+        "Load (MW)": [10, 20, 90, 180], "All Thermal Generation (MW)": [10, 20, 90, 180],
+    })
+    system = zonal.drop(columns="Area").groupby("Hour", as_index=False).sum()
+    result = SimpleNamespace(
+        is_optimal=True, is_zonal=True, areas=["A", "B"], generation_df=zonal,
+        lines=[{"line_id": "L2"}, {"line_id": "L1"}, {"line_id": "L3"}],
+        get_generation_dataframe=lambda: zonal.copy(),
+        get_system_generation_dataframe=lambda: system.copy(),
+        interregional_exchanges_df=pd.DataFrame({
+            "line_id": ["L1", "L2"], "hour": [1, 1], "flow_signed_MW": [-10, 20],
+        }),
+    )
+    plot_results(result, plots_dir=str(tmp_path), areas=["A"])
+
+    assert bar_areas == [["A"], ["A"]]
+    np.testing.assert_array_equal(
+        figures["duration_curve_system_load.png"].axes[0].collections[0].get_offsets()[:, 1], [200, 100]
+    )
+    np.testing.assert_array_equal(
+        figures["duration_curve_zonal_load.png"].axes[0].collections[0].get_offsets()[:, 1], [20, 10]
+    )
+    assert [ax.get_gid() for ax in figures["duration_curve_interregional_signed_flows.png"].axes[:-1]] == ["L1", "L2", "L3"]
+
+
 def test_curtailment_hourly_calculation_excludes_hydro_and_retains_zero(tmp_path, monkeypatch):
     figures = {}
     monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: figures.setdefault(os.path.basename(path), fig))
@@ -465,26 +592,34 @@ def test_curtailment_hourly_calculation_excludes_hydro_and_retains_zero(tmp_path
     pd.DataFrame({"area_id": ["A1"], "price": [10]}),
     pd.DataFrame({"area_id": ["A1"], "price": ["bad"], "hour": [1]}),
 ])
-def test_duration_optional_groups_skip_unavailable_observations(data, tmp_path, caplog):
-    assert not _plot_grouped_duration_curves(
+def test_duration_optional_groups_keep_known_missing_groups(data, tmp_path, caplog):
+    plotted = _plot_grouped_duration_curves(
         data, group_column="area_id", value_column="price",
         title="Prices", y_label="USD/MWh", output_path=str(tmp_path / "prices.png"),
     )
-    assert "skipping" in caplog.text
-    assert not (tmp_path / "prices.png").exists()
+    assert plotted == (not data.empty)
+    assert (tmp_path / "prices.png").exists() == (not data.empty)
+    assert "missing" in caplog.text.lower()
 
 
 def test_duration_invalid_group_does_not_suppress_eligible_panel(tmp_path, monkeypatch, caplog):
     captured = []
-    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: captured.append(fig))
+
+    def capture(fig, path, **kwargs):
+        captured.append(fig)
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
     assert _plot_grouped_duration_curves(
         pd.DataFrame({"area_id": ["A1", "A2"], "price": ["bad", -10], "hour": [1, 24]}),
         group_column="area_id", value_column="price", title="Prices",
         y_label="USD/MWh", output_path=str(tmp_path / "prices.png"),
     )
-    assert captured[0].axes[0].get_title() == "A2"
-    assert len(captured[0].axes) == 2
-    assert "skipping group" in caplog.text
+    assert [ax.get_gid() for ax in captured[0].axes[:-1]] == ["A1", "A2"]
+    assert not captured[0].axes[0].collections
+    assert captured[0].axes[1].collections[0].get_offsets()[0, 1] == -10
+    assert "missing data" in caplog.text
     plt.close(captured[0])
 
 
@@ -831,8 +966,8 @@ class TestParametricStudyCaseMetadata:
         ]
         calls = []
 
-        def fake_plot_results(result, output_dir=None, plots_dir=None):
-            calls.append((result, output_dir, plots_dir))
+        def fake_plot_results(result, output_dir=None, plots_dir=None, **kwargs):
+            calls.append((result, output_dir, plots_dir, kwargs))
 
         monkeypatch.setattr(
             "sdom.analytic_tools._parametric.plot_results", fake_plot_results
@@ -871,11 +1006,17 @@ class TestParametricStudyCaseMetadata:
             [_FakeResult()],
             group_by="GenMix_Target",
             plot_per_case=plot_per_case,
+            page_size="slide_4_3",
+            max_panels_per_page=2,
+            areas=["A1"],
         )
 
         assert len(calls) == expected_calls
         if calls:
             assert calls[0][2] == os.path.join(str(tmp_path), "case_1", "plots")
+            assert calls[0][3]["areas"] == ["A1"]
+            assert calls[0][3]["page_size"] == "slide_4_3"
+            assert calls[0][3]["max_panels_per_page"] == 2
 
 
 # ---------------------------------------------------------------------------
