@@ -98,6 +98,7 @@ def test_zonal_system_export_and_standard_heatmap_use_hourly_aggregate(
     result = OptimizationResults(
         termination_condition="optimal",
         is_zonal=True,
+        areas=["A1", "A2"],
         generation_df=pd.DataFrame(
             {
                 "Area": ["A1", "A2", "A1", "A2"],
@@ -161,6 +162,7 @@ def test_zonal_full_year_heatmap_receives_365_day_system_chronology(
     result = OptimizationResults(
         termination_condition="optimal",
         is_zonal=True,
+        areas=["A1", "A2"],
         generation_df=generation_df,
     )
 

@@ -4,6 +4,10 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Zonal Plotting Test Metadata (2026-11-17)
+
+- The zonal collector sets `results.areas = list(model.A)` for every collected zonal result. Synthetic zonal export/heatmap tests must include the matching area inventory instead of relying on missing metadata. Per user direction, repair these fixtures without changing production plotting or weakening selection validation.
+
 ## Directional Hurdle Rates (#110, 2026-11-17)
 
 - Builder placement: `L_hurdle` is derived alongside directional parameters because topology construction precedes rate availability. `HurdleCost` stays with its epigraph bounds; `add_network_expressions` remains reporting-only. Inline comments explain both choices without changing builder contracts.
