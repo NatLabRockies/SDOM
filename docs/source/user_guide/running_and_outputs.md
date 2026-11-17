@@ -519,7 +519,7 @@ not filtered or recomputed. Explicit area selection requires zonal results.
 
 The planner reserves annotation space, requires data axes of at least 2.9 x 1.2
 inches, and chooses fewer feasible pages before optimizing panel aspect.
-Visible grouped text is at least 14 pt at the exported physical size. Measured
+Visible grouped text is at least 16 pt at the exported physical size. Measured
 title/legend collisions trigger fewer panels, not smaller text. Titles wrap
 without truncation, and impossible labels or a complete overlay legend that
 cannot fit produce an actionable error. Scaling an image down inside a slide

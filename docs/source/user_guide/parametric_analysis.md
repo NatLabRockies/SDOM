@@ -227,7 +227,7 @@ curves, copperplate price heatmaps, and zonal per-area figures.
 Per-case duration curves inherit the single-run scatter contract: descending
 values on a 0-100% `Duration (%)` axis, `jet` colors retaining each observation's
 original hour of day, and interpolated 5%, 50%, and 95% reference markers.
-Zonal/line grids use bounded, adaptive pages with 14 pt minimum text and one
+Zonal/line grids use bounded, adaptive pages with 16 pt minimum text and one
 shared 00-23 hour scale. Each case also includes a combined LMP duration
 comparison: selected zonal curves overlaid, or one copperplate curve.
 Hourly curtailment percentages use combined solar + wind availability; zero

@@ -105,7 +105,7 @@ def plot_results(
         Other plots, including existing system single-panel figures, are unchanged.
     max_panels_per_page : int or None, optional
         Positive grouped-panel ceiling. None derives capacity automatically,
-        respecting 14 pt text and minimum data-axis dimensions.
+        respecting 16 pt text and minimum data-axis dimensions.
     ncols : int or None, optional
         Exact grouped column count; None selects automatically.
     panel_aspect : float, optional

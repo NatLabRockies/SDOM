@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _DURATION_X_LABEL = "Duration (%)"
-_DURATION_CURVE_FONT_SIZE_INCREASE = 2
+_DURATION_CURVE_FONT_SIZE_INCREASE = 4
 _DURATION_CURVE_FONT_SIZE = plt.rcParams["font.size"] + _DURATION_CURVE_FONT_SIZE_INCREASE
 _GENERATION_METRICS = (
     ("All Thermal Generation (MW)", "Total thermal generation", "total_thermal_generation", "MW"),
@@ -151,6 +151,7 @@ def _render_duration_axis(
     else:
         _format_duration_curve_axes(ax, y_label=y_label)
         ax.set_title(title)
+        ax.title.set_fontsize(ax.title.get_fontproperties().get_size_in_points() + 2)
         ax.legend(loc="best", fontsize=_DURATION_CURVE_FONT_SIZE)
     return scatter
 
@@ -161,6 +162,8 @@ def _add_hour_colorbar(fig: plt.Figure, scatter: PathCollection, *, axes: list[p
     colorbar = fig.colorbar(scatter, ax=axes, ticks=ticks)
     colorbar.set_label("Hour of day", fontsize=_DURATION_CURVE_FONT_SIZE)
     colorbar.set_ticklabels([f"{hour:02d}" for hour in ticks])
+    for label in colorbar.ax.get_yticklabels():
+        label.set_fontsize(label.get_fontproperties().get_size_in_points() + 2)
 
 
 def _plot_duration_curve(
@@ -251,10 +254,10 @@ def _grouped_page(
     """Render one bounded page with numeric references outside the data rectangles."""
     fig = plt.figure(figsize=(layout.width, layout.height), dpi=144)
     try:
-        fig.suptitle(title, fontsize=18, y=1 - 0.18 / layout.height, va="top")
+        fig.suptitle(title, fontsize=20, y=1 - 0.18 / layout.height, va="top")
         fig.text(
             0.5,
-            1 - 0.55 / layout.height,
+            1 - 0.62 / layout.height,
             f"Page {page_index + 1}/{len(layout.pages)} | independent y scales",
             fontsize=FONT_SIZE,
             ha="center",
@@ -306,7 +309,9 @@ def _grouped_page(
             )
             if legend.get_window_extent().width > layout.panel_width * fig.dpi:
                 for text, value in zip(legend.get_texts(), references, strict=True):
-                    text.set_text(f"{value:.2e}")
+                    scientific = f"{value:.2e}"
+                    if len(scientific) < len(text.get_text()):
+                        text.set_text(scientific)
             note = "All zero" if (item.series["value"] == 0).all() else ""
             if len(item.series) < item.stored_count:
                 note = f"Valid/stored: {len(item.series)}/{item.stored_count}"
@@ -321,7 +326,7 @@ def _grouped_page(
                     bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 1},
                 )
         fig.text(
-            0.10 / layout.width,
+            0.13 / layout.width,
             0.53,
             f"Value and references ({y_label})",
             rotation=90,
@@ -355,7 +360,7 @@ def _grouped_page(
         bar_width = min(4.4, layout.width * 0.4)
         bar_left = (layout.width - bar_width - 1.6) / 2
         bar_ax = fig.add_axes(
-            (bar_left / layout.width, 0.34 / layout.height, bar_width / layout.width, 0.12 / layout.height)
+            (bar_left / layout.width, 0.38 / layout.height, bar_width / layout.width, 0.12 / layout.height)
         )
         colorbar = fig.colorbar(
             ScalarMappable(norm=norm, cmap="jet"),
@@ -367,7 +372,7 @@ def _grouped_page(
         colorbar.ax.tick_params(labelsize=FONT_SIZE, length=3)
         fig.text(
             (bar_left + bar_width + 0.15) / layout.width,
-            0.4 / layout.height,
+            0.44 / layout.height,
             "Hour of day",
             fontsize=FONT_SIZE,
             ha="left",
@@ -589,7 +594,7 @@ def _plot_price_comparison(
         ax.grid(alpha=0.25)
         fig.suptitle(
             "Marginal-price duration curves - independently sorted",
-            fontsize=18,
+            fontsize=20,
             y=1 - 0.18 / height,
             va="top",
         )
@@ -637,7 +642,7 @@ def _plot_price_comparison(
             save_figure(fig, output_path, tight=False)
             return
         raise LayoutError(
-            "The complete marginal-price overlay legend cannot fit at 14 pt. "
+            f"The complete marginal-price overlay legend cannot fit at {FONT_SIZE} pt. "
             "Select fewer areas=... or choose a larger page_size; no areas were omitted."
         )
     finally:
@@ -814,7 +819,7 @@ def plot_duration_curves(
     ``jet`` normalized to 00-23. Descending observations span 0-100% duration
     (a single observation is at 0%); reference values at 5%, 50%, and 95%
     are linearly interpolated on that axis. Zonal and line figures use
-    bounded pages, 14 pt text and a shared hour scale. Solar-plus-wind percentages
+    bounded pages, 16 pt text and a shared hour scale. Solar-plus-wind percentages
     divide hourly curtailment by generation plus curtailment, with zero at
     zero availability; system values use summed hourly quantities.
     """

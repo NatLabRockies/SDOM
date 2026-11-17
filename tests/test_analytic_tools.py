@@ -81,7 +81,6 @@ class TestColors:
 # ---------------------------------------------------------------------------
 from sdom.analytic_tools._single import plot_results, _resolve_plots_dir
 from sdom.analytic_tools._duration_curves import (
-    _DURATION_CURVE_FONT_SIZE_INCREASE,
     _plot_duration_curve,
     _plot_grouped_duration_curves,
     _plot_marginal_price_heatmap,
@@ -218,11 +217,16 @@ class TestDurationCurves:
         )
 
         ax = captured["fig"].axes[0]
-        expected_size = plt.rcParams["font.size"] + _DURATION_CURVE_FONT_SIZE_INCREASE
+        expected_size = plt.rcParams["font.size"] + 4
         assert ax.xaxis.label.get_size() == expected_size
         assert ax.yaxis.label.get_size() == expected_size
         assert ax.get_xticklabels()[0].get_size() == expected_size
         assert ax.get_yticklabels()[0].get_size() == expected_size
+        assert ax.title.get_fontsize() == 14
+        assert all(text.get_fontsize() == expected_size for text in ax.get_legend().get_texts())
+        colorbar_ax = captured["fig"].axes[1]
+        assert colorbar_ax.yaxis.label.get_fontsize() == expected_size
+        assert all(label.get_fontsize() == 12 for label in colorbar_ax.get_yticklabels())
         plt.close(captured["fig"])
 
     def test_prepare_duration_series_sorts_values_and_preserves_hours(self):
@@ -474,6 +478,9 @@ def test_zonal_price_overlay_and_panels_honor_area_selection(tmp_path, monkeypat
     panel = figures["duration_curve_zonal_marginal_prices.png"]
     assert [ax.get_gid() for ax in panel.axes[:-1]] == ["B", "A"]
     overlay = figures["duration_curve_system_marginal_prices.png"].axes[0]
+    assert overlay.xaxis.label.get_fontsize() == 16
+    assert overlay.yaxis.label.get_fontsize() == 16
+    assert overlay.get_xticklabels()[0].get_fontsize() == 16
     assert [line.get_label() for line in overlay.lines] == ["B", "A"]
     np.testing.assert_array_equal(overlay.lines[0].get_xdata(), [0, 100])
     np.testing.assert_array_equal(overlay.lines[0].get_ydata(), [10, -10])

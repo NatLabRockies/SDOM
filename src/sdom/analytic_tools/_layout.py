@@ -17,7 +17,7 @@ PAGE_SIZES = {
     "a4_landscape": (297 / 25.4, 210 / 25.4),
     "letter_landscape": (11.0, 8.5),
 }
-FONT_SIZE = 14
+FONT_SIZE = 16
 LEFT, RIGHT, TOP, BOTTOM = 0.40, 0.16, 0.80, 1.40
 COLUMN_GAP, ROW_GAP = 0.30, 0.25
 PANEL_LEFT, PANEL_RIGHT, PANEL_TOP, PANEL_BOTTOM = 0.66, 0.07, 0.60, 0.67

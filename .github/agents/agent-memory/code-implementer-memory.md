@@ -4,6 +4,11 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Enlarged Duration Typography (2026-11-17)
+
+- Duration typography increased by 2 pt: grouped/overlay body text is 16 pt and figure titles are 20 pt; standalone duration labels, ticks, legends, titles and hour colorbars also increase by 2 pt. Header/colorbar offsets preserve measured bounds.
+- Six realistic area series still fit one default 2-by-3 page. Do not blindly switch overflowing numeric references to scientific notation: use it only when shorter, otherwise moderate decimal values get wider and force unnecessary pagination. Test the six-panel layout with multi-digit decimal references, not only singleton integers.
+
 ## Zonal Plotting Test Metadata (2026-11-17)
 
 - The zonal collector sets `results.areas = list(model.A)` for every collected zonal result. Synthetic zonal export/heatmap tests must include the matching area inventory instead of relying on missing metadata. Per user direction, repair these fixtures without changing production plotting or weakening selection validation.

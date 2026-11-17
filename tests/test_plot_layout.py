@@ -13,6 +13,44 @@ from sdom.analytic_tools._layout import LayoutOptions, plan_layout
 from sdom.analytic_tools._utils import save_figure_pages
 
 
+def test_six_area_duration_page_uses_enlarged_text_without_pagination(tmp_path, monkeypatch):
+    pages = []
+
+    def capture(fig, path, **kwargs):
+        axes = fig.axes[:-1]
+        assert [ax.get_gid() for ax in axes] == [f"A{index}" for index in range(1, 7)]
+        assert len({round(ax.get_position().y0, 6) for ax in axes}) == 2
+        assert len({round(ax.get_position().x0, 6) for ax in axes}) == 3
+        assert all(ax.title.get_fontsize() == 16 for ax in axes)
+        assert all(ax.get_xticklabels()[0].get_fontsize() == 16 for ax in axes)
+        assert all(text.get_fontsize() >= 16 for text in fig.texts)
+        assert all(text.get_fontsize() == 16 for legend in fig.legends for text in legend.get_texts())
+        assert fig.axes[-1].get_xticklabels()[0].get_fontsize() == 16
+        pages.append(path)
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    frame = pd.DataFrame(
+        [
+            {"area_id": f"A{index}", "hour": hour, "price": 123.45 + 50 * index + hour / 10}
+            for index in range(1, 7)
+            for hour in range(1, 25)
+        ]
+    )
+    _plot_grouped_duration_curves(
+        frame,
+        group_column="area_id",
+        value_column="price",
+        title="Prices",
+        y_label="USD/MWh",
+        output_path=str(tmp_path / "curves.png"),
+        options=LayoutOptions(ncols=3, max_panels_per_page=6),
+    )
+
+    assert len(pages) == 1
+
+
 @pytest.mark.parametrize("count", [1, 2, 3, 7, 14, 18, 30, 100])
 def test_layout_preserves_group_inventory_with_bounded_readable_panels(count):
     plan = plan_layout(count)
