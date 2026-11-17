@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pyomo.environ as pyo
 import pytest
+from utils_tests import CBC_EXECUTABLE, CBC_NOT_AVAILABLE_REASON
 
 from sdom.models.formulations_network import (
     add_network_constraints,
@@ -344,9 +345,48 @@ def test_hurdle_epigraph_directional_cost_and_structure(ft, tf):
     assert frame["hurdle_costFT_USD"].tolist() == pytest.approx([20 * ft, 0, 0, 0, 0, 0])
     assert frame["hurdle_costTF_USD"].tolist() == pytest.approx([0, 10 * tf, 0, 0, 0, 0])
     if ft or tf:
-        m.hurdle_cost["L1", 1].set_value(pyo.value(m.hurdle_cost["L1", 1]) + 1)
+        cost = m.hurdle_cost["L1", 1 if ft else 2]
+        optimized_cost = pyo.value(cost)
+        for difference in (-1.5, 1.5):
+            cost.set_value(optimized_cost + difference)
+            assert _build_interregional_exchanges_df(m).equals(frame)
+        cost.set_value(optimized_cost + 3)
         with pytest.raises(ValueError, match=r"Reported hurdle cost.*differs from optimized"):
             _build_interregional_exchanges_df(m)
+
+
+@pytest.mark.parametrize("backend", [
+    "appsi_highs",
+    pytest.param("cbc", marks=pytest.mark.skipif(
+        CBC_EXECUTABLE is None, reason=CBC_NOT_AVAILABLE_REASON,
+    )),
+])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("flow", [1000.000049, 100000004.9])
+def test_hurdle_collection_accepts_solver_rounding(backend, flow, *, reverse):
+    """Collect directional costs despite solver solution-file rounding."""
+    m = pyo.ConcreteModel()
+    m.A = pyo.Set(initialize=["A1", "A2"])
+    m.h = pyo.RangeSet(1, 24)
+    add_network_sets(m, lines=["L"], line_from={"L": "A1"}, line_to={"L": "A2"})
+    capacities = {("L", hour): 2 * flow for hour in m.h}
+    add_network_parameters(
+        m, line_cap_ft=capacities, line_cap_tf=capacities,
+        hurdle_rate_ft={"L": 0 if reverse else 1.03},
+        hurdle_rate_tf={"L": 1.03 if reverse else 0},
+    )
+    add_network_variables(m)
+    add_network_constraints(m)
+    signed_flow = -flow if reverse else flow
+    m.required_flow = pyo.Constraint(m.h, rule=lambda m, h: m.f["L", h] == signed_flow)
+    m.Obj = pyo.Objective(expr=network_transmission_cost_rule(m))
+    solver = pyo.SolverFactory("cbc", executable=CBC_EXECUTABLE) if backend == "cbc" else _highs()
+    solution = solver.solve(m)
+    assert solution.solver.termination_condition == pyo.TerminationCondition.optimal
+    frame = _build_interregional_exchanges_df(m)
+    assert frame["flow_signed_MW"].to_numpy() == pytest.approx([signed_flow] * 24, rel=1e-7)
+    costs = frame[["hurdle_costFT_USD", "hurdle_costTF_USD"]].to_numpy().sum()
+    assert costs == pytest.approx(24 * flow * 1.03, rel=1e-7)
 
 
 @pytest.mark.parametrize(("reverse", "rate"), [(False, 3), (True, 5), (False, 100)])

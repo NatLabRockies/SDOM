@@ -43,7 +43,8 @@ def _build_interregional_exchanges_df(model) -> pd.DataFrame:
     Raises
     ------
     ValueError
-        If reported and optimized hurdle costs differ materially.
+        If the absolute hurdle-cost discrepancy exceeds 2 USD plus
+        ``2e-7 * abs(optimized_cost)`` to allow solver output rounding.
     """
     columns = [
         "line_id",
@@ -135,7 +136,7 @@ def _build_interregional_exchanges_df(model) -> pd.DataFrame:
         df[f"hurdle_cost{direction}_USD"] = flow * np.repeat(rate_values, n_hours)
     reported_cost = df[["hurdle_costFT_USD", "hurdle_costTF_USD"]].to_numpy().sum()
     optimized_cost = float(pyo_value(model.HurdleCost)) if hasattr(model, "HurdleCost") else 0.0
-    if not np.isclose(reported_cost, optimized_cost, rtol=5e-8, atol=1e-3):
+    if not np.isclose(reported_cost, optimized_cost, rtol=2e-7, atol=2.0):
         raise ValueError(
             f"Reported hurdle cost {reported_cost} USD differs from optimized hurdle cost {optimized_cost} USD."
         )
