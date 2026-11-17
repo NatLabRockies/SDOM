@@ -1,0 +1,190 @@
+{
+  "source": "Data/zonal_test",
+  "test": "tests/test_zonal_daily_hydro_budget.py",
+  "hydro_formulation": "DailyBudgetFormulation",
+  "n_hours": 168,
+  "solver": "highs",
+  "case_count": 12,
+  "base_case": {
+    "case_name": "GenMix_Target=1.0_P_Capexx1.0_load_datax1.0",
+    "case_index": 8,
+    "GenMix_Target": 1.0,
+    "P_Capex": 1.0,
+    "load_data": 1.0
+  },
+  "base_capacity_MW": {
+    "Thermal": 3228.22,
+    "Solar PV": 3720.455790016674,
+    "Wind": 49352.34547214757,
+    "All": 56301.02126216425
+  },
+  "base_storage_capacity": {
+    "charge": {
+      "Li-Ion": 1343.754571662319,
+      "CAES": 10767.118755266403,
+      "PHS": 0.0,
+      "H2": 0.0,
+      "All": 12110.873326928722
+    },
+    "discharge": {
+      "Li-Ion": 1343.754571662319,
+      "CAES": 16475.87713291272,
+      "PHS": 0.0,
+      "H2": 0.0,
+      "All": 17819.63170457504
+    },
+    "energy": {
+      "Li-Ion": 3924.643332115445,
+      "CAES": 475384.58735042927,
+      "PHS": 0.0,
+      "H2": 0.0,
+      "All": 479309.2306825447
+    }
+  },
+  "cases": [
+    {
+      "case_name": "GenMix_Target=0.0_P_Capexx1.0_load_datax1.0",
+      "case_index": 0,
+      "GenMix_Target": 0.0,
+      "P_Capex": 1.0,
+      "load_data": 1.0,
+      "termination_condition": "optimal",
+      "total_cost_USD": 6419717318.782903,
+      "solar_capacity_MW": 894.49473,
+      "wind_capacity_MW": 38718.96322489404,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.0_P_Capexx1.0_load_datax1.4",
+      "case_index": 1,
+      "GenMix_Target": 0.0,
+      "P_Capex": 1.0,
+      "load_data": 1.4,
+      "termination_condition": "optimal",
+      "total_cost_USD": 11365807198.48385,
+      "solar_capacity_MW": 13706.307008786902,
+      "wind_capacity_MW": 63353.603634549116,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.0_P_Capexx0.7_load_datax1.0",
+      "case_index": 2,
+      "GenMix_Target": 0.0,
+      "P_Capex": 0.7,
+      "load_data": 1.0,
+      "termination_condition": "optimal",
+      "total_cost_USD": 6419717318.782903,
+      "solar_capacity_MW": 894.49473,
+      "wind_capacity_MW": 38718.96322489404,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.0_P_Capexx0.7_load_datax1.4",
+      "case_index": 3,
+      "GenMix_Target": 0.0,
+      "P_Capex": 0.7,
+      "load_data": 1.4,
+      "termination_condition": "optimal",
+      "total_cost_USD": 11365807198.48385,
+      "solar_capacity_MW": 13706.307008786902,
+      "wind_capacity_MW": 63353.603634549116,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.8_P_Capexx1.0_load_datax1.0",
+      "case_index": 4,
+      "GenMix_Target": 0.8,
+      "P_Capex": 1.0,
+      "load_data": 1.0,
+      "termination_condition": "optimal",
+      "total_cost_USD": 6409337301.295008,
+      "solar_capacity_MW": 894.49473,
+      "wind_capacity_MW": 38611.674562621105,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.8_P_Capexx1.0_load_datax1.4",
+      "case_index": 5,
+      "GenMix_Target": 0.8,
+      "P_Capex": 1.0,
+      "load_data": 1.4,
+      "termination_condition": "optimal",
+      "total_cost_USD": 11364950397.029827,
+      "solar_capacity_MW": 13663.718596699775,
+      "wind_capacity_MW": 63198.25386233191,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.8_P_Capexx0.7_load_datax1.0",
+      "case_index": 6,
+      "GenMix_Target": 0.8,
+      "P_Capex": 0.7,
+      "load_data": 1.0,
+      "termination_condition": "optimal",
+      "total_cost_USD": 6409337301.295008,
+      "solar_capacity_MW": 894.49473,
+      "wind_capacity_MW": 38611.674562621105,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=0.8_P_Capexx0.7_load_datax1.4",
+      "case_index": 7,
+      "GenMix_Target": 0.8,
+      "P_Capex": 0.7,
+      "load_data": 1.4,
+      "termination_condition": "optimal",
+      "total_cost_USD": 11364950397.029827,
+      "solar_capacity_MW": 13663.718596699775,
+      "wind_capacity_MW": 63198.25386233191,
+      "thermal_capacity_MW": 8125.219999999999
+    },
+    {
+      "case_name": "GenMix_Target=1.0_P_Capexx1.0_load_datax1.0",
+      "case_index": 8,
+      "GenMix_Target": 1.0,
+      "P_Capex": 1.0,
+      "load_data": 1.0,
+      "termination_condition": "optimal",
+      "total_cost_USD": 8229669136.411454,
+      "solar_capacity_MW": 3720.455790016674,
+      "wind_capacity_MW": 49352.34547214757,
+      "thermal_capacity_MW": 3228.22
+    },
+    {
+      "case_name": "GenMix_Target=1.0_P_Capexx1.0_load_datax1.4",
+      "case_index": 9,
+      "GenMix_Target": 1.0,
+      "P_Capex": 1.0,
+      "load_data": 1.4,
+      "termination_condition": "optimal",
+      "total_cost_USD": 13406164157.966413,
+      "solar_capacity_MW": 18493.249203038435,
+      "wind_capacity_MW": 73388.32990869432,
+      "thermal_capacity_MW": 3228.22
+    },
+    {
+      "case_name": "GenMix_Target=1.0_P_Capexx0.7_load_datax1.0",
+      "case_index": 10,
+      "GenMix_Target": 1.0,
+      "P_Capex": 0.7,
+      "load_data": 1.0,
+      "termination_condition": "optimal",
+      "total_cost_USD": 8229669136.411454,
+      "solar_capacity_MW": 3720.455790016674,
+      "wind_capacity_MW": 49352.34547214757,
+      "thermal_capacity_MW": 3228.22
+    },
+    {
+      "case_name": "GenMix_Target=1.0_P_Capexx0.7_load_datax1.4",
+      "case_index": 11,
+      "GenMix_Target": 1.0,
+      "P_Capex": 0.7,
+      "load_data": 1.4,
+      "termination_condition": "optimal",
+      "total_cost_USD": 13406164157.966413,
+      "solar_capacity_MW": 18493.249203038435,
+      "wind_capacity_MW": 73388.32990869432,
+      "thermal_capacity_MW": 3228.22
+    }
+  ]
+}
