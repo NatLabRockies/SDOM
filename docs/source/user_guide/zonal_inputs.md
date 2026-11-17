@@ -139,13 +139,24 @@ Required in zonal mode.
 | `line_id` | Unique line identifier matching line-capacity columns. | Not applicable; identifier | string | Defines index $l$ in the [line set](zonal_math_formulation.md#sets) and [network capacity constraints](zonal_math_formulation.md#network-constraints). |
 | `from_area` | Stored origin area of the line's positive-flow direction. | Not applicable; identifier | string | Defines $\mathcal L_{out}(a)$ and signed outflow in [per-area supply balance](zonal_math_formulation.md#per-area-supply-balance). |
 | `to_area` | Stored destination area of the line's positive-flow direction. | Not applicable; identifier | string | Defines $\mathcal L_{in}(a)$ and signed inflow in [per-area supply balance](zonal_math_formulation.md#per-area-supply-balance). |
+| `hurdle_rateFT` | Optional charge for positive (from-to) transfers; default zero. | USD/MWh | finite nonnegative float | $r_l^{FT}$ in [directional hurdle costs](zonal_math_formulation.md#directional-hurdle-costs). |
+| `hurdle_rateTF` | Optional charge for negative (to-from) transfers; default zero. | USD/MWh | finite nonnegative float | $r_l^{TF}$ in [directional hurdle costs](zonal_math_formulation.md#directional-hurdle-costs). |
 
 Example:
 
 ```csv
-line_id,from_area,to_area
-L_A1_A2,A1,A2
+line_id,from_area,to_area,hurdle_rateFT,hurdle_rateTF
+L_A1_A2,A1,A2,3.0,5.0
 ```
+
+The two rate columns are independently optional. Missing columns and explicit
+zeros disable their direction's charge without warning. Blank cells become zero
+with a warning naming the interface and column. Supplied negative, nonnumeric,
+NaN, and infinity values fail validation, including when inputs are supplied as
+Python dictionaries. Errors identify the file, interface, column, and value.
+Rates are constant over the hourly horizon. Equal rates give symmetric charges;
+there is no symmetric `hurdle_rate` column, new file, or activation toggle.
+Costs are reported at system and interface/hour levels, never allocated to areas.
 
 ### LineCap_FT.csv
 

@@ -7,8 +7,8 @@ expressions, and dual accessibility independently of the rest of SDOM.
 
 from types import SimpleNamespace
 
-import pytest
 import pyomo.environ as pyo
+import pytest
 
 from sdom.models.formulations_network import (
     add_network_constraints,
@@ -18,8 +18,9 @@ from sdom.models.formulations_network import (
     add_network_variables,
     network_transmission_cost_rule,
 )
+from sdom.optimization_main import _collect_fixed_decision_marginal_prices, get_default_solver_config_dict
 from sdom.results import collect_marginal_prices_from_model
-
+from sdom.results.collect_zonal_resuts import _build_interregional_exchanges_df
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -312,3 +313,79 @@ def test_fixed_decision_prices_follow_balance_and_directional_dual_sign(
     assert (
         (pyo.value(m.Obj) - baseline_objective) / perturbation
     ) == pytest.approx(expected_destination_price, abs=1e-6)
+
+
+@pytest.mark.parametrize(("ft", "tf"), [(3, 5), (4, 4), (0, 5), (3, 0), (0, 0)])
+def test_hurdle_epigraph_directional_cost_and_structure(ft, tf):
+    m = _base_model()
+    add_network_sets(m, lines=LINES, line_from=LINE_FROM, line_to=LINE_TO)
+    add_network_parameters(
+        m, line_cap_ft={(line, h): CAP_FT for line in LINES for h in HOURS},
+        line_cap_tf={(line, h): CAP_TF for line in LINES for h in HOURS},
+        hurdle_rate_ft={"L1": ft}, hurdle_rate_tf={"L1": tf},
+    )
+    add_network_variables(m)
+    add_network_constraints(m)
+    for line in m.L:
+        for hour, flow in zip(HOURS, (20, -10, 0), strict=True):
+            m.f[line, hour].fix(flow)
+    m.Obj = pyo.Objective(expr=network_transmission_cost_rule(m))
+    solution = _highs().solve(m)
+    assert str(solution.solver.termination_condition).lower().endswith("optimal")
+    assert pyo.value(m.Obj) == pytest.approx(20 * ft + 10 * tf)
+    variables = list(m.component_data_objects(pyo.Var))
+    constraints = list(m.component_data_objects(pyo.Constraint))
+    assert len(variables) == 6 + (3 if ft or tf else 0)
+    assert len(constraints) == 12 + 3 * ((ft > 0) + (tf > 0))
+    assert not any(v.is_binary() for v in variables)
+    assert m.Obj.expr.polynomial_degree() <= 1
+    assert all(c.body.polynomial_degree() <= 1 for c in constraints)
+    frame = _build_interregional_exchanges_df(m)
+    assert frame["hurdle_costFT_USD"].tolist() == pytest.approx([20 * ft, 0, 0, 0, 0, 0])
+    assert frame["hurdle_costTF_USD"].tolist() == pytest.approx([0, 10 * tf, 0, 0, 0, 0])
+    if ft or tf:
+        m.hurdle_cost["L1", 1].set_value(pyo.value(m.hurdle_cost["L1", 1]) + 1)
+        with pytest.raises(ValueError, match=r"Reported hurdle cost.*differs from optimized"):
+            _build_interregional_exchanges_df(m)
+
+
+@pytest.mark.parametrize(("reverse", "rate"), [(False, 3), (True, 5), (False, 100)])
+def test_hurdle_rate_changes_economic_transfers_and_pricing_lp_spread(reverse, rate):
+    m = pyo.ConcreteModel()
+    m.A = pyo.Set(initialize=["A1", "A2"])
+    m.h = pyo.Set(initialize=[1])
+    m.area = pyo.Block(m.A)
+    add_network_sets(m, lines=["L"], line_from={"L": "A1"}, line_to={"L": "A2"})
+    add_network_parameters(
+        m, line_cap_ft={("L", 1): 100}, line_cap_tf={("L", 1): 100},
+        hurdle_rate_ft={"L": rate if not reverse else 3},
+        hurdle_rate_tf={"L": rate if reverse else 5},
+    )
+    add_network_variables(m)
+    add_network_constraints(m)
+    cheap, dear = ("A2", "A1") if reverse else ("A1", "A2")
+    for area in m.A:
+        host = m.area[area]
+        host.generation = pyo.Var(domain=pyo.NonNegativeReals)
+        net_export = m.f["L", 1] if area == "A1" else -m.f["L", 1]
+        host.SupplyBalance = pyo.Constraint(expr=(2 if area == dear else 1) + net_export - host.generation == 0)
+    m.Obj = pyo.Objective(expr=(
+        10 * m.area[cheap].generation + 100 * m.area[dear].generation + network_transmission_cost_rule(m)
+    ))
+    solution = _highs().solve(m)
+    assert str(solution.solver.termination_condition).lower().endswith("optimal")
+    expected_flow = (-2 if reverse else 2) if rate < 90 else 0
+    assert pyo.value(m.f["L", 1]) == pytest.approx(expected_flow)
+    assert pyo.value(m.Obj) == pytest.approx(10 + 2 * min(10 + rate, 100))
+    for area in m.A:
+        assert pyo.value(m.area[area].SupplyBalance.body) == pytest.approx(0, abs=1e-8)
+    config = get_default_solver_config_dict(solver_name="highs")
+    config["solve_keywords"].update(tee=False, report_timing=False, keepfiles=False)
+    prices, audit = _collect_fixed_decision_marginal_prices(m, config)
+    assert set(prices["pricing_status"]) == {"available"}
+    hourly = prices.set_index("area_id")
+    assert hourly.loc[dear, "marginal_price_USD_per_MWh"] - hourly.loc[
+        cheap, "marginal_price_USD_per_MWh"
+    ] == pytest.approx(min(rate, 90))
+    assert audit["f_upper_dual"].iloc[0] == pytest.approx(0)
+    assert audit["f_lower_dual"].iloc[0] == pytest.approx(0)

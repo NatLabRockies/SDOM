@@ -30,6 +30,7 @@ from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMTransmissionInterface,
     SDOMWindGenerator,
 )
+from sdom.infrasys_integration.pyomo_builder import initialize_model_from_system  # noqa: E402
 from sdom.infrasys_integration.system import load_system as load_system_from_system_module  # noqa: E402
 
 
@@ -74,6 +75,37 @@ def test_load_system_from_csv_builds_zonal_transmission_components():
     assert line.from_bus.name == "A1"
     assert line.to_bus.name == "A2"
     assert line.forward_capacity == pytest.approx(float(data["line_cap_ft"]["L_A1_A2"].max()))
+
+
+def test_hurdle_rates_project_component_values_without_mutating_source(tmp_path):
+    data = load_data("Data/zonal_test")
+    data["lines"][0].update(hurdle_rateFT=3, hurdle_rateTF=5)
+    original = dict(data["lines"][0])
+    system = load_system_from_data(data)
+    line = system.get_component(SDOMTransmissionInterface, "line:L_A1_A2")
+    assert (line.hurdle_rate_ft, line.hurdle_rate_tf) == (3, 5)
+    line.hurdle_rate_tf = 9
+    projected = system_to_data_dict(system)
+    assert projected["lines"][0] == {**original, "hurdle_rateTF": 9}
+    assert data["lines"][0] == original
+    path = tmp_path / "rates.json"
+    system.to_json(path, overwrite=True)
+    restored = infrasys.System.from_json(path)
+    saved_line = restored.get_component(SDOMTransmissionInterface, line.name)
+    assert (saved_line.hurdle_rate_ft, saved_line.hurdle_rate_tf) == (3, 9)
+    model = initialize_model_from_system(system, n_hours=24).create_instance()
+    assert model.HurdleRateFT["L_A1_A2"] == 3
+    assert model.HurdleRateTF["L_A1_A2"] == 9
+
+
+@pytest.mark.parametrize("rate", [-1, "bad", float("nan"), float("inf")])
+def test_interface_hurdle_fields_reject_invalid_values(rate):
+    system = load_system("Data/zonal_test")
+    line = system.get_component(SDOMTransmissionInterface, "line:L_A1_A2")
+    with pytest.raises(ValueError):
+        SDOMTransmissionInterface(
+            name="invalid", from_bus=line.from_bus, to_bus=line.to_bus, hurdle_rate_ft=rate
+        )
 
 
 def test_time_series_are_discoverable_on_components():

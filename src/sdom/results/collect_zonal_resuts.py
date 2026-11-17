@@ -37,7 +37,13 @@ def _build_interregional_exchanges_df(model) -> pd.DataFrame:
     -------
     pandas.DataFrame
         Empty DataFrame if ``model.L`` is empty; otherwise a DataFrame
-        with the schema specified in PRD §2.4.
+        with the existing flow schema followed only by ``hurdle_costFT_USD``
+        and ``hurdle_costTF_USD``, calculated vectorially from solved flows.
+
+    Raises
+    ------
+    ValueError
+        If reported and optimized hurdle costs differ materially.
     """
     columns = [
         "line_id",
@@ -51,6 +57,8 @@ def _build_interregional_exchanges_df(model) -> pd.DataFrame:
         "cap_TF_MW",
         "utilization_FT",
         "utilization_TF",
+        "hurdle_costFT_USD",
+        "hurdle_costTF_USD",
     ]
     if not hasattr(model, "L") or len(model.L) == 0:
         return pd.DataFrame(columns=columns)
@@ -102,7 +110,7 @@ def _build_interregional_exchanges_df(model) -> pd.DataFrame:
             "cap_FT_MW": cap_ft,
             "cap_TF_MW": cap_tf,
         },
-        columns=columns[:-2],
+        columns=columns[:9],
     )
     df["utilization_FT"] = np.where(
         df["cap_FT_MW"].to_numpy() > 0,
@@ -118,6 +126,19 @@ def _build_interregional_exchanges_df(model) -> pd.DataFrame:
         ),
         np.nan,
     )
+    for direction, flow in (("FT", flow_ft), ("TF", flow_tf)):
+        rates = getattr(model, f"HurdleRate{direction}", None)
+        rate_values = np.fromiter(
+            (pyo_value(rates[line]) if rates is not None else 0.0 for line in lines),
+            dtype=float, count=n_lines,
+        )
+        df[f"hurdle_cost{direction}_USD"] = flow * np.repeat(rate_values, n_hours)
+    reported_cost = df[["hurdle_costFT_USD", "hurdle_costTF_USD"]].to_numpy().sum()
+    optimized_cost = float(pyo_value(model.HurdleCost)) if hasattr(model, "HurdleCost") else 0.0
+    if not np.isclose(reported_cost, optimized_cost, rtol=5e-8, atol=1e-3):
+        raise ValueError(
+            f"Reported hurdle cost {reported_cost} USD differs from optimized hurdle cost {optimized_cost} USD."
+        )
     return df[columns]
 
 
@@ -276,13 +297,14 @@ def _collect_results_zonal(model, solver_result, *, case_name: str = "run") -> O
     results.storage_capacity = storage_capacity_sys
     results.generation_totals = generation_totals_sys
     results.cost_breakdown = cost_breakdown_sys
+    results.interregional_exchanges_df = _build_interregional_exchanges_df(model)
+    results.cost_breakdown["hurdle_cost"] = float(
+        results.interregional_exchanges_df[["hurdle_costFT_USD", "hurdle_costTF_USD"]].to_numpy().sum()
+    )
     results.summary_df = _append_hydro_curtailment_summary(
         _build_zonal_summary_dataframe(results, sorted(storage_tech_set)),
         (hydro_budget_mwh, hydro_unused_mwh),
     )
-
-    # Interregional exchanges (PRD §2.4) -----------------------------------
-    results.interregional_exchanges_df = _build_interregional_exchanges_df(model)
 
     logging.info(
         "Zonal results collected: %d areas, %d lines, including a system-level "

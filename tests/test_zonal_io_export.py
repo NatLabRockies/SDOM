@@ -40,6 +40,8 @@ PRD_2_4_COLUMNS = [
     "cap_TF_MW",
     "utilization_FT",
     "utilization_TF",
+    "hurdle_costFT_USD",
+    "hurdle_costTF_USD",
 ]
 
 MARGINAL_PRICE_COLUMNS = [

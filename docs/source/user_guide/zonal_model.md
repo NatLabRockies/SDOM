@@ -16,6 +16,13 @@ Use zonal mode when you need:
 2. Provide `areas.csv`, `interconnections.csv`, `LineCap_FT.csv`, and `LineCap_TF.csv`.
 3. Ensure zonal input encoding is valid (see [Zonal Inputs](zonal_inputs.md)).
 
+Optionally add independently enabled `hurdle_rateFT` and `hurdle_rateTF` columns
+to `interconnections.csv` in USD/MWh. Missing or zero rates leave that direction
+free; no toggle is needed. The [linear operating-charge formulation](zonal_math_formulation.md#directional-hurdle-costs)
+preserves signed physical flows and existing capacities, adds no binaries, and
+adds no variables or constraints to uncharged interfaces. Charges are system-only,
+with directional interface/hour costs in the exchange table.
+
 ## Run Example
 
 ```python
@@ -70,5 +77,8 @@ CSV export adds:
 
 - Resiliency with `AreaTransportationModelNetwork` is not implemented.
 - Imports/exports under zonal path are currently restricted to `NotModel`.
-- Transmission expansion cost is a placeholder (`Z^trans = 0`).
+- Transmission expansion is deferred, with expansion costs currently a zero-cost
+  placeholder. The `network_transmission_cost_rule` objective hook is retained
+  for future expansion costs alongside active operating hurdle charges; no
+  expansion decisions or investment charges are implemented yet.
 - Per-area parametric sweeps are deferred.

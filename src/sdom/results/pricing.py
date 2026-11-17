@@ -53,6 +53,13 @@ def collect_marginal_prices_from_model(
         Marginal-price rows and directional line-dual audit rows. Any failed
         pricing solve or missing required dual leaves numeric price fields NaN
         and marks every price row unavailable.
+
+    Notes
+    -----
+    ``congestion_component_USD_per_MWh`` is the local price minus the
+    reference-area price, not a pure capacity-congestion decomposition.
+    It can include directional hurdle effects with uncongested interfaces.
+    The line audit still reports only directional capacity-constraint duals.
     """
     method = pricing_method
     is_zonal = hasattr(model, "A") and hasattr(model, "area")

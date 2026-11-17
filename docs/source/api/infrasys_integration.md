@@ -28,6 +28,18 @@ persistence, result, and parametric workflows.
 
 ## Pyomo builders
 
+`SDOMTransmissionInterface.hurdle_rate_ft` and `.hurdle_rate_tf` are finite,
+nonnegative USD/MWh fields with zero defaults for older serialized components.
+Loading retains directional rates; `system_to_data_dict` projects authoritative
+component rates into copied interface records without mutating retained inputs.
+Model construction still requires retained compatibility source data.
+
+`SDOMInterregionalExchangeResult.hurdle_cost_ft_usd` and
+`.hurdle_cost_tf_usd` store run-specific hourly costs. Older results default
+these vectors to zero. JSON round trips and result reconstruction use stored
+costs, never subsequently edited interface rates. The reconstructed exchange
+table appends only `hurdle_costFT_USD` and `hurdle_costTF_USD`.
+
 ```{eval-rst}
 .. currentmodule:: sdom.infrasys_integration.pyomo_builder
 

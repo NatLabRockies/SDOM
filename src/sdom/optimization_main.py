@@ -36,7 +36,12 @@ from .constants import (
 )
 from .initializations import check_n_hours, initialize_params, initialize_sets
 from .io.formulations import get_formulation, get_network_formulation
-from .io.validation import check_formulation, validate_thermal_min_dispatch, validate_thermal_ownership
+from .io.validation import (
+    check_formulation,
+    validate_hurdle_rates,
+    validate_thermal_min_dispatch,
+    validate_thermal_ownership,
+)
 from .models.formulations_hydro import (
     add_hydro_budget_constraints,
     add_hydro_run_of_river_constraints,
@@ -735,7 +740,7 @@ def _add_zonal_genmix_constraint(model):
 
 
 def _zonal_objective_rule(model):
-    """Sum area fixed, variable, and curtailment costs plus ``Z^trans = 0``.
+    """Sum area costs and system-only directional operating hurdle charges.
 
     Parameters
     ----------
@@ -838,6 +843,7 @@ def _initialize_model_zonal(
     if get_formulation(data, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
         validate_thermal_ownership(data)
 
+    lines = validate_hurdle_rates(data["lines"])
     logging.info(
         "Instantiating zonal SDOM model with %d areas and %d lines.",
         len(data["areas"]),
@@ -910,7 +916,6 @@ def _initialize_model_zonal(
     )
 
     # ---------- Transportation network on top-level model ----------------
-    lines = data["lines"]
     line_ids = [l["line_id"] for l in lines]
     line_from = {l["line_id"]: l["from_area"] for l in lines}
     line_to = {l["line_id"]: l["to_area"] for l in lines}
@@ -948,6 +953,8 @@ def _initialize_model_zonal(
         model,
         line_cap_ft=cap_ft,
         line_cap_tf=cap_tf,
+        hurdle_rate_ft={line["line_id"]: line.get("hurdle_rateFT", 0) for line in lines},
+        hurdle_rate_tf={line["line_id"]: line.get("hurdle_rateTF", 0) for line in lines},
     )
     profiler.measure_step("Add network variables", add_network_variables, model)
     profiler.measure_step(

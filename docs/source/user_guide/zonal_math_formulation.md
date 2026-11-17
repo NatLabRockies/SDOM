@@ -160,7 +160,7 @@ The carbon-free target remains system-wide (not per area). It is built as top-le
 
 ## Objective
 
-Zonal objective is the sum of area costs plus a transmission placeholder:
+Zonal objective is the sum of area costs plus directional operating hurdle costs:
 
 $$
 \min Z = \sum_{a \in \mathcal{A}} \left(Z^{fixed}_a + Z^{variable}_a
@@ -179,10 +179,44 @@ not averages or recomputations from percentages. Area and system summaries
 include all three technology rows in modeled-horizon USD; Total cost already
 includes them. No variables, constraints, or transmission changes are added.
 
-Current implementation uses:
+The transmission-cost hook is reserved for both operating and future expansion
+costs:
 
 $$
-Z^{trans} = 0
+Z^{trans}=Z^{hurdle}+Z^{expansion},\qquad Z^{expansion}=0.
 $$
 
-Transmission investment is intentionally deferred.
+Transmission expansion remains a zero-cost placeholder; no expansion decisions
+or investment charges are implemented yet. Future expansion costs belong in
+`network_transmission_cost_rule` alongside, not in place of, operating hurdle costs.
+
+### Directional Hurdle Costs
+
+Let $r_l^{FT},r_l^{TF}\geq0$ be directional rates in USD/MWh and
+$\mathcal L^+=\{l:r_l^{FT}+r_l^{TF}>0\}$ (`model.L_hurdle`).
+For SDOM's fixed hourly periods, $\Delta t=1$ hour:
+
+$$
+Z^{hurdle}=\sum_{l\in\mathcal L}\sum_{h\in\mathcal H}
+\left(r_l^{FT}\max(f_{l,h},0)+r_l^{TF}\max(-f_{l,h},0)\right)\Delta t.
+$$
+
+The optimization uses a linear epigraph, not nonlinear `max` expressions.
+For each charged interface/hour, introduce $c_{l,h}\geq0$ in USD
+(`model.hurdle_cost[l,h]`) and impose only positive-rate bounds:
+
+$$
+c_{l,h}\geq r_l^{FT}f_{l,h}\Delta t\quad(r_l^{FT}>0),\qquad
+c_{l,h}\geq-r_l^{TF}f_{l,h}\Delta t\quad(r_l^{TF}>0).
+$$
+
+Minimization makes $Z^{hurdle}=\sum_{l\in\mathcal L^+}\sum_h c_{l,h}$
+(`model.HurdleCost`) equal to the intended charge. There is one nonnegative
+variable per charged interface/hour, one inequality per positive direction/hour,
+no new binaries, and no auxiliary variables or constraints on uncharged
+interfaces. A zero lower bound handles a free direction. Signed physical flows,
+capacity limits, and supply balances are unchanged. Transmission investment,
+losses, and configurable period durations remain out of scope.
+
+System cost is the sum of area costs **plus** system hurdle cost; no hurdle
+charges are allocated to areas or added again to the collected objective.

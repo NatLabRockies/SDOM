@@ -54,6 +54,8 @@ PRD_2_4_COLUMNS = [
     "cap_TF_MW",
     "utilization_FT",
     "utilization_TF",
+    "hurdle_costFT_USD",
+    "hurdle_costTF_USD",
 ]
 
 
@@ -208,3 +210,26 @@ def test_zonal_data_dict_is_pickleable(zonal_study_run):
     # Deep copy (the operation each worker performs on entry) also succeeds.
     deep = copy.deepcopy(data)
     assert set(deep["per_area_demand"].keys()) == {"A1", "A2"}
+
+
+def test_hurdle_rates_survive_parametric_run_and_export(tmp_path):
+    data = load_data(_abs_data_path(REL_ZONAL_FIXTURE))
+    data["lines"][0].update(hurdle_rateFT=3, hurdle_rateTF=5)
+    config = get_default_solver_config_dict(solver_name="highs", executable_path="")
+    config["solve_keywords"].update(tee=False, report_timing=False, keepfiles=False)
+    study = ParametricStudy(
+        base_data=data, solver_config=config, n_hours=24, n_cores=1, output_dir=str(tmp_path)
+    )
+    study.add_scalar_sweep("scalars", "GenMix_Target", [1.0])
+    result, = study.run()
+    assert result.is_optimal
+    frame = result.interregional_exchanges_df
+    assert list(frame.columns) == PRD_2_4_COLUMNS
+    assert frame["hurdle_costFT_USD"].to_numpy() == pytest.approx(3 * frame["flow_FT_MW"].to_numpy())
+    assert frame["hurdle_costTF_USD"].to_numpy() == pytest.approx(5 * frame["flow_TF_MW"].to_numpy())
+    cost = frame[PRD_2_4_COLUMNS[-2:]].to_numpy().sum()
+    assert cost > 0
+    assert result.cost_breakdown["hurdle_cost"] == pytest.approx(cost)
+    exported, = tmp_path.rglob("OutputInterregionalExchanges_*.csv")
+    pd.testing.assert_frame_equal(pd.read_csv(exported), frame, check_dtype=False)
+    assert data["lines"][0]["hurdle_rateFT"] == 3

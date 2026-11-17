@@ -636,6 +636,9 @@ class SDOMInterregionalExchangeResult(SDOMResultAttribute):
         Forward utilization values.
     utilization_tf : list[float | None]
         Reverse utilization values.
+    hurdle_cost_ft_usd, hurdle_cost_tf_usd : list[float], optional
+        Run-specific directional costs in USD, defaulting to zero per hour
+        for historical results. Never recomputed from current interface rates.
 
     Examples
     --------
@@ -651,6 +654,12 @@ class SDOMInterregionalExchangeResult(SDOMResultAttribute):
     cap_tf_mw: Annotated[list[float], Field(default_factory=list, description="Reverse hourly capacity values.")]
     utilization_ft: Annotated[list[float | None], Field(default_factory=list, description="Forward utilization values.")]
     utilization_tf: Annotated[list[float | None], Field(default_factory=list, description="Reverse utilization values.")]
+    hurdle_cost_ft_usd: list[float] = Field(
+        default_factory=lambda data: [0.0] * len(data["hours"]), description="Forward run-specific hurdle costs in USD."
+    )
+    hurdle_cost_tf_usd: list[float] = Field(
+        default_factory=lambda data: [0.0] * len(data["hours"]), description="Reverse run-specific hurdle costs in USD."
+    )
 
     @model_validator(mode="after")
     def _validate_lengths(self) -> Self:
@@ -680,6 +689,8 @@ class SDOMInterregionalExchangeResult(SDOMResultAttribute):
             len(self.cap_tf_mw),
             len(self.utilization_ft),
             len(self.utilization_tf),
+            len(self.hurdle_cost_ft_usd),
+            len(self.hurdle_cost_tf_usd),
         )
         if any(length != expected for length in lengths):
             raise ValueError("interregional exchange vector lengths must match hours length.")

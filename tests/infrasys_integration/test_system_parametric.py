@@ -14,7 +14,7 @@ pytest.importorskip("r2x_core")
 
 from sdom import load_data  # noqa: E402
 from sdom.infrasys_integration.make_system import load_system_from_data, system_to_data_dict  # noqa: E402
-from sdom.infrasys_integration.models import SDOMScenarioMetadata  # noqa: E402
+from sdom.infrasys_integration.models import SDOMScenarioMetadata, SDOMTransmissionInterface  # noqa: E402
 from sdom.infrasys_integration.parametric import (  # noqa: E402
     SystemParametricStudy,
     add_parametric_results_to_system,
@@ -40,6 +40,8 @@ PRD_2_4_COLUMNS = [
     "cap_TF_MW",
     "utilization_FT",
     "utilization_TF",
+    "hurdle_costFT_USD",
+    "hurdle_costTF_USD",
 ]
 
 
@@ -72,6 +74,9 @@ def zonal_system_study_run():
         pytest.skip("HiGHS solver not available")
 
     system = _zonal_system()
+    line = system.get_component(SDOMTransmissionInterface, "line:L_A1_A2")
+    line.hurdle_rate_ft = 3
+    line.hurdle_rate_tf = 5
     source_data = system_to_data_dict(system)
     source_scalars_before = source_data["scalars"].copy(deep=True)
     source_per_area_demand_before = {
@@ -171,6 +176,16 @@ def test_system_parametric_study_runs_zonal_cases_optimally(zonal_system_study_r
             f"scenario {index} (GenMix_Target={GENMIX_TARGETS[index]}) failed: "
             f"solver_status={result.solver_status}, termination={result.termination_condition}"
         )
+
+
+def test_system_parametric_study_retains_directional_hurdles(zonal_system_study_run):
+    for result in zonal_system_study_run["results"]:
+        frame = result.interregional_exchanges_df
+        assert frame["hurdle_costFT_USD"].to_numpy() == pytest.approx(3 * frame["flow_FT_MW"].to_numpy())
+        assert frame["hurdle_costTF_USD"].to_numpy() == pytest.approx(5 * frame["flow_TF_MW"].to_numpy())
+        cost = frame[["hurdle_costFT_USD", "hurdle_costTF_USD"]].to_numpy().sum()
+        assert cost > 0
+        assert result.cost_breakdown["hurdle_cost"] == pytest.approx(cost)
 
 
 def test_system_parametric_study_results_are_zonal(zonal_system_study_run):

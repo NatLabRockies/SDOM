@@ -223,15 +223,18 @@ def test_pyomo_diagrams_use_standard_markdown_mermaid_fences():
     assert {token.info for token in diagrams} == {"mermaid"}
 
 
-@pytest.mark.parametrize("scenario", ["copperplate", "enabled-copperplate", "zonal"])
+@pytest.mark.parametrize("scenario", ["copperplate", "enabled-copperplate", "zonal", "charged-zonal"])
 def test_pyomo_block_reference_covers_constructed_fields(scenario):
     """Verify documented ownership and field types against real model construction."""
     root = Path(__file__).resolve().parents[1]
     reference = (root / "docs" / "source" / "user_guide" / "pyomo_model_structure.md").read_text(
         encoding="utf-8"
     )
-    folder = "zonal_test" if scenario == "zonal" else "exchange_hydro_daily_budget_multiple_balancing_p95"
+    zonal = scenario.endswith("zonal")
+    folder = "zonal_test" if zonal else "exchange_hydro_daily_budget_multiple_balancing_p95"
     data = load_data(str(root / "Data" / folder))
+    if scenario == "charged-zonal":
+        data["lines"][0].update(hurdle_rateFT=3, hurdle_rateTF=5)
     if scenario != "copperplate":
         data["formulations"].loc[data["formulations"]["Component"] == "Thermal", "Formulation"] = (
             "NoRampsMinDispatchFormulation"
@@ -246,7 +249,7 @@ def test_pyomo_block_reference_covers_constructed_fields(scenario):
     model = initialize_model(data, n_hours=24, with_resilience_constraints=scenario == "enabled-copperplate")
     for block in [model, *model.component_data_objects(Block, descend_into=True)]:
         if block is model:
-            title = "Zonal root" if scenario == "zonal" else "Host"
+            title = "Zonal root" if zonal else "Host"
         elif block.parent_component().local_name == "area":
             title = "Host"
         elif block.local_name in ("pv", "wind"):

@@ -34,6 +34,7 @@ from sdom.infrasys_integration.models import (  # noqa: E402
     SDOMSummaryMetricResult,
     SDOMThermalGenerationResult,
     SDOMThermalGenerator,
+    SDOMTransmissionInterface,
 )
 from sdom.infrasys_integration.pyomo_builder import initialize_model_from_system  # noqa: E402
 from sdom.infrasys_integration.results import (  # noqa: E402
@@ -44,6 +45,53 @@ from sdom.infrasys_integration.results import (  # noqa: E402
 from sdom.results import OptimizationResults  # noqa: E402
 
 System = infrasys.System
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_exchange_hurdle_costs_persist_as_run_specific_values(tmp_path, legacy):
+    data = load_data("Data/zonal_test")
+    system = load_system_from_data(data)
+    frame = pd.DataFrame({
+        "line_id": ["L_A1_A2"] * 3, "from_area": ["A1"] * 3, "to_area": ["A2"] * 3,
+        "hour": [1, 2, 3], "flow_signed_MW": [20.0, -10.0, 0.0],
+        "flow_FT_MW": [20.0, 0.0, 0.0], "flow_TF_MW": [0.0, 10.0, 0.0],
+        "cap_FT_MW": [500.0] * 3, "cap_TF_MW": [500.0] * 3,
+        "utilization_FT": [0.04, 0.0, 0.0], "utilization_TF": [0.0, 0.02, 0.0],
+    })
+    expected = frame.assign(
+        hurdle_costFT_USD=[0.0, 0.0, 0.0] if legacy else [60.0, 0.0, 0.0],
+        hurdle_costTF_USD=[0.0, 0.0, 0.0] if legacy else [0.0, 50.0, 0.0],
+    )
+    results = OptimizationResults(
+        is_zonal=True, areas=["A1", "A2"], lines=data["lines"],
+        interregional_exchanges_df=frame if legacy else expected,
+        cost_breakdown={} if legacy else {"hurdle_cost": 110.0},
+    )
+    add_results_to_system(system, results, run_id="hurdles")
+    line = system.get_component(SDOMTransmissionInterface, "line:L_A1_A2")
+    line.hurdle_rate_ft = 100
+    line.hurdle_rate_tf = 200
+    path = tmp_path / "hurdles.json"
+    system.to_json(path, overwrite=True)
+    reconstructed = optimization_results_from_system(System.from_json(path), run_id="hurdles")
+    pd.testing.assert_frame_equal(reconstructed.interregional_exchanges_df, expected)
+    assert reconstructed.cost_breakdown == results.cost_breakdown
+    export_results(reconstructed, case="hurdles", output_dir=str(tmp_path))
+    exported = pd.read_csv(tmp_path / "OutputInterregionalExchanges_hurdles.csv")
+    pd.testing.assert_frame_equal(exported, expected)
+
+
+def test_old_exchange_attribute_defaults_hurdle_cost_vectors_to_zero():
+    attribute = SDOMInterregionalExchangeResult(
+        run_id="old", hours=[1], flow_signed_mw=[20], flow_ft_mw=[20], flow_tf_mw=[0],
+        cap_ft_mw=[500], cap_tf_mw=[500], utilization_ft=[0.04], utilization_tf=[0],
+    )
+    assert attribute.hurdle_cost_ft_usd == [0]
+    assert attribute.hurdle_cost_tf_usd == [0]
+    with pytest.raises(ValueError, match="length"):
+        SDOMInterregionalExchangeResult(**{
+            **attribute.model_dump(), "hurdle_cost_ft_usd": [1, 2],
+        })
 
 
 @pytest.mark.parametrize("zonal", [False, True])
