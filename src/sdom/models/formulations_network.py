@@ -4,7 +4,7 @@ This module implements the line topology, signed flow variable, directional
 capacity constraints, and reporting expressions for the
 ``AreaTransportationModelNetwork`` formulation (PRD §5.6).
 
-Locked design decisions (PRD §5.6, 2026-05-08):
+Locked design decisions
 
 - Topology lives on the **top-level model** (``model.L``, ``model.line_from``,
   ``model.line_to``, ``model.L_in[a]``, ``model.L_out[a]``); per-area blocks
@@ -23,6 +23,7 @@ builders on the root model; area balances consume the resulting signed flows.
 from pyomo.environ import (
     Constraint,
     Expression,
+    NonNegativeReals,
     Param,
     Reals,
     Set,
@@ -90,8 +91,8 @@ def add_network_sets(model, *, lines, line_from, line_to):
     return model
 
 
-def add_network_parameters(model, *, line_cap_ft, line_cap_tf):
-    """Create directional line capacity parameters indexed by ``(L, h)``.
+def add_network_parameters(model, *, line_cap_ft, line_cap_tf, hurdle_rate_ft=None, hurdle_rate_tf=None):
+    """Create hourly capacities and optional directional hurdle-rate parameters.
 
     Parameters
     ----------
@@ -101,6 +102,9 @@ def add_network_parameters(model, *, line_cap_ft, line_cap_tf):
         Mapping ``{(line_id, hour): MW}`` for the from→to direction.
     line_cap_tf : Mapping[Tuple[Hashable, Hashable], float]
         Mapping ``{(line_id, hour): MW}`` for the to→from direction.
+    hurdle_rate_ft, hurdle_rate_tf : Mapping[Hashable, float], optional
+        Validated finite nonnegative directional rates in USD/MWh. Missing
+        interfaces or mappings mean zero charge.
 
     Returns
     -------
@@ -109,12 +113,23 @@ def add_network_parameters(model, *, line_cap_ft, line_cap_tf):
 
         - ``model.LineCap_FT`` : ``Param(model.L, model.h)`` (MW).
         - ``model.LineCap_TF`` : ``Param(model.L, model.h)`` (MW).
+        - ``model.HurdleRateFT``, ``model.HurdleRateTF`` : rates (USD/MWh).
+        - ``model.L_hurdle`` : interfaces with at least one positive rate.
     """
     model.LineCap_FT = Param(
         model.L, model.h, initialize=dict(line_cap_ft), mutable=False
     )
     model.LineCap_TF = Param(
         model.L, model.h, initialize=dict(line_cap_tf), mutable=False
+    )
+    rate_ft = dict(hurdle_rate_ft or {})
+    rate_tf = dict(hurdle_rate_tf or {})
+    model.HurdleRateFT = Param(model.L, initialize=rate_ft, default=0, within=NonNegativeReals)
+    model.HurdleRateTF = Param(model.L, initialize=rate_tf, default=0, within=NonNegativeReals)
+    # This rate-dependent subset is built here once directional rates are available.
+    model.L_hurdle = Set(
+        initialize=[line for line in model.L if rate_ft.get(line, 0) > 0 or rate_tf.get(line, 0) > 0],
+        ordered=True,
     )
     return model
 
@@ -133,6 +148,8 @@ def add_network_variables(model):
         Same ``model`` with new attribute ``model.f`` — a ``Var`` over
         ``model.L × model.h`` with domain ``Reals`` and **no bounds** set.
         Capacity limits are enforced by :func:`add_network_constraints`.
+        Charged interfaces additionally receive nonnegative USD epigraph
+        variables ``model.hurdle_cost``; uncharged interfaces receive none.
 
     Notes
     -----
@@ -144,6 +161,8 @@ def add_network_variables(model):
     reverse. There are no separate directional decision variables or losses.
     """
     model.f = Var(model.L, model.h, domain=Reals)
+    if hasattr(model, "L_hurdle") and len(model.L_hurdle):
+        model.hurdle_cost = Var(model.L_hurdle, model.h, domain=NonNegativeReals)
     return model
 
 
@@ -206,7 +225,7 @@ def _f_lower_rule(model, l, h):
 
 
 def add_network_constraints(model):
-    r"""Create directional flow capacity constraints.
+    r"""Create directional capacity limits and optional linear hurdle bounds.
 
     Parameters
     ----------
@@ -220,6 +239,10 @@ def add_network_constraints(model):
 
         - ``model.f_upper[l,h]`` : ``f[l,h] <=  LineCap_FT[l,h]``.
         - ``model.f_lower[l,h]`` : ``f[l,h] >= -LineCap_TF[l,h]``.
+
+        Charged interfaces also receive ``hurdle_costFT`` / ``hurdle_costTF``
+        bounds only for positive-rate directions, and the summed USD
+        expression ``HurdleCost`` for the objective.
 
     Notes
     -----
@@ -237,6 +260,21 @@ def add_network_constraints(model):
     """
     model.f_upper = Constraint(model.L, model.h, rule=_f_upper_rule)
     model.f_lower = Constraint(model.L, model.h, rule=_f_lower_rule)
+    if hasattr(model, "hurdle_cost"):
+        model.hurdle_costFT = Constraint(
+            [line for line in model.L_hurdle if model.HurdleRateFT[line] > 0],
+            model.h,
+            rule=lambda m, line, h: m.hurdle_cost[line, h] >= m.HurdleRateFT[line] * m.f[line, h],
+        )
+        model.hurdle_costTF = Constraint(
+            [line for line in model.L_hurdle if model.HurdleRateTF[line] > 0],
+            model.h,
+            rule=lambda m, line, h: m.hurdle_cost[line, h] >= -m.HurdleRateTF[line] * m.f[line, h],
+        )
+        # Keep the objective term with its epigraph bounds, separate from reporting expressions.
+        model.HurdleCost = Expression(
+            expr=sum(model.hurdle_cost[line, h] for line in model.L_hurdle for h in model.h)
+        )
     return model
 
 
@@ -346,25 +384,34 @@ def add_network_expressions(model):
 
 
 def network_transmission_cost_rule(model):
-    r"""Return the transmission cost term ``Z^trans``.
+    r"""Return transmission costs, reserving a hook for future expansion costs.
 
     Parameters
     ----------
     model : pyomo.environ.ConcreteModel
-        Top-level model (unused; placeholder signature).
+        Top-level model with optional charged-interface epigraph variables.
 
     Returns
     -------
-    int
-        Always ``0`` in this phase — transmission investment is out of scope
-        (PRD §5.6).
+    pyomo.environ.Expression or int
+        Total hourly hurdle costs, or zero when no interfaces are charged.
+        Transmission expansion costs are currently a zero-cost placeholder.
 
     Notes
     -----
     .. math::
 
-       Z^{trans}=0.
+       Z^{trans}=Z^{hurdle}+Z^{expansion},\qquad Z^{expansion}=0,
 
-    This placeholder adds no line-investment or flow-dependent cost.
+       Z^{hurdle}=\sum_{\ell\in\mathcal L^+}\sum_h c_{\ell h}.
+
+    Each nonnegative cost variable bounds the positive-rate directional
+    affine costs from below. Minimization makes these bounds exact without
+    nonlinear expressions or binaries. Periods are one hour.
+
+    Transmission investment is deferred (PRD §5.6). Preserve this objective
+    hook for adding future transmission expansion costs alongside operating
+    hurdle charges; no expansion decisions or investment charges exist yet.
     """
-    return 0
+    # Transmission expansion remains a zero-cost placeholder for future implementation.
+    return model.HurdleCost if hasattr(model, "HurdleCost") else 0

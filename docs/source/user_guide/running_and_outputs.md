@@ -361,7 +361,9 @@ values, never zeros.
 For a zonal connected component, the lexicographically first area is the
 reference area. Its LMP is reported as the generation component for every area
 in that component, and each congestion component is the local LMP less that
-reference LMP. The directional `f_upper` and `f_lower` duals are available via
+reference LMP. Despite its name, `congestion_component_USD_per_MWh` can therefore
+include hurdle-rate effects even without binding transmission limits. The pricing
+LP retains the hurdle formulation. The directional `f_upper` and `f_lower` duals are available via
 `results.get_line_congestion_duals_dataframe()` for KKT auditing. Copperplate
 congestion components are zero.
 
@@ -381,6 +383,21 @@ When using `Network=AreaTransportationModelNetwork`, `run_solver` populates zona
 `results.summary_df` remains available in zonal runs for aggregate system-level
 summary tables, exports, and plots. Use `results.area_summary_df` for
 per-area summary tables.
+
+### Directional hurdle costs
+
+The zonal exchange CSV retains its existing columns and appends only
+`hurdle_costFT_USD` and `hurdle_costTF_USD`, in that order. They are the
+nonnegative directional transfers multiplied by their rates for each one-hour
+period. Uncharged directions report zero; rates and combined costs are not
+additional exchange columns.
+
+Their sum over interfaces/hours equals `results.cost_breakdown["hurdle_cost"]`
+and the system summary's `Total hurdle cost` (`$US`) within solver tolerance.
+Collection rejects a material discrepancy with the optimized hurdle term.
+`results.total_cost` already includes this charge exactly once:
+system total = sum of area total costs + system hurdle cost. Area cost
+dictionaries and summaries do not receive hurdle charges.
 
 ## Troubleshooting
 ### Solver Performance

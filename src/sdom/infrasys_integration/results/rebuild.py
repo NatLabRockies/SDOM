@@ -573,6 +573,7 @@ def _rebuild_interregional_exchanges(system: System, *, filters: _ResultFilters)
     """
     rows: list[dict[str, Any]] = []
     for owner, attr in _iter_result_attributes(system, SDOMInterregionalExchangeResult, filters=filters):
+        assert isinstance(attr, SDOMInterregionalExchangeResult)
         if not isinstance(owner, SDOMTransmissionInterface):
             continue
         line_id = owner.name.removeprefix("line:")
@@ -587,9 +588,11 @@ def _rebuild_interregional_exchanges(system: System, *, filters: _ResultFilters)
             attr.cap_tf_mw,
             attr.utilization_ft,
             attr.utilization_tf,
+            attr.hurdle_cost_ft_usd,
+            attr.hurdle_cost_tf_usd,
             strict=True,
         ):
-            hour, signed, ft, tf, cap_ft, cap_tf, util_ft, util_tf = values
+            hour, signed, ft, tf, cap_ft, cap_tf, util_ft, util_tf, cost_ft, cost_tf = values
             rows.append(
                 {
                     "line_id": line_id,
@@ -603,6 +606,8 @@ def _rebuild_interregional_exchanges(system: System, *, filters: _ResultFilters)
                     "cap_TF_MW": cap_tf,
                     "utilization_FT": util_ft,
                     "utilization_TF": util_tf,
+                    "hurdle_costFT_USD": cost_ft,
+                    "hurdle_costTF_USD": cost_tf,
                 }
             )
     if not rows:

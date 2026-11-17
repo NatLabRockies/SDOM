@@ -151,8 +151,10 @@ flowchart TB
 The root objective `Obj` minimizes fixed investment/O&M plus thermal fuel/VOM,
 storage discharge VOM, signed technology curtailment costs, and, in
 copperplate mode, imports expenditure **minus** exports revenue.
-Zonal `Obj` sums local costs once across areas; transmission investment cost
-is currently zero. Area hosts have no separate objective or clean-share
+Zonal `Obj` sums local costs once across areas plus system-only operating
+hurdle charges. Transmission expansion costs remain a zero-cost placeholder;
+`network_transmission_cost_rule` is retained to integrate future investment
+costs alongside hurdle charges. Area hosts have no separate objective or clean-share
 constraint. `SupplyBalance` and storage `SOCBalance` live on each host, even
 though most other operating constraints live inside technology blocks.
 
@@ -604,16 +606,16 @@ flowchart LR
     subgraph M["model: zonal"]
         direction LR
         subgraph P["Parameters"]
-            PF["GenMix_Target<br/>line_from[l], line_to[l]<br/>LineCap_FT[l,h], LineCap_TF[l,h]"]
+            PF["GenMix_Target<br/>line_from[l], line_to[l]<br/>LineCap_FT[l,h], LineCap_TF[l,h]<br/>HurdleRateFT[l], HurdleRateTF[l]"]
         end
         subgraph V["Variables"]
-            VF["f[l,h] in Reals"]
+            VF["f[l,h] in Reals<br/>hurdle_cost[l,h] (charged only)"]
         end
         subgraph E["Expressions"]
-            EF["f_FT[l,h]<br/>f_TF[l,h]"]
+            EF["f_FT[l,h]<br/>f_TF[l,h]<br/>HurdleCost (charged only)"]
         end
         subgraph C["Constraints"]
-            CF["f_upper[l,h], f_lower[l,h]<br/>GenMix_Share"]
+            CF["f_upper[l,h], f_lower[l,h]<br/>hurdle_costFT[l,h], hurdle_costTF[l,h] (positive rates only)<br/>GenMix_Share"]
         end
         PF ~~~ VF ~~~ CF
         PF ~~~ EF ~~~ CF
@@ -633,11 +635,18 @@ flowchart LR
 | `L_out[a]` | Set | $\mathcal L_{out}(a)$ | Derived from `line_from`. |
 | `LineCap_FT[l,h]` | Param | $\overline F^{FT}_{l,h}$, MW | `LineCap_FT.csv: <line_id>`, indexed by `*Hour`. |
 | `LineCap_TF[l,h]` | Param | $\overline F^{TF}_{l,h}$, MW | `LineCap_TF.csv: <line_id>`, indexed by `*Hour`. |
+| `HurdleRateFT[l]` | Param | $r_l^{FT}$, USD/MWh | Optional `interconnections.csv: hurdle_rateFT`; zero when absent. |
+| `HurdleRateTF[l]` | Param | $r_l^{TF}$, USD/MWh | Optional `interconnections.csv: hurdle_rateTF`; zero when absent. |
+| `L_hurdle` | Set | $\mathcal L^+$, charged interfaces | Interfaces with either directional rate positive. |
 | `f[l,h]` | Var | $f_{l,h}\in\mathbb R$, MW | Signed flow, positive from `line_from` to `line_to`; explicit capacity constraints, no direct Var bounds. |
+| `hurdle_cost[l,h]` | Var | $c_{l,h}\geq0$, USD | Only charged interfaces; linear epigraph of directional operating costs. |
 | `f_FT[l,h]` | Expression | $f_{l,h}$, MW | Exactly `f[l,h]`, **not** a clipped nonnegative forward flow. |
 | `f_TF[l,h]` | Expression | $-f_{l,h}$, MW | Exactly `-f[l,h]`, **not** a separate reverse-flow decision. |
+| `HurdleCost` | Expression | $Z^{hurdle}$, USD | Sum of hourly epigraph costs; present only with charged interfaces and included once in `Obj`. |
 
 `f_upper` and `f_lower` enforce asymmetric directional capacities.
+`hurdle_costFT` and `hurdle_costTF` impose one lower bound per positive-rate
+direction/hour, only on charged interfaces. See the [linear hurdle equations](zonal_math_formulation.md#directional-hurdle-costs).
 `GenMix_Share` aggregates clean and total generation across all hosts;
 flows are not generation and are not counted again. `Obj` is the single
 system objective. See [network equations](zonal_math_formulation.md#network-constraints).

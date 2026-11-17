@@ -24,7 +24,7 @@ import pandas as pd
 import pytest
 
 from sdom import load_data
-
+from sdom.io.network import _load_interconnections
 
 _LEGACY_FOLDER = "Data/no_exchange_run_of_river"
 _ZONAL_FIXTURE = "Data/zonal_test"
@@ -179,3 +179,36 @@ def test_at_formulation_missing_line_cap_ft_raises(tmp_path):
 
     with pytest.raises(ValueError, match="LineCap_FT.csv"):
         load_data(str(folder))
+
+
+@pytest.mark.parametrize("rates", [
+    {"hurdle_rateFT": "3.5"},
+    {"hurdle_rateTF": "5"},
+    {"hurdle_rateFT": "0", "hurdle_rateTF": "0"},
+    {"hurdle_rateFT": "3", "hurdle_rateTF": "5"},
+])
+def test_optional_hurdle_columns_retained(tmp_path, rates):
+    row = {"line_id": "L", "from_area": "A1", "to_area": "A2", **rates}
+    pd.DataFrame([row]).to_csv(tmp_path / "interconnections.csv", index=False)
+    lines = _load_interconnections(str(tmp_path), areas=[{"area_id": a} for a in ("A1", "A2")])
+    assert lines == [{**row, **{key: float(value) for key, value in rates.items()}}]
+
+
+@pytest.mark.parametrize("column", ["hurdle_rateFT", "hurdle_rateTF"])
+@pytest.mark.parametrize("token", ["-1", "oops", "NaN", "nan", "NA", "inf", "-Infinity"])
+def test_invalid_hurdle_tokens_rejected(tmp_path, column, *, token):
+    (tmp_path / "interconnections.csv").write_text(
+        f"line_id,from_area,to_area,{column}\nL,A1,A2,{token}\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match=rf"interconnections.csv.*L.*{column}.*{token}"):
+        _load_interconnections(str(tmp_path), areas=[{"area_id": a} for a in ("A1", "A2")])
+
+
+@pytest.mark.parametrize("blank", ["", "  "])
+def test_blank_hurdle_rate_warns_and_becomes_zero(tmp_path, caplog, *, blank):
+    (tmp_path / "interconnections.csv").write_text(
+        f"line_id,from_area,to_area,hurdle_rateFT\nL,A1,A2,{blank}\n", encoding="utf-8"
+    )
+    lines = _load_interconnections(str(tmp_path), areas=[{"area_id": a} for a in ("A1", "A2")])
+    assert lines[0]["hurdle_rateFT"] == 0
+    assert "hurdle_rateFT" in caplog.text and "L" in caplog.text

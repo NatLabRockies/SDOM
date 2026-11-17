@@ -114,6 +114,9 @@ class SDOMTransmissionInterface(HasUnits, SDOMComponent):
         Capacity from origin to destination, in MW.
     reverse_capacity : float, optional
         Capacity from destination to origin, in MW.
+    hurdle_rate_ft, hurdle_rate_tf : float, optional
+        Finite nonnegative directional operating charges in USD/MWh.
+        Default zero disables the corresponding charge.
     """
 
     from_bus: Annotated[SDOMBus, Field(description="Origin bus for positive flow.")]
@@ -128,6 +131,14 @@ class SDOMTransmissionInterface(HasUnits, SDOMComponent):
         Unit("MW"),
         Field(ge=0, description="Reverse transfer capacity."),
     ] | None = None
+    hurdle_rate_ft: Annotated[
+        float, Unit("$/MWh"),
+        Field(ge=0, allow_inf_nan=False, description="Forward operating hurdle rate."),
+    ] = 0.0
+    hurdle_rate_tf: Annotated[
+        float, Unit("$/MWh"),
+        Field(ge=0, allow_inf_nan=False, description="Reverse operating hurdle rate."),
+    ] = 0.0
 
 
 class SDOMScalarParameter(SDOMComponent):

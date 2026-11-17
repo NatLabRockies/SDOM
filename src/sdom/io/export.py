@@ -70,7 +70,9 @@ def export_results(
         only for zonal runs (``Network = AreaTransportationModelNetwork``)
         when ``results.interregional_exchanges_df`` is non-empty. Columns:
         ``line_id, from_area, to_area, hour, flow_signed_MW, flow_FT_MW,
-        flow_TF_MW, cap_FT_MW, cap_TF_MW, utilization_FT, utilization_TF``.
+        flow_TF_MW, cap_FT_MW, cap_TF_MW, utilization_FT, utilization_TF,
+        hurdle_costFT_USD, hurdle_costTF_USD``.
+        Costs are system-only and already included once in total cost.
         Row count is ``|L| * n_hours``.
 
     OutputMarginalPrices_{case}.csv

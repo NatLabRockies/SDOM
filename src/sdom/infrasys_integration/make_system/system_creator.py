@@ -13,7 +13,12 @@ from sdom import load_data as _load_data
 from sdom.constants import HYDRO_FORMULATION_METADATA, NO_RAMPS_MIN_DISPATCH_FORMULATION
 from sdom.initializations import validate_vre_capacity_data
 from sdom.io.formulations import get_formulation
-from sdom.io.validation import check_formulation, validate_thermal_min_dispatch, validate_thermal_ownership
+from sdom.io.validation import (
+    check_formulation,
+    validate_hurdle_rates,
+    validate_thermal_min_dispatch,
+    validate_thermal_ownership,
+)
 
 from ..models import (
     SDOMArea,
@@ -273,6 +278,8 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
         Enabled thermal fractions are copied and projected from authoritative
         generator-owned ``min_dispatch_fraction`` time series. Series must be
         unique, hourly, start at 2000-01-01, and cover the retained profile.
+        Interface records are copied and authoritative component hurdle rates
+        are projected without changing retained source data.
 
     Raises
     ------
@@ -295,6 +302,14 @@ def system_to_data_dict(system: System) -> dict[str, Any]:
         raise ValueError("system does not include SDOM source data; use load_system() or load_system_from_data().")
     validate_vre_capacity_bounds(system)
     restored = dict(data)
+    restored["lines"] = []
+    for line in data.get("lines") or []:
+        component = system.get_component(SDOMTransmissionInterface, f"line:{line['line_id']}")
+        record = dict(line)
+        for column, rate in (("hurdle_rateFT", component.hurdle_rate_ft), ("hurdle_rateTF", component.hurdle_rate_tf)):
+            if rate or column in record:
+                record[column] = rate
+        restored["lines"].append(record)
     _project_vre_capacity_bounds(restored, system)
     if get_formulation(restored, "Thermal") == NO_RAMPS_MIN_DISPATCH_FORMULATION:
         frame = validate_thermal_min_dispatch(restored)
@@ -820,7 +835,7 @@ def _add_transmission_interfaces(system: System, data: Mapping[str, Any], buses:
     """
     cap_ft = data.get("line_cap_ft")
     cap_tf = data.get("line_cap_tf")
-    for line in data.get("lines") or []:
+    for line in validate_hurdle_rates(data.get("lines") or []):
         line_id = str(line["line_id"])
         component = SDOMTransmissionInterface(
             name=f"line:{line_id}",
@@ -829,6 +844,8 @@ def _add_transmission_interfaces(system: System, data: Mapping[str, Any], buses:
             category=SDOMTechnologyType.TRANSMISSION.value,
             forward_capacity=_series_peak(cap_ft[line_id]) if _has_column(cap_ft, line_id) else None,
             reverse_capacity=_series_peak(cap_tf[line_id]) if _has_column(cap_tf, line_id) else None,
+            hurdle_rate_ft=line.get("hurdle_rateFT", 0.0),
+            hurdle_rate_tf=line.get("hurdle_rateTF", 0.0),
         )
         system.add_component(component)
         _attach_column_series(system, component, cap_ft, column=line_id, name="forward_capacity", source_key="line_cap_ft")

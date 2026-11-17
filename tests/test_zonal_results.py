@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import pickle
+from copy import deepcopy
 
 import pandas as pd
 import pyomo.environ as pyo
@@ -21,7 +22,6 @@ from sdom.optimization_main import (
     run_solver,
 )
 from sdom.results import OptimizationResults
-
 
 REL_LEGACY_FIXTURE = "Data/no_exchange_run_of_river"
 REL_ZONAL_FIXTURE = "Data/zonal_test"
@@ -287,7 +287,7 @@ def test_zonal_interregional_exchanges_schema(zonal_model_and_results):
     model, results = zonal_model_and_results
     df = results.interregional_exchanges_df
 
-    expected_cols = {
+    expected_cols = [
         "line_id",
         "from_area",
         "to_area",
@@ -299,8 +299,10 @@ def test_zonal_interregional_exchanges_schema(zonal_model_and_results):
         "cap_TF_MW",
         "utilization_FT",
         "utilization_TF",
-    }
-    assert set(df.columns) == expected_cols
+        "hurdle_costFT_USD",
+        "hurdle_costTF_USD",
+    ]
+    assert list(df.columns) == expected_cols
 
     n_lines = len(model.L)
     n_hours = len(model.h)
@@ -355,3 +357,69 @@ def test_results_pickle_roundtrip(legacy_results, zonal_model_and_results):
             r2.interregional_exchanges_df.shape
             == r.interregional_exchanges_df.shape
         )
+
+
+@pytest.mark.parametrize("rate", [-1, "bad", float("nan"), float("inf")])
+def test_direct_dictionary_invalid_hurdle_rate_rejected(zonal_data, rate):
+    data = deepcopy(zonal_data)
+    data["lines"][0]["hurdle_rateTF"] = rate
+    with pytest.raises(ValueError, match=r"interconnections.csv.*L_A1_A2.*hurdle_rateTF"):
+        initialize_model(data, n_hours=24)
+
+
+def test_direct_dictionary_blank_hurdle_warns_without_mutation(zonal_data, caplog):
+    data = deepcopy(zonal_data)
+    data["lines"][0]["hurdle_rateFT"] = ""
+    model = initialize_model(data, n_hours=24)
+    assert model.HurdleRateFT["L_A1_A2"] == 0
+    assert data["lines"][0]["hurdle_rateFT"] == ""
+    assert "hurdle_rateFT" in caplog.text and "L_A1_A2" in caplog.text
+
+
+def test_hurdle_costs_reconcile_without_area_allocation(zonal_data):
+    data = deepcopy(zonal_data)
+    data["lines"][0].update(hurdle_rateFT=3, hurdle_rateTF=5)
+    model = initialize_model(data, n_hours=24)
+    result = run_solver(model, _highs_config(), case_name="hurdles")
+    assert result.is_optimal
+    exchanges = result.interregional_exchanges_df
+    assert exchanges["hurdle_costFT_USD"].to_numpy() == pytest.approx(
+        3 * exchanges["flow_FT_MW"].to_numpy()
+    )
+    assert exchanges["hurdle_costTF_USD"].to_numpy() == pytest.approx(
+        5 * exchanges["flow_TF_MW"].to_numpy()
+    )
+    hurdle = exchanges[["hurdle_costFT_USD", "hurdle_costTF_USD"]].to_numpy().sum()
+    assert hurdle > 0
+    assert result.cost_breakdown["hurdle_cost"] == pytest.approx(hurdle)
+    assert pyo.value(model.HurdleCost) == pytest.approx(hurdle)
+    area_total = sum(
+        frame.loc[frame["Metric"] == "Total cost", "Optimal Value"].iloc[0]
+        for frame in result.area_summary_df.values()
+    )
+    assert result.total_cost == pytest.approx(area_total + hurdle)
+    assert result.total_cost == pytest.approx(pyo.value(model.Obj))
+    assert "hurdle_cost" not in result.area_cost_breakdown["A1"]
+    summary = result.summary_df.loc[result.summary_df["Metric"] == "Total hurdle cost"].iloc[0]
+    assert summary["Optimal Value"] == pytest.approx(hurdle)
+    assert summary["Unit"] == "$US"
+    for area in model.A:
+        for constraint in model.area[area].SupplyBalance.values():
+            assert pyo.value(constraint.body) == pytest.approx(0, abs=1e-6)
+
+
+def test_explicit_zero_hurdles_preserve_legacy_model_and_cost(zonal_data, zonal_model_and_results):
+    baseline_model, baseline = zonal_model_and_results
+    data = deepcopy(zonal_data)
+    data["lines"][0].update(hurdle_rateFT=0, hurdle_rateTF=0)
+    model = initialize_model(data, n_hours=24)
+    for kind in (pyo.Var, pyo.Constraint):
+        assert len(list(model.component_data_objects(kind))) == len(
+            list(baseline_model.component_data_objects(kind))
+        )
+    assert not hasattr(model, "hurdle_cost")
+    result = run_solver(model, _highs_config(), case_name="zeros")
+    assert result.is_optimal
+    assert result.total_cost == pytest.approx(baseline.total_cost, abs=1e-6)
+    assert result.cost_breakdown["hurdle_cost"] == 0
+    pd.testing.assert_frame_equal(result.interregional_exchanges_df, baseline.interregional_exchanges_df)

@@ -34,9 +34,9 @@ def _load_interconnections(input_data_dir, *, areas):
     Returns
     -------
     list of dict
-        One ``{"line_id": str, "from_area": str, "to_area": str}`` per row,
-        preserving the file order. Returns ``[]`` when the file is absent
-        or empty.
+        Topology and any supplied ``hurdle_rateFT`` / ``hurdle_rateTF``
+        columns (USD/MWh), preserving file order. Missing rate columns mean
+        zero. Returns ``[]`` when the file is absent or empty.
 
     Raises
     ------
@@ -49,12 +49,14 @@ def _load_interconnections(input_data_dir, *, areas):
     if not path:
         return []
 
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, converters={"hurdle_rateFT": str, "hurdle_rateTF": str})
     df = validate_interconnections(df, areas=areas)
     if df.empty:
         return []
 
-    return df[["line_id", "from_area", "to_area"]].to_dict(orient="records")
+    columns = ["line_id", "from_area", "to_area"]
+    columns.extend(c for c in ("hurdle_rateFT", "hurdle_rateTF") if c in df.columns)
+    return df[columns].to_dict(orient="records")
 
 
 def _load_one_line_cap(input_data_dir, filename, *, lines, n_hours, direction):

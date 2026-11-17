@@ -254,6 +254,7 @@ def _build_zonal_summary_dataframe(
             ("Energy-CAPEX", cost_breakdown["energy_capex"], "$US"),
             ("Total-CAPEX", tcapex, "$US"),
             ("OPEX", opex, "$US"),
+            ("Total hurdle cost", {"All": cost_breakdown.get("hurdle_cost", 0.0)}, "$US"),
             (
                 "Total VRE curtailment",
                 {"Solar PV": pv_curtailment, "Wind": wind_curtailment, "All": total_curtailment},

@@ -4,6 +4,8 @@ Validators raise ``ValueError`` for invalid supplied inputs. Normalization is
 explicit in return values; caller-owned DataFrames are not modified.
 """
 
+import logging
+import math
 import re
 from collections.abc import Collection, Sequence
 
@@ -282,7 +284,53 @@ def validate_interconnections(df: pd.DataFrame, *, areas: list[dict]) -> pd.Data
             f"interconnections.csv: references unknown area_id(s) {unknown} "
             f"not declared in areas.csv (declared: {sorted(declared)})."
         )
-    return df
+    return pd.DataFrame(validate_hurdle_rates(df.to_dict(orient="records")), columns=df.columns)
+
+
+def validate_hurdle_rates(lines: list[dict]) -> list[dict]:
+    """Normalize supplied directional rates without modifying source records.
+
+    Parameters
+    ----------
+    lines : list of dict
+        Interface records; missing rate keys mean zero and remain absent.
+
+    Returns
+    -------
+    list of dict
+        Copied records with finite nonnegative rates in USD/MWh. Blank strings
+        or ``None`` become zero with a column/interface-specific warning.
+
+    Raises
+    ------
+    ValueError
+        If a supplied rate is nonnumeric, negative, or nonfinite.
+    """
+    normalized = [dict(line) for line in lines]
+    for column in ("hurdle_rateFT", "hurdle_rateTF"):
+        blanks = []
+        for line in normalized:
+            if column not in line:
+                continue
+            raw = line[column]
+            if raw is None or (isinstance(raw, str) and not raw.strip()):
+                blanks.append(line["line_id"])
+                line[column] = 0.0
+                continue
+            message = (
+                f"interconnections.csv: interface {line['line_id']!r}, "
+                f"column {column}, invalid value {raw!r}; expected a finite nonnegative rate."
+            )
+            try:
+                rate = float(raw)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ValueError(message) from error
+            if not math.isfinite(rate) or rate < 0:
+                raise ValueError(message)
+            line[column] = rate
+        if blanks:
+            logging.warning("interconnections.csv: blank %s for interface(s) %s; using zero.", column, blanks)
+    return normalized
 
 
 def validate_line_capacity_layout(df: pd.DataFrame, *, filename: str) -> None:

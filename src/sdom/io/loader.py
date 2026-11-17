@@ -320,7 +320,7 @@ def load_data(input_data_dir: str = ".\\Data\\") -> dict:
     _augment_with_per_area_views(data_dict, input_data_dir=input_data_dir)
 
     # ------------------------------------------------------------------
-    # Aggregation fallback (commit #6): zonal data + CopperPlateNetwork.
+    # Aggregation fallback: zonal data + CopperPlateNetwork.
     # When the user ships a multi-area input folder but selects (or
     # defaults to) ``CopperPlateNetwork``, collapse every per-area entity
     # into a single synthetic ``default`` area following PRD §4.6.
@@ -343,7 +343,7 @@ def load_data(input_data_dir: str = ".\\Data\\") -> dict:
             )
 
     # ------------------------------------------------------------------
-    # Zonal topology + line capacities (commit #5).
+    # Zonal topology + line capacities.
     # Skipped entirely when the aggregation fallback above collapsed the
     # input to a single synthetic area. Otherwise parsed when present so
     # legacy folders pick up empty defaults without raising; the

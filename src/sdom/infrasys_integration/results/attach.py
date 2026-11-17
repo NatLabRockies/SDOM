@@ -736,7 +736,7 @@ def _attach_interregional_exchange_results(system: System, frame: pd.DataFrame, 
     """
     if frame.empty:
         return
-    missing_columns = [column for column in _EXCHANGE_COLUMNS if column not in frame.columns]
+    missing_columns = [column for column in _EXCHANGE_COLUMNS[:-2] if column not in frame.columns]
     if missing_columns:
         LOGGER.warning(
             "Interregional exchange results are missing required columns %s; skipping exchange result attachment.",
@@ -760,6 +760,12 @@ def _attach_interregional_exchange_results(system: System, frame: pd.DataFrame, 
                 cap_tf_mw=_float_list(group["cap_TF_MW"]),
                 utilization_ft=_optional_float_list(group["utilization_FT"]),
                 utilization_tf=_optional_float_list(group["utilization_TF"]),
+                hurdle_cost_ft_usd=(
+                    _float_list(group["hurdle_costFT_USD"]) if "hurdle_costFT_USD" in group else [0.0] * len(group)
+                ),
+                hurdle_cost_tf_usd=(
+                    _float_list(group["hurdle_costTF_USD"]) if "hurdle_costTF_USD" in group else [0.0] * len(group)
+                ),
             ),
         )
 
