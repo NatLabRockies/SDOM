@@ -252,6 +252,8 @@ def test_plot_results_creates_default_zonal_specific_plots(zonal_results, tmp_pa
         "area_generation_stacks.png",
         "area_capacity_stacks_power.png",
         "line_flow_heatmap.png",
+        "duration_curve_system_hydro_generation.png",
+        "duration_curve_zonal_hydro_generation.png",
         "duration_curve_system_vre_curtailment_mw.png",
         "duration_curve_system_vre_curtailment_pct.png",
         "duration_curve_zonal_total_thermal_generation.png",
@@ -337,6 +339,7 @@ def test_duration_curve_zonal_inventory_ratios_and_independent_signed_panels(tmp
         frames.append(pd.DataFrame({
             "Area": [area] * 2, "Hour": [1, 24],
             "All Thermal Generation (MW)": [10, 20],
+            "Hydro Generation (MW)": [2, 4],
             "Load (MW)": [40, 30], "Net Load (MW)": [15, -5],
             "Imports (MW)": [3, 0], "Exports (MW)": [0, 2],
             "Solar PV Generation (MW)": [generation, 0],
@@ -360,24 +363,35 @@ def test_duration_curve_zonal_inventory_ratios_and_independent_signed_panels(tmp
         }),
     )
     figures = {}
-    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: figures.setdefault(os.path.basename(path), fig))
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
     plot_duration_curves(result, generation_df=system_frame, plots_dir=str(tmp_path))
-    metrics = ["total_thermal_generation", "load", "net_load", "imports", "exports", "vre_curtailment_mw", "vre_curtailment_pct"]
+    metrics = ["total_thermal_generation", "hydro_generation", "load", "net_load", "imports", "exports", "vre_curtailment_mw", "vre_curtailment_pct"]
     expected = {f"duration_curve_{scope}_{metric}.png" for scope in ("system", "zonal") for metric in metrics}
-    expected |= {"duration_curve_interregional_signed_flows.png", "duration_curve_zonal_marginal_prices.png"}
+    expected |= {"duration_curve_interregional_signed_flows.png", "duration_curve_zonal_marginal_prices.png",
+                 "duration_curve_system_marginal_prices.png"}
     assert set(figures) == expected
     system_points = figures["duration_curve_system_vre_curtailment_pct.png"].axes[0].collections[0]
     np.testing.assert_allclose(system_points.get_offsets()[:, 1], [100 * 10 / 110, 0])
     for filename in expected:
         fig = figures[filename]
+        if filename == "duration_curve_system_marginal_prices.png":
+            assert len(fig.axes[0].lines) == 3
+            continue
         panels = fig.axes[:-1]
         assert len(panels) == (1 if "_system_" in filename else 3)
         for ax in panels:
-            assert ax.get_subplotspec().get_gridspec().ncols <= 2
             assert not ax.lines
             assert ax.collections[0].get_clim() == (0, 23)
             assert ax.collections[0].norm is panels[0].collections[0].norm
-            assert ax.get_xlabel() == "Duration (%)"
+            if "_system_" in filename:
+                assert ax.get_xlabel() == "Duration (%)"
+            else:
+                assert any(text.get_text() == "Duration (%)" for text in fig.texts)
     for filename, expected_values in (
         ("duration_curve_interregional_signed_flows.png", [[4, -5], [9, -10], [0, -1]]),
         ("duration_curve_zonal_marginal_prices.png", [[10, -5], [30, -20], [0, -1]]),

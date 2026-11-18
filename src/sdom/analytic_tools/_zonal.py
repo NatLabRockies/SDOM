@@ -30,7 +30,7 @@ from ._colors import (
     get_technology_order,
     infer_storage_technologies,
 )
-from ._utils import save_figure
+from ._utils import resolve_areas, save_figure
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..results import OptimizationResults
@@ -84,13 +84,7 @@ def _resolve_areas(
 ) -> list:
     if areas is None:
         return list(results.areas)
-    resolved = list(areas)
-    unknown = [a for a in resolved if a not in results.areas]
-    if unknown:
-        raise ValueError(
-            f"Unknown area(s) {unknown!r}; available: {list(results.areas)!r}"
-        )
-    return resolved
+    return resolve_areas(list(results.areas), areas=areas if isinstance(areas, str) else list(areas))
 
 
 def _collect_storage_techs(

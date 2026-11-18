@@ -4,6 +4,21 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Hydropower Duration Curves (2026-11-17)
+
+- Register `Hydro Generation (MW)` once in `_GENERATION_METRICS`, reusing the existing MW renderer for copperplate, system and zonal scopes. Filenames end in `hydro_generation.png`; zonal outputs use `system_` and `zonal_` prefixes.
+- System hydro uses the existing hourly aggregate across all areas before sorting, independent of `areas=`. Area panels inherit selection/order, original-hour colors, duration references, 16 pt text, pagination and output ownership. Do not mix hydro generation with available budgets or VRE curtailment.
+- Validation: 148 plotting/export/documentation tests passed, with one optional Infrasys module skipped. Source Ruff/ty checks and the Sphinx HTML build pass; optional-dependency/inventory and existing documentation warnings remain.
+
+## Enlarged Duration Typography (2026-11-17)
+
+- Duration typography increased by 2 pt: grouped/overlay body text is 16 pt and figure titles are 20 pt; standalone duration labels, ticks, legends, titles and hour colorbars also increase by 2 pt. Header/colorbar offsets preserve measured bounds.
+- Six realistic area series still fit one default 2-by-3 page. Do not blindly switch overflowing numeric references to scientific notation: use it only when shorter, otherwise moderate decimal values get wider and force unnecessary pagination. Test the six-panel layout with multi-digit decimal references, not only singleton integers.
+
+## Zonal Plotting Test Metadata (2026-11-17)
+
+- The zonal collector sets `results.areas = list(model.A)` for every collected zonal result. Synthetic zonal export/heatmap tests must include the matching area inventory instead of relying on missing metadata. Per user direction, repair these fixtures without changing production plotting or weakening selection validation.
+
 ## Directional Hurdle Rates (#110, 2026-11-17)
 
 - Builder placement: `L_hurdle` is derived alongside directional parameters because topology construction precedes rate availability. `HurdleCost` stays with its epigraph bounds; `add_network_expressions` remains reporting-only. Inline comments explain both choices without changing builder contracts.
@@ -17,6 +32,15 @@ This file stores learnings, patterns, and decisions from code implementation tas
 - Pricing clones retain epigraphs: uncongested price spreads can equal directional hurdle rates while directional capacity duals remain zero. Both dictionary and System parametric paths retain charges.
 - Validation: 474 distinct related tests passed across runs, including all zonal/Infrasys regressions, copperplate curtailment tests, and 30 documentation checks with both Sphinx builds. A discovered model-field documentation gap was fixed and expanded to cover charged zonal models. Changed-code Ruff findings are 90 versus 93 at HEAD; source ty findings with optional dependencies resolved are 88 versus 96, with no additions. Existing AnyIO/pytest deprecation warning remains.
 - Optional Infrasys dependencies were restored only in a `uv run --no-sync --with ...` overlay, leaving the project environment and manifests unchanged. For ty, pass the overlay package directories via `--extra-search-path`; its interpreter probing otherwise misses uv's injected package paths. No commits or pushes.
+
+## Adaptive Duration Layouts and Area Selection (2026-11-15)
+
+- Public single-run, parametric, and Infrasys plotting adapters accept `areas`, `page_size`, `max_panels_per_page`, `ncols`, and `panel_aspect`. Omitted areas mean all zones; explicit selection preserves order and rejects empty, duplicate, unknown, or copperplate selections. Selection affects area plots and the price overlay, never system aggregates or line plots.
+- Grouped duration pages use the reusable physical layout planner in `_layout.py`: default 16:9 slides, additional standard/custom sizes, 14 pt text, minimum data axes 2.9 by 1.2 inches, measured wrapping and collision validation. Paginate rather than shrink below readability. Preserve unused final-page cells, missing-data panels, signed values, and all-zero distinctions.
+- Duration sorting, interpolation, hour coloring/normalization, and curtailment calculations remain unchanged. The additional `duration_curve_system_marginal_prices.png` overlays independently sorted prices with stable area colors/styles; copperplate has one curve. Singleton overlays require a visible marker. Unavailable prices are explicit legend entries, not zero lines.
+- Collected `OptimizationResults.lines` contains dictionaries with `line_id`, not merely strings. Extract identifiers before deterministic sorting; preserve declared lines missing observations.
+- Grouped output families use staged rendering and manifest-owned cleanup, predictable `_partN` names, rollback on publication failure, explicit figure bounds, and guaranteed closing. Never delete unowned legacy page files.
+- Final solver-free plotting validation: 100 passed, one optional Infrasys module skipped. New core Ruff/type checks pass; broader type diagnostics match the existing baseline. Documentation builds successfully with optional-dependency/network warnings. No optimization or production figure regeneration was performed; the 100-group synthetic matrix is not a full-year resource benchmark. Continue using `uv run --no-sync` to avoid unrelated lockfile changes.
 
 ## Hour-Colored Duration Curves (#107, 2026-11-15)
 

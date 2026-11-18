@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
@@ -40,6 +41,11 @@ def plot_system_results(
     *,
     run_id: str,
     output_dir: str | PathLike[str],
+    areas: Sequence[str] | None = None,
+    page_size: str | tuple[float, float] = "slide_16_9",
+    max_panels_per_page: int | None = None,
+    ncols: int | None = None,
+    panel_aspect: float = 2.2,
 ) -> None:
     """Build standard single-run plots from System result attributes.
 
@@ -54,6 +60,17 @@ def plot_system_results(
         ``<output_dir>/plots`` using the same filenames as
         :func:`sdom.analytic_tools.plot_results`. Zonal-only plots are also
         written to that directory with stable filenames.
+    areas : sequence of str or None, optional
+        Ordered zonal subset, including the combined price overlay; None
+        includes all zones. System totals and line plots remain unchanged.
+    page_size : str or tuple of float, optional
+        Grouped-duration page preset or dimensions in inches.
+    max_panels_per_page : int or None, optional
+        Positive grouped-panel ceiling, or automatic capacity.
+    ncols : int or None, optional
+        Exact grouped column count, or automatic.
+    panel_aspect : float, optional
+        Preferred data-axis width/height ratio, default 2.2.
 
     Returns
     -------
@@ -81,12 +98,15 @@ def plot_system_results(
     results = optimization_results_from_system(system, run_id=run_id)
     _ensure_single_plot_summary(results)
 
-    plot_results(results, output_dir=str(output_path))
+    plot_results(
+        results, output_dir=str(output_path), areas=areas, page_size=page_size,
+        max_panels_per_page=max_panels_per_page, ncols=ncols, panel_aspect=panel_aspect,
+    )
     if not results.is_optimal:
         return
 
     if results.is_zonal:
-        _plot_zonal_system_results(results, plots_dir=plots_dir)
+        _plot_zonal_system_results(results, plots_dir=plots_dir, areas=areas)
 
 
 def plot_system_parametric_results(
@@ -98,6 +118,11 @@ def plot_system_parametric_results(
     facet_by: str | None = None,
     output_dir: str | Path,
     max_cases_per_figure: int = 24,
+    areas: Sequence[str] | None = None,
+    page_size: str | tuple[float, float] = "slide_16_9",
+    max_panels_per_page: int | None = None,
+    ncols: int | None = None,
+    panel_aspect: float = 2.2,
 ) -> None:
     """Generate parametric sensitivity plots from System-attached results.
 
@@ -121,6 +146,16 @@ def plot_system_parametric_results(
         Root directory for per-case and sensitivity plot outputs.
     max_cases_per_figure : int, default=24
         Maximum group and hue combinations rendered in one comparison figure.
+    areas : sequence of str or None, optional
+        Ordered per-case zonal subset, or all zones. System totals are unchanged.
+    page_size : str or tuple of float, optional
+        Per-case grouped-duration page preset or dimensions in inches.
+    max_panels_per_page : int or None, optional
+        Positive per-case grouped-panel ceiling, independent of the case cap.
+    ncols : int or None, optional
+        Exact per-case grouped column count, or automatic.
+    panel_aspect : float, optional
+        Per-case preferred data-axis width/height ratio, default 2.2.
 
     Returns
     -------
@@ -145,6 +180,11 @@ def plot_system_parametric_results(
         facet_by=facet_by,
         output_dir=str(output_dir),
         max_cases_per_figure=max_cases_per_figure,
+        areas=areas,
+        page_size=page_size,
+        max_panels_per_page=max_panels_per_page,
+        ncols=ncols,
+        panel_aspect=panel_aspect,
     )
 
 
@@ -368,7 +408,9 @@ def _summary_row(metric: str, technology: object, value: object, unit: str) -> d
     }
 
 
-def _plot_zonal_system_results(results: OptimizationResults, *, plots_dir: Path) -> None:
+def _plot_zonal_system_results(
+    results: OptimizationResults, *, plots_dir: Path, areas: Sequence[str] | None = None
+) -> None:
     """Build zonal-only plots for reconstructed OptimizationResults.
 
     Parameters
@@ -377,6 +419,8 @@ def _plot_zonal_system_results(results: OptimizationResults, *, plots_dir: Path)
         Reconstructed zonal results.
     plots_dir : pathlib.Path
         Directory where zonal plot files are written.
+    areas : sequence of str or None, optional
+        Ordered area subset, or all areas.
 
     Returns
     -------
@@ -391,8 +435,8 @@ def _plot_zonal_system_results(results: OptimizationResults, *, plots_dir: Path)
     if not results.is_zonal:
         return
 
-    plot_area_generation_stacks(results, save_path=plots_dir / "area_generation_stacks.png")
-    plot_area_capacity_stacks(results, save_path=plots_dir / "area_capacity_stacks.png")
+    plot_area_generation_stacks(results, areas=areas, save_path=plots_dir / "area_generation_stacks.png")
+    plot_area_capacity_stacks(results, areas=areas, save_path=plots_dir / "area_capacity_stacks.png")
 
     if results.interregional_exchanges_df.empty:
         LOGGER.warning(

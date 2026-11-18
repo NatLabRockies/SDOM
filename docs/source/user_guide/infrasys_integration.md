@@ -353,6 +353,14 @@ Pyomo model, and result export remains available through existing SDOM APIs.
 | `plot_results(results, output_dir=...)` | `add_results_to_system(system, results, run_id=...)`, then `plot_system_results(system, run_id=..., output_dir=...)` |
 | `plot_parametric_results(study, results, ...)` | `add_parametric_results_to_system(system, study, results=results, run_id=...)`, then `plot_system_parametric_results(system, run_id=..., group_by=..., output_dir=...)` |
 
+Both System plotting adapters forward `areas`, `page_size`,
+`max_panels_per_page`, `ncols`, and `panel_aspect` to the standard plotting
+pipeline. Omit `areas` to include all zones, or supply an ordered subset for
+area-based plots and the combined LMP duration overlay. Full-system summaries
+and line plots remain unchanged. See
+[readable grouped pages](running_and_outputs.md#readable-grouped-pages-and-area-selection)
+for layout presets, pagination and output ownership.
+
 For an explicit dict-to-System transition, `load_system_from_data(data)` builds
 a System from the dictionary returned by `load_data`. Before instantiation,
 `apply_scalar_sweep_to_system` and `apply_time_series_sweep_to_system` create

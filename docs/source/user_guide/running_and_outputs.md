@@ -426,6 +426,7 @@ figures in one call.
 | `capacity_generation_donuts.png` | Side-by-side capacity and total generation donuts |
 | `heatmap_<column>.png` | One hourly dispatch heatmap per eligible generation column, spanning the modeled days |
 | `duration_curve_total_thermal_generation.png` | Descending hourly total thermal generation (copperplate) |
+| `duration_curve_hydro_generation.png` | Descending hourly hydropower generation in MW (copperplate) |
 | `duration_curve_load.png` | Descending hourly load (copperplate) |
 | `duration_curve_net_load.png` | Descending hourly net load (copperplate) |
 | `duration_curve_imports.png`, `duration_curve_exports.png` | Descending imports or exports when the corresponding generation column is available |
@@ -433,18 +434,21 @@ figures in one call.
 | `duration_curve_marginal_price.png` | Descending available copperplate marginal prices; omitted when pricing is unavailable |
 | `heatmap_marginal_price.png` | Available copperplate marginal prices by actual hour; omitted for fewer than 24 priced hours |
 | `duration_curve_system_total_thermal_generation.png`, `duration_curve_system_load.png`, `duration_curve_system_net_load.png` | Descending system-level thermal generation, load, and net load for zonal results |
+| `duration_curve_system_hydro_generation.png` | Hourly hydropower generation summed across all zones before descending sorting |
 | `duration_curve_system_imports.png`, `duration_curve_system_exports.png` | System external imports and exports for zonal results, when available |
 | `duration_curve_system_vre_curtailment_mw.png`, `duration_curve_system_vre_curtailment_pct.png` | System combined solar + wind curtailment in MW and % for zonal results |
 | `duration_curve_zonal_total_thermal_generation.png`, `duration_curve_zonal_load.png`, `duration_curve_zonal_net_load.png` | One independently sorted panel per zone, in a separate figure for each metric |
+| `duration_curve_zonal_hydro_generation.png` | Hydropower generation in independently sorted panels for all zones or the ordered `areas=` selection |
 | `duration_curve_zonal_imports.png`, `duration_curve_zonal_exports.png` | External imports and exports in per-zone panels, when available |
 | `duration_curve_zonal_vre_curtailment_mw.png`, `duration_curve_zonal_vre_curtailment_pct.png` | Combined solar + wind curtailment in per-zone panels, in MW and % |
 | `duration_curve_interregional_signed_flows.png` | Independently sorted signed flows in one panel per line; original line directions are preserved |
-| `duration_curve_zonal_marginal_prices.png` | Available marginal prices in one panel per zone; no zonal system-price curve |
+| `duration_curve_zonal_marginal_prices.png` | One price panel per selected zone, with explicit missing/unavailable states |
+| `duration_curve_system_marginal_prices.png` | Combined LMP comparison: selected zonal curves overlaid, or one copperplate curve; not an averaged system price |
 | `area_generation_stacks.png` | Annual generation by area, stacked by technology, in zonal results |
 | `area_capacity_stacks_power.png` | Installed power capacity by area in zonal results |
 | `line_flow_heatmap.png` | Signed interregional line flow by hour when zonal exchange data is available |
 
-Duration curves are scatter points without connecting lines. Values are sorted
+Hour-colored duration curves are scatter points without connecting lines. Values are sorted
 descending on a `Duration (%)` axis: observation `i` (zero-based) among `N > 1`
 observations is at `100 * i / (N - 1)`, so maximum and minimum lie at 0% and 100%.
 A single observation lies at 0%. Distinct reference markers and legends show
@@ -453,10 +457,20 @@ distribution percentiles.
 
 Points retain their original hour-of-day colors after sorting, using Matplotlib's
 `jet` colormap and `(stored_hour - 1) % 24`. SDOM hours 1 and 25 are 00:00;
-hours 24 and 8760 are 23:00. Every figure has one 00-23 hour colorbar; zonal and
-line figures have at most two columns and a shared normalization across panels.
+hours 24 and 8760 are 23:00. Each scatter page has one 00-23 hour colorbar;
+grouped zonal and line figures use adaptive columns and pagination, with the
+same normalization on every panel and page.
 Generation and flow curves use MW; marginal-price curves use USD/MWh, preserving
 negative prices and signed flows.
+
+Hydropower curves use the collected `Hydro Generation (MW)` dispatch, not
+available hydro energy or curtailment. For zonal results, the system curve
+sums generation across all zones for each hour **before** sorting; it is not
+the sum of independently sorted area curves. The grouped hydro figure follows
+the same `areas`, page-size, panel-limit and pagination controls as other zonal
+duration curves. Selecting areas does not filter or recompute the system curve.
+These figures are included automatically by `plot_results()` and per-case
+parametric plotting; no new API arguments or optimization runs are required.
 
 Curtailment includes solar and wind only, not hydro. Hourly curtailment MW is
 solar curtailment plus wind curtailment. Availability is solar and wind generation
@@ -466,9 +480,86 @@ zero-availability hours at 0%. System percentages divide summed hourly
 curtailment across zones by summed hourly availability, never average zonal
 percentages. Calculations precede sorting.
 
-Missing, empty, or invalid optional data produces a warning and omits only the
-affected figure or panel. Invalid value/hour pairs are discarded together;
-eligible generation, price, and flow figures remain independent.
+Missing or invalid data produces a warning. Known area/line identities remain
+visible as status panels, rather than disappearing or becoming fabricated zero
+curves. Real all-zero series remain plotted and labeled. Invalid value/hour pairs
+are discarded together; partial panels report valid versus stored observations.
+This count does not establish coverage of hours absent from the stored data.
+Figures with no identifiable groups are omitted.
+
+The additional `duration_curve_system_marginal_prices.png` restores the combined
+price comparison: independently sorted curves use area-specific colors and line
+styles, not hour colors, and therefore have no hour colorbar. Each selected area
+has a legend entry; unavailable prices are labeled rather than drawn as zeros.
+Colors/styles are assigned from the full sorted area inventory, so filtering or
+reordering a subset does not change an area's identity. A warning identifies
+style reuse for very large inventories. The comparison shares a price axis:
+outliers remain visible but may flatten other curves. The separate zonal panels
+use independent y scales to show local structure; similar-looking shapes can
+represent different magnitudes. Neither view computes an aggregate system LMP.
+The overlay uses the current 0-100% duration definition, not the one-based ranks
+used by v0.2.13. Reference values remain available in the hour-colored panels.
+
+### Readable grouped pages and area selection
+
+These are plot-call options; no global Matplotlib configuration is required:
+
+```python
+# Replot collected zonal results without rerunning optimization.
+plot_results(
+    results,
+    plots_dir="./figures/selected_areas/",
+    areas=["ar", "bm", "it"],
+    page_size="slide_16_9",
+    max_panels_per_page=6,
+)
+```
+
+Omit `areas` (or use `None`) to include **all zones**. An explicit nonempty
+sequence selects and orders area generation/capacity plots, zonal duration
+panels, and the combined LMP overlay. Unknown IDs, duplicates, empty sequences,
+and bare strings raise `ValueError`. This is a plotting selection: full-system
+generation/cost/capacity summaries, line duration curves, and line heatmaps are
+not filtered or recomputed. Explicit area selection requires zonal results.
+
+| Option | Default and behavior |
+|---|---|
+| `page_size` | `"slide_16_9"`: 13 1/3 x 7 1/2 inches, including annotations. Other presets: `"slide_4_3"` (10 x 7 1/2), `"a4_landscape"` (297 x 210 mm), `"letter_landscape"` (11 x 8 1/2 inches). A `(width, height)` tuple specifies inches. |
+| `max_panels_per_page` | `None`: automatic capacity. A positive integer tightens the ceiling; it does not force that many panels to fit. |
+| `ncols` | `None`: automatic columns. A positive integer fixes the column count; impossible settings raise an actionable error. |
+| `panel_aspect` | `2.2`: target data-axis width/height ratio; readability and page bounds take precedence. |
+
+The planner reserves annotation space, requires data axes of at least 2.9 x 1.2
+inches, and chooses fewer feasible pages before optimizing panel aspect.
+Visible grouped text is at least 16 pt at the exported physical size. Measured
+title/legend collisions trigger fewer panels, not smaller text. Titles wrap
+without truncation, and impossible labels or a complete overlay legend that
+cannot fit produce an actionable error. Scaling an image down inside a slide
+also scales its effective font size; use it at the intended placement size.
+
+Grouped pages share one compact horizontal hour colorbar and a marker key.
+Each valid panel has its own numeric 5%, 50%, and 95% duration values below the
+data rectangle. These are duration-position references, not statistical
+percentiles (under conventional linear quantiles, D05 corresponds to Q95).
+All signed values and outliers remain present, without clipping, merging or
+downsampling. Unused final-page cells have no axes, and panel dimensions remain
+consistent across that metric's pages. Use the same full area order/options
+across comparable cases to keep identities aligned.
+
+The page controls affect grouped duration figures and the new LMP comparison;
+existing system single-panel figures, donuts, category bars and heatmaps keep
+their established sizing. The standalone area helpers also retain their
+existing `areas=` interface.
+
+**Filename migration:** one-page grouped figures retain the filenames above.
+Multiple pages append `_part1`, `_part2`, etc. Each grouped family has a
+`.pages.json` ownership manifest. On a successful replot, only stale files owned
+by its previous manifest are removed. A failed render retains the last published
+family and closes its figures. Unowned legacy base/part files that would conflict
+with pagination raise `FileExistsError`: move those files or use a fresh
+`plots_dir`. SDOM never broadly deletes matching user files. These grouped image
+dimensions, outside reference rows, status panels and paginated filenames are
+intentional changes from v0.2.14's fixed two-column layout.
 
 ### Basic usage
 

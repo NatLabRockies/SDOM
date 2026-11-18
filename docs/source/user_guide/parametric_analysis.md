@@ -210,11 +210,11 @@ The sign retains the line's defined direction; this is not zonal net interchange
 ![Signed line-flow heatmap](../_static/parametric_example/case_plots/line_flow_heatmap.png)
 
 Each optimal per-case plot directory also includes the applicable duration
-curves. Copperplate cases produce thermal-generation, load, net-load, and combined
+curves. Copperplate cases produce thermal-generation, hydropower, load, net-load, and combined
 solar + wind curtailment (MW and %) curves, plus conditional imports, exports,
 and marginal-price curves. They
 also produce the copperplate marginal-price heatmap when at least 24 priced
-hours are available. Zonal cases produce system thermal-generation, load, and
+hours are available. Zonal cases produce system thermal-generation, hydropower, load, and
 net-load, external import/export, and combined solar + wind curtailment curves,
 with separate system and per-zone subplot figures for each metric;
 per-line signed-flow and per-zone marginal-price subplot figures;
@@ -227,13 +227,25 @@ curves, copperplate price heatmaps, and zonal per-area figures.
 Per-case duration curves inherit the single-run scatter contract: descending
 values on a 0-100% `Duration (%)` axis, `jet` colors retaining each observation's
 original hour of day, and interpolated 5%, 50%, and 95% reference markers.
-Zonal/line grids have at most two columns and one shared 00-23 colorbar.
+Zonal/line grids use bounded, adaptive pages with 16 pt minimum text and one
+shared 00-23 hour scale. Each case also includes a combined LMP duration
+comparison: selected zonal curves overlaid, or one copperplate curve.
 Hourly curtailment percentages use combined solar + wind availability; zero
 availability stays at 0%, and system percentages use ratios of hourly sums
 rather than averages of zonal percentages. See
 [generated figures](running_and_outputs.md#generated-figures) for the full
 filename inventory and numerical definitions. Cross-case sensitivity plots
 are unchanged.
+
+The keyword-only `areas`, `page_size`, `max_panels_per_page`, `ncols`, and
+`panel_aspect` options are forwarded to each per-case `plot_results` call.
+Omitting `areas` includes all zones; supplying a sequence filters area-based
+plots and the LMP overlay, not system totals or line plots. These options do not
+change cross-case sensitivity charts and have no per-case effect when
+`plot_per_case=False`. `max_cases_per_figure` remains the separate cap on
+comparison bars. See
+[grouped pages and area selection](running_and_outputs.md#readable-grouped-pages-and-area-selection)
+for presets, validation and the `_partN` / `.pages.json` filename convention.
 
 ---
 

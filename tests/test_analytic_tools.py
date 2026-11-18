@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from sdom.results import OptimizationResults
+
 # ---------------------------------------------------------------------------
 # _colors.py tests
 # ---------------------------------------------------------------------------
@@ -81,7 +83,6 @@ class TestColors:
 # ---------------------------------------------------------------------------
 from sdom.analytic_tools._single import plot_results, _resolve_plots_dir
 from sdom.analytic_tools._duration_curves import (
-    _DURATION_CURVE_FONT_SIZE_INCREASE,
     _plot_duration_curve,
     _plot_grouped_duration_curves,
     _plot_marginal_price_heatmap,
@@ -218,11 +219,16 @@ class TestDurationCurves:
         )
 
         ax = captured["fig"].axes[0]
-        expected_size = plt.rcParams["font.size"] + _DURATION_CURVE_FONT_SIZE_INCREASE
+        expected_size = plt.rcParams["font.size"] + 4
         assert ax.xaxis.label.get_size() == expected_size
         assert ax.yaxis.label.get_size() == expected_size
         assert ax.get_xticklabels()[0].get_size() == expected_size
         assert ax.get_yticklabels()[0].get_size() == expected_size
+        assert ax.title.get_fontsize() == 14
+        assert all(text.get_fontsize() == expected_size for text in ax.get_legend().get_texts())
+        colorbar_ax = captured["fig"].axes[1]
+        assert colorbar_ax.yaxis.label.get_fontsize() == expected_size
+        assert all(label.get_fontsize() == 12 for label in colorbar_ax.get_yticklabels())
         plt.close(captured["fig"])
 
     def test_prepare_duration_series_sorts_values_and_preserves_hours(self):
@@ -247,6 +253,7 @@ class TestDurationCurves:
         result.generation_df["Net Load (MW)"] = [100.0] * len(result.generation_df)
         result.generation_df["Imports (MW)"] = [2.0] * len(result.generation_df)
         result.generation_df["Exports (MW)"] = [3.0] * len(result.generation_df)
+        result.generation_df["Hydro Generation (MW)"] = range(len(result.generation_df))
         result.marginal_prices_df = pd.DataFrame(
             {
                 "area_id": ["copperplate"] * 24,
@@ -264,6 +271,7 @@ class TestDurationCurves:
 
         expected = {
             "duration_curve_total_thermal_generation.png",
+            "duration_curve_hydro_generation.png",
             "duration_curve_load.png",
             "duration_curve_net_load.png",
             "duration_curve_imports.png",
@@ -363,17 +371,19 @@ class TestDurationCurves:
         assert ax.collections[0].get_array()[0] == pytest.approx(15.0)
         plt.close(captured["fig"])
 
-    def test_grouped_duration_curves_use_two_column_panels_and_shared_colorbar(
+    def test_grouped_duration_curves_use_bounded_panels_and_shared_colorbar(
         self, tmp_path, monkeypatch
     ):
         import matplotlib.pyplot as plt
 
         captured = {}
 
-        def fake_save(fig, output_path):
+        def fake_save(fig, output_path, **kwargs):
             captured["fig"] = fig
+            with open(output_path, "wb") as stream:
+                stream.write(b"preview")
 
-        monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", fake_save)
+        monkeypatch.setattr("matplotlib.figure.Figure.savefig", fake_save)
         data = pd.DataFrame(
             {
                 "area_id": [f"A{index}" for index in range(5)],
@@ -394,15 +404,15 @@ class TestDurationCurves:
         assert len(axes) == 6
         for ax in axes[:-1]:
             assert not ax.get_lines()
-            assert ax.get_subplotspec().get_gridspec().ncols == 2
             assert ax.collections[0].get_clim() == (0, 23)
-            assert ax.get_legend() is not None
             assert ax.collections[0].get_offsets()[0, 0] == 0
             np.testing.assert_allclose(
                 [reference.get_offsets()[0, 1] for reference in ax.collections[1:]],
                 [ax.collections[0].get_offsets()[0, 1]] * 3,
             )
-        assert axes[-1].get_ylabel() == "Hour of day"
+        assert axes[-1].get_xlim() == (0, 23)
+        assert any(text.get_text() == "Hour of day" for text in captured["fig"].texts)
+        np.testing.assert_allclose(captured["fig"].get_size_inches(), [40 / 3, 7.5])
         plt.close(captured["fig"])
 
 
@@ -442,6 +452,134 @@ def test_duration_invalid_hours_are_dropped_with_aligned_values(caplog):
     assert "discard" in caplog.text.lower()
 
 
+def test_zonal_price_overlay_and_panels_honor_area_selection(tmp_path, monkeypatch):
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    prices = pd.DataFrame({
+        "area_id": ["B", "B", "A", "A", "C", "C"],
+        "hour": [1, 24] * 3,
+        "pricing_status": ["available"] * 6,
+        "marginal_price_USD_per_MWh": [10, -10, 30, 20, 0, 0],
+    })
+    result = SimpleNamespace(is_zonal=True, areas=["A", "B", "C"], marginal_prices_df=prices)
+    before = prices.copy(deep=True)
+    plot_duration_curves(result, generation_df=pd.DataFrame(), plots_dir=str(tmp_path))
+    full_styles = {
+        line.get_label(): (line.get_color(), line.get_linestyle())
+        for line in figures["duration_curve_system_marginal_prices.png"].axes[0].lines
+    }
+
+    plot_duration_curves(
+        result, generation_df=pd.DataFrame(), plots_dir=str(tmp_path), areas=["B", "A"]
+    )
+
+    panel = figures["duration_curve_zonal_marginal_prices.png"]
+    assert [ax.get_gid() for ax in panel.axes[:-1]] == ["B", "A"]
+    overlay = figures["duration_curve_system_marginal_prices.png"].axes[0]
+    assert overlay.xaxis.label.get_fontsize() == 16
+    assert overlay.yaxis.label.get_fontsize() == 16
+    assert overlay.get_xticklabels()[0].get_fontsize() == 16
+    assert [line.get_label() for line in overlay.lines] == ["B", "A"]
+    np.testing.assert_array_equal(overlay.lines[0].get_xdata(), [0, 100])
+    np.testing.assert_array_equal(overlay.lines[0].get_ydata(), [10, -10])
+    np.testing.assert_array_equal(overlay.lines[1].get_ydata(), [30, 20])
+    assert len({(line.get_color(), line.get_linestyle()) for line in overlay.lines}) == 2
+    assert {
+        line.get_label(): (line.get_color(), line.get_linestyle()) for line in overlay.lines
+    } == {name: full_styles[name] for name in ["B", "A"]}
+    pd.testing.assert_frame_equal(before, prices)
+
+
+def test_omitted_areas_keeps_missing_prices_and_all_zones(tmp_path, monkeypatch):
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    result = SimpleNamespace(
+        is_zonal=True,
+        areas=["A", "B"],
+        marginal_prices_df=pd.DataFrame({
+            "area_id": ["A", "B"], "hour": [1, 1],
+            "pricing_status": ["available", "unavailable"],
+            "marginal_price_USD_per_MWh": [0.0, np.nan],
+        }),
+    )
+
+    plot_duration_curves(result, generation_df=pd.DataFrame(), plots_dir=str(tmp_path))
+
+    panel = figures["duration_curve_zonal_marginal_prices.png"]
+    assert [ax.get_gid() for ax in panel.axes[:-1]] == ["A", "B"]
+    np.testing.assert_array_equal(panel.axes[0].collections[0].get_offsets()[:, 1], [0])
+    assert not panel.axes[1].collections
+    assert any("unavailable" in text.get_text().lower() for text in panel.axes[1].texts)
+    legend = figures["duration_curve_system_marginal_prices.png"].legends[0]
+    assert any("B" in text.get_text() and "unavailable" in text.get_text() for text in legend.get_texts())
+    assert figures["duration_curve_system_marginal_prices.png"].axes[0].lines[0].get_marker() != "None"
+
+
+@pytest.mark.parametrize("areas", [[], ["A", "A"], ["unknown"], "A"])
+def test_plot_results_rejects_bad_area_selection_before_writing(areas, tmp_path):
+    result = SimpleNamespace(is_optimal=True, is_zonal=True, areas=["A", "B"])
+    with pytest.raises(ValueError, match=r"area|Unknown"):
+        plot_results(result, plots_dir=str(tmp_path), areas=areas)
+    assert not list(tmp_path.iterdir())
+
+
+def test_area_subset_does_not_change_system_aggregates_or_line_groups(tmp_path, monkeypatch):
+    figures = {}
+    bar_areas = []
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    def area_plot(result, *, areas, **kwargs):
+        bar_areas.append(areas)
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+    monkeypatch.setattr("sdom.analytic_tools._single._plot_capacity_donut", lambda *args: None)
+    monkeypatch.setattr("sdom.analytic_tools._single._plot_capacity_generation_donuts", lambda *args: None)
+    monkeypatch.setattr("sdom.analytic_tools._single._plot_heatmaps", lambda *args: None)
+    monkeypatch.setattr("sdom.analytic_tools._single.plot_area_generation_stacks", area_plot)
+    monkeypatch.setattr("sdom.analytic_tools._single.plot_area_capacity_stacks", area_plot)
+    monkeypatch.setattr("sdom.analytic_tools._single.plot_line_flow_heatmap", lambda *args, **kwargs: None)
+    zonal = pd.DataFrame({
+        "Area": ["A", "A", "B", "B"], "Hour": [1, 2, 1, 2],
+        "Load (MW)": [10, 20, 90, 180], "All Thermal Generation (MW)": [10, 20, 90, 180],
+    })
+    system = zonal.drop(columns="Area").groupby("Hour", as_index=False).sum()
+    result = SimpleNamespace(
+        is_optimal=True, is_zonal=True, areas=["A", "B"], generation_df=zonal,
+        lines=[{"line_id": "L2"}, {"line_id": "L1"}, {"line_id": "L3"}],
+        get_generation_dataframe=lambda: zonal.copy(),
+        get_system_generation_dataframe=lambda: system.copy(),
+        interregional_exchanges_df=pd.DataFrame({
+            "line_id": ["L1", "L2"], "hour": [1, 1], "flow_signed_MW": [-10, 20],
+        }),
+    )
+    plot_results(result, plots_dir=str(tmp_path), areas=["A"])
+
+    assert bar_areas == [["A"], ["A"]]
+    np.testing.assert_array_equal(
+        figures["duration_curve_system_load.png"].axes[0].collections[0].get_offsets()[:, 1], [200, 100]
+    )
+    np.testing.assert_array_equal(
+        figures["duration_curve_zonal_load.png"].axes[0].collections[0].get_offsets()[:, 1], [20, 10]
+    )
+    assert [ax.get_gid() for ax in figures["duration_curve_interregional_signed_flows.png"].axes[:-1]] == ["L1", "L2", "L3"]
+
+
 def test_curtailment_hourly_calculation_excludes_hydro_and_retains_zero(tmp_path, monkeypatch):
     figures = {}
     monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: figures.setdefault(os.path.basename(path), fig))
@@ -465,27 +603,130 @@ def test_curtailment_hourly_calculation_excludes_hydro_and_retains_zero(tmp_path
     pd.DataFrame({"area_id": ["A1"], "price": [10]}),
     pd.DataFrame({"area_id": ["A1"], "price": ["bad"], "hour": [1]}),
 ])
-def test_duration_optional_groups_skip_unavailable_observations(data, tmp_path, caplog):
-    assert not _plot_grouped_duration_curves(
+def test_duration_optional_groups_keep_known_missing_groups(data, tmp_path, caplog):
+    plotted = _plot_grouped_duration_curves(
         data, group_column="area_id", value_column="price",
         title="Prices", y_label="USD/MWh", output_path=str(tmp_path / "prices.png"),
     )
-    assert "skipping" in caplog.text
-    assert not (tmp_path / "prices.png").exists()
+    assert plotted == (not data.empty)
+    assert (tmp_path / "prices.png").exists() == (not data.empty)
+    assert "missing" in caplog.text.lower()
 
 
 def test_duration_invalid_group_does_not_suppress_eligible_panel(tmp_path, monkeypatch, caplog):
     captured = []
-    monkeypatch.setattr("sdom.analytic_tools._duration_curves.save_figure", lambda fig, path: captured.append(fig))
+
+    def capture(fig, path, **kwargs):
+        captured.append(fig)
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
     assert _plot_grouped_duration_curves(
         pd.DataFrame({"area_id": ["A1", "A2"], "price": ["bad", -10], "hour": [1, 24]}),
         group_column="area_id", value_column="price", title="Prices",
         y_label="USD/MWh", output_path=str(tmp_path / "prices.png"),
     )
-    assert captured[0].axes[0].get_title() == "A2"
-    assert len(captured[0].axes) == 2
-    assert "skipping group" in caplog.text
+    assert [ax.get_gid() for ax in captured[0].axes[:-1]] == ["A1", "A2"]
+    assert not captured[0].axes[0].collections
+    assert captured[0].axes[1].collections[0].get_offsets()[0, 1] == -10
+    assert "missing data" in caplog.text
     plt.close(captured[0])
+
+
+@pytest.mark.parametrize("areas", [None, ["A3", "A1"]], ids=["all-areas", "ordered-subset"])
+def test_hydro_duration_curves_keep_system_totals_and_paginate_selected_areas(tmp_path, monkeypatch, areas):
+    generation = pd.DataFrame(
+        {
+            "Area": ["A1"] * 3 + ["A2"] * 3 + ["A3"] * 3,
+            "Hour": [24, 1, 2] * 3,
+            "Hydro Generation (MW)": [0.0, 5.0, 10.0, 9.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    )
+    result = OptimizationResults(
+        termination_condition="optimal",
+        is_zonal=True,
+        areas=["A1", "A2", "A3"],
+        generation_df=generation.copy(),
+        area_generation_df={
+            area: frame.drop(columns="Area").reset_index(drop=True)
+            for area, frame in generation.groupby("Area")
+        },
+        summary_df=pd.DataFrame(columns=["Metric", "Technology", "Optimal Value"]),
+    )
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+
+    plot_results(result, plots_dir=str(tmp_path), areas=areas, max_panels_per_page=1)
+
+    system_ax = figures["duration_curve_system_hydro_generation.png"].axes[0]
+    np.testing.assert_allclose(system_ax.collections[0].get_offsets(), [[0, 10], [50, 9], [100, 6]])
+    np.testing.assert_array_equal(system_ax.collections[0].get_array(), [1, 23, 0])
+    assert system_ax.get_ylabel() == "MW"
+    np.testing.assert_allclose(
+        [reference.get_offsets()[0, 1] for reference in system_ax.collections[1:]], [9.9, 9, 6.3]
+    )
+    selected = ["A1", "A2", "A3"] if areas is None else areas
+    expected_values = {"A1": [10, 5, 0], "A2": [9, 1, 0], "A3": [0, 0, 0]}
+    for page, area in enumerate(selected, start=1):
+        figure = figures[f"duration_curve_zonal_hydro_generation_part{page}.png"]
+        ax = figure.axes[0]
+        assert ax.get_gid() == area
+        np.testing.assert_allclose(ax.collections[0].get_offsets()[:, 1], expected_values[area])
+        assert ax.collections[0].get_clim() == (0, 23)
+        if area == "A3":
+            assert any(text.get_text() == "All zero" for text in ax.texts)
+    assert len([name for name in figures if name.startswith("duration_curve_zonal_hydro_generation")]) == len(selected)
+    pd.testing.assert_frame_equal(result.generation_df, generation)
+
+
+@pytest.mark.parametrize(
+    ("hydro", "expected"),
+    [
+        pytest.param([0.0, 0.0], [0.0, 0.0], id="all-zero"),
+        pytest.param(["bad", 5.0], [5.0], id="partially-invalid"),
+        pytest.param(["bad", np.nan], None, id="no-valid-data"),
+        pytest.param(None, None, id="missing-column"),
+    ],
+)
+def test_copperplate_hydro_duration_preserves_zero_and_skips_unavailable_data(
+    tmp_path, monkeypatch, caplog, hydro, expected
+):
+    generation = pd.DataFrame({"Hour": [24, 1], "Load (MW)": [20.0, 30.0]})
+    if hydro is not None:
+        generation["Hydro Generation (MW)"] = hydro
+    result = OptimizationResults(
+        termination_condition="optimal",
+        generation_df=generation,
+        summary_df=pd.DataFrame(columns=["Metric", "Technology", "Optimal Value"]),
+    )
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+
+    plot_results(result, plots_dir=str(tmp_path))
+
+    assert "duration_curve_load.png" in figures
+    filename = "duration_curve_hydro_generation.png"
+    if expected is None:
+        assert filename not in figures
+        assert any("Hydro Generation (MW)" in record.message and "skipping" in record.message for record in caplog.records)
+    else:
+        ax = figures[filename].axes[0]
+        np.testing.assert_allclose(ax.collections[0].get_offsets()[:, 1], expected)
+        assert ax.collections[0].cmap.name == "jet"
+        assert ax.get_ylabel() == "MW"
 
 
 def test_parametric_per_case_inherits_duration_scatter_contract(tmp_path, monkeypatch):
@@ -494,6 +735,7 @@ def test_parametric_per_case_inherits_duration_scatter_contract(tmp_path, monkey
         output_dir=str(tmp_path),
     )
     result = _FakeResult()
+    result.generation_df["Hydro Generation (MW)"] = range(len(result.generation_df))
     figures = {}
 
     def capture(fig, path):
@@ -507,6 +749,7 @@ def test_parametric_per_case_inherits_duration_scatter_contract(tmp_path, monkey
     plot_parametric_results(study, [result], group_by="sweep", plot_per_case=True)
     for filename in (
         "duration_curve_total_thermal_generation.png",
+        "duration_curve_hydro_generation.png",
         "duration_curve_vre_curtailment_mw.png",
         "duration_curve_vre_curtailment_pct.png",
     ):
@@ -831,8 +1074,8 @@ class TestParametricStudyCaseMetadata:
         ]
         calls = []
 
-        def fake_plot_results(result, output_dir=None, plots_dir=None):
-            calls.append((result, output_dir, plots_dir))
+        def fake_plot_results(result, output_dir=None, plots_dir=None, **kwargs):
+            calls.append((result, output_dir, plots_dir, kwargs))
 
         monkeypatch.setattr(
             "sdom.analytic_tools._parametric.plot_results", fake_plot_results
@@ -871,11 +1114,17 @@ class TestParametricStudyCaseMetadata:
             [_FakeResult()],
             group_by="GenMix_Target",
             plot_per_case=plot_per_case,
+            page_size="slide_4_3",
+            max_panels_per_page=2,
+            areas=["A1"],
         )
 
         assert len(calls) == expected_calls
         if calls:
             assert calls[0][2] == os.path.join(str(tmp_path), "case_1", "plots")
+            assert calls[0][3]["areas"] == ["A1"]
+            assert calls[0][3]["page_size"] == "slide_4_3"
+            assert calls[0][3]["max_panels_per_page"] == 2
 
 
 # ---------------------------------------------------------------------------
