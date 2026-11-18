@@ -252,6 +252,8 @@ def test_plot_results_creates_default_zonal_specific_plots(zonal_results, tmp_pa
         "area_generation_stacks.png",
         "area_capacity_stacks_power.png",
         "line_flow_heatmap.png",
+        "duration_curve_system_hydro_generation.png",
+        "duration_curve_zonal_hydro_generation.png",
         "duration_curve_system_vre_curtailment_mw.png",
         "duration_curve_system_vre_curtailment_pct.png",
         "duration_curve_zonal_total_thermal_generation.png",
@@ -337,6 +339,7 @@ def test_duration_curve_zonal_inventory_ratios_and_independent_signed_panels(tmp
         frames.append(pd.DataFrame({
             "Area": [area] * 2, "Hour": [1, 24],
             "All Thermal Generation (MW)": [10, 20],
+            "Hydro Generation (MW)": [2, 4],
             "Load (MW)": [40, 30], "Net Load (MW)": [15, -5],
             "Imports (MW)": [3, 0], "Exports (MW)": [0, 2],
             "Solar PV Generation (MW)": [generation, 0],
@@ -367,7 +370,7 @@ def test_duration_curve_zonal_inventory_ratios_and_independent_signed_panels(tmp
 
     monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
     plot_duration_curves(result, generation_df=system_frame, plots_dir=str(tmp_path))
-    metrics = ["total_thermal_generation", "load", "net_load", "imports", "exports", "vre_curtailment_mw", "vre_curtailment_pct"]
+    metrics = ["total_thermal_generation", "hydro_generation", "load", "net_load", "imports", "exports", "vre_curtailment_mw", "vre_curtailment_pct"]
     expected = {f"duration_curve_{scope}_{metric}.png" for scope in ("system", "zonal") for metric in metrics}
     expected |= {"duration_curve_interregional_signed_flows.png", "duration_curve_zonal_marginal_prices.png",
                  "duration_curve_system_marginal_prices.png"}

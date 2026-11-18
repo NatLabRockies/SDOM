@@ -426,6 +426,7 @@ figures in one call.
 | `capacity_generation_donuts.png` | Side-by-side capacity and total generation donuts |
 | `heatmap_<column>.png` | One hourly dispatch heatmap per eligible generation column, spanning the modeled days |
 | `duration_curve_total_thermal_generation.png` | Descending hourly total thermal generation (copperplate) |
+| `duration_curve_hydro_generation.png` | Descending hourly hydropower generation in MW (copperplate) |
 | `duration_curve_load.png` | Descending hourly load (copperplate) |
 | `duration_curve_net_load.png` | Descending hourly net load (copperplate) |
 | `duration_curve_imports.png`, `duration_curve_exports.png` | Descending imports or exports when the corresponding generation column is available |
@@ -433,9 +434,11 @@ figures in one call.
 | `duration_curve_marginal_price.png` | Descending available copperplate marginal prices; omitted when pricing is unavailable |
 | `heatmap_marginal_price.png` | Available copperplate marginal prices by actual hour; omitted for fewer than 24 priced hours |
 | `duration_curve_system_total_thermal_generation.png`, `duration_curve_system_load.png`, `duration_curve_system_net_load.png` | Descending system-level thermal generation, load, and net load for zonal results |
+| `duration_curve_system_hydro_generation.png` | Hourly hydropower generation summed across all zones before descending sorting |
 | `duration_curve_system_imports.png`, `duration_curve_system_exports.png` | System external imports and exports for zonal results, when available |
 | `duration_curve_system_vre_curtailment_mw.png`, `duration_curve_system_vre_curtailment_pct.png` | System combined solar + wind curtailment in MW and % for zonal results |
 | `duration_curve_zonal_total_thermal_generation.png`, `duration_curve_zonal_load.png`, `duration_curve_zonal_net_load.png` | One independently sorted panel per zone, in a separate figure for each metric |
+| `duration_curve_zonal_hydro_generation.png` | Hydropower generation in independently sorted panels for all zones or the ordered `areas=` selection |
 | `duration_curve_zonal_imports.png`, `duration_curve_zonal_exports.png` | External imports and exports in per-zone panels, when available |
 | `duration_curve_zonal_vre_curtailment_mw.png`, `duration_curve_zonal_vre_curtailment_pct.png` | Combined solar + wind curtailment in per-zone panels, in MW and % |
 | `duration_curve_interregional_signed_flows.png` | Independently sorted signed flows in one panel per line; original line directions are preserved |
@@ -459,6 +462,15 @@ grouped zonal and line figures use adaptive columns and pagination, with the
 same normalization on every panel and page.
 Generation and flow curves use MW; marginal-price curves use USD/MWh, preserving
 negative prices and signed flows.
+
+Hydropower curves use the collected `Hydro Generation (MW)` dispatch, not
+available hydro energy or curtailment. For zonal results, the system curve
+sums generation across all zones for each hour **before** sorting; it is not
+the sum of independently sorted area curves. The grouped hydro figure follows
+the same `areas`, page-size, panel-limit and pagination controls as other zonal
+duration curves. Selecting areas does not filter or recompute the system curve.
+These figures are included automatically by `plot_results()` and per-case
+parametric plotting; no new API arguments or optimization runs are required.
 
 Curtailment includes solar and wind only, not hydro. Hourly curtailment MW is
 solar curtailment plus wind curtailment. Availability is solar and wind generation

@@ -71,7 +71,7 @@ def plot_results(
     - ``heatmap_{col}.png``        — hourly dispatch heatmaps for all generation
       columns in the generation DataFrame
         - ``duration_curve_*.png``     — hour-colored scatter duration curves for
-            thermal generation, load, net load, imports, exports, solar + wind
+            thermal and hydro generation, load, net load, imports, exports, solar + wind
             curtailment (MW and %), signed flows, and available marginal prices.
             Zonal results include system curves and separate per-zone subplot
             figures; flows use per-line panels and prices use per-zone panels.

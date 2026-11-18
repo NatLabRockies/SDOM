@@ -44,6 +44,7 @@ _DURATION_CURVE_FONT_SIZE_INCREASE = 4
 _DURATION_CURVE_FONT_SIZE = plt.rcParams["font.size"] + _DURATION_CURVE_FONT_SIZE_INCREASE
 _GENERATION_METRICS = (
     ("All Thermal Generation (MW)", "Total thermal generation", "total_thermal_generation", "MW"),
+    ("Hydro Generation (MW)", "Hydro generation", "hydro_generation", "MW"),
     ("Load (MW)", "Load", "load", "MW"),
     ("Net Load (MW)", "Net load", "net_load", "MW"),
     ("Imports (MW)", "Imports", "imports", "MW"),
@@ -822,6 +823,9 @@ def plot_duration_curves(
     bounded pages, 16 pt text and a shared hour scale. Solar-plus-wind percentages
     divide hourly curtailment by generation plus curtailment, with zero at
     zero availability; system values use summed hourly quantities.
+    Hydro curves use collected ``Hydro Generation (MW)`` dispatch. For zonal
+    results the system curve uses all areas, while per-area panels follow
+    ``areas`` selection and ordering.
     """
     options = LayoutOptions(page_size, max_panels_per_page, ncols, panel_aspect)
     options.plan(1)

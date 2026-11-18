@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from sdom.results import OptimizationResults
+
 # ---------------------------------------------------------------------------
 # _colors.py tests
 # ---------------------------------------------------------------------------
@@ -251,6 +253,7 @@ class TestDurationCurves:
         result.generation_df["Net Load (MW)"] = [100.0] * len(result.generation_df)
         result.generation_df["Imports (MW)"] = [2.0] * len(result.generation_df)
         result.generation_df["Exports (MW)"] = [3.0] * len(result.generation_df)
+        result.generation_df["Hydro Generation (MW)"] = range(len(result.generation_df))
         result.marginal_prices_df = pd.DataFrame(
             {
                 "area_id": ["copperplate"] * 24,
@@ -268,6 +271,7 @@ class TestDurationCurves:
 
         expected = {
             "duration_curve_total_thermal_generation.png",
+            "duration_curve_hydro_generation.png",
             "duration_curve_load.png",
             "duration_curve_net_load.png",
             "duration_curve_imports.png",
@@ -630,12 +634,108 @@ def test_duration_invalid_group_does_not_suppress_eligible_panel(tmp_path, monke
     plt.close(captured[0])
 
 
+@pytest.mark.parametrize("areas", [None, ["A3", "A1"]], ids=["all-areas", "ordered-subset"])
+def test_hydro_duration_curves_keep_system_totals_and_paginate_selected_areas(tmp_path, monkeypatch, areas):
+    generation = pd.DataFrame(
+        {
+            "Area": ["A1"] * 3 + ["A2"] * 3 + ["A3"] * 3,
+            "Hour": [24, 1, 2] * 3,
+            "Hydro Generation (MW)": [0.0, 5.0, 10.0, 9.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    )
+    result = OptimizationResults(
+        termination_condition="optimal",
+        is_zonal=True,
+        areas=["A1", "A2", "A3"],
+        generation_df=generation.copy(),
+        area_generation_df={
+            area: frame.drop(columns="Area").reset_index(drop=True)
+            for area, frame in generation.groupby("Area")
+        },
+        summary_df=pd.DataFrame(columns=["Metric", "Technology", "Optimal Value"]),
+    )
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+
+    plot_results(result, plots_dir=str(tmp_path), areas=areas, max_panels_per_page=1)
+
+    system_ax = figures["duration_curve_system_hydro_generation.png"].axes[0]
+    np.testing.assert_allclose(system_ax.collections[0].get_offsets(), [[0, 10], [50, 9], [100, 6]])
+    np.testing.assert_array_equal(system_ax.collections[0].get_array(), [1, 23, 0])
+    assert system_ax.get_ylabel() == "MW"
+    np.testing.assert_allclose(
+        [reference.get_offsets()[0, 1] for reference in system_ax.collections[1:]], [9.9, 9, 6.3]
+    )
+    selected = ["A1", "A2", "A3"] if areas is None else areas
+    expected_values = {"A1": [10, 5, 0], "A2": [9, 1, 0], "A3": [0, 0, 0]}
+    for page, area in enumerate(selected, start=1):
+        figure = figures[f"duration_curve_zonal_hydro_generation_part{page}.png"]
+        ax = figure.axes[0]
+        assert ax.get_gid() == area
+        np.testing.assert_allclose(ax.collections[0].get_offsets()[:, 1], expected_values[area])
+        assert ax.collections[0].get_clim() == (0, 23)
+        if area == "A3":
+            assert any(text.get_text() == "All zero" for text in ax.texts)
+    assert len([name for name in figures if name.startswith("duration_curve_zonal_hydro_generation")]) == len(selected)
+    pd.testing.assert_frame_equal(result.generation_df, generation)
+
+
+@pytest.mark.parametrize(
+    ("hydro", "expected"),
+    [
+        pytest.param([0.0, 0.0], [0.0, 0.0], id="all-zero"),
+        pytest.param(["bad", 5.0], [5.0], id="partially-invalid"),
+        pytest.param(["bad", np.nan], None, id="no-valid-data"),
+        pytest.param(None, None, id="missing-column"),
+    ],
+)
+def test_copperplate_hydro_duration_preserves_zero_and_skips_unavailable_data(
+    tmp_path, monkeypatch, caplog, hydro, expected
+):
+    generation = pd.DataFrame({"Hour": [24, 1], "Load (MW)": [20.0, 30.0]})
+    if hydro is not None:
+        generation["Hydro Generation (MW)"] = hydro
+    result = OptimizationResults(
+        termination_condition="optimal",
+        generation_df=generation,
+        summary_df=pd.DataFrame(columns=["Metric", "Technology", "Optimal Value"]),
+    )
+    figures = {}
+
+    def capture(fig, path, **kwargs):
+        figures[os.path.basename(path)] = fig
+        with open(path, "wb") as stream:
+            stream.write(b"preview")
+
+    monkeypatch.setattr("matplotlib.figure.Figure.savefig", capture)
+
+    plot_results(result, plots_dir=str(tmp_path))
+
+    assert "duration_curve_load.png" in figures
+    filename = "duration_curve_hydro_generation.png"
+    if expected is None:
+        assert filename not in figures
+        assert any("Hydro Generation (MW)" in record.message and "skipping" in record.message for record in caplog.records)
+    else:
+        ax = figures[filename].axes[0]
+        np.testing.assert_allclose(ax.collections[0].get_offsets()[:, 1], expected)
+        assert ax.collections[0].cmap.name == "jet"
+        assert ax.get_ylabel() == "MW"
+
+
 def test_parametric_per_case_inherits_duration_scatter_contract(tmp_path, monkeypatch):
     study = SimpleNamespace(
         case_metadata=[{"case_name": "case_1", "case_index": 0, "sweep": 1.0}],
         output_dir=str(tmp_path),
     )
     result = _FakeResult()
+    result.generation_df["Hydro Generation (MW)"] = range(len(result.generation_df))
     figures = {}
 
     def capture(fig, path):
@@ -649,6 +749,7 @@ def test_parametric_per_case_inherits_duration_scatter_contract(tmp_path, monkey
     plot_parametric_results(study, [result], group_by="sweep", plot_per_case=True)
     for filename in (
         "duration_curve_total_thermal_generation.png",
+        "duration_curve_hydro_generation.png",
         "duration_curve_vre_curtailment_mw.png",
         "duration_curve_vre_curtailment_pct.png",
     ):

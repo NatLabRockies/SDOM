@@ -4,6 +4,12 @@ This file stores learnings, patterns, and decisions from code implementation tas
 
 ---
 
+## Hydropower Duration Curves (2026-11-17)
+
+- Register `Hydro Generation (MW)` once in `_GENERATION_METRICS`, reusing the existing MW renderer for copperplate, system and zonal scopes. Filenames end in `hydro_generation.png`; zonal outputs use `system_` and `zonal_` prefixes.
+- System hydro uses the existing hourly aggregate across all areas before sorting, independent of `areas=`. Area panels inherit selection/order, original-hour colors, duration references, 16 pt text, pagination and output ownership. Do not mix hydro generation with available budgets or VRE curtailment.
+- Validation: 148 plotting/export/documentation tests passed, with one optional Infrasys module skipped. Source Ruff/ty checks and the Sphinx HTML build pass; optional-dependency/inventory and existing documentation warnings remain.
+
 ## Enlarged Duration Typography (2026-11-17)
 
 - Duration typography increased by 2 pt: grouped/overlay body text is 16 pt and figure titles are 20 pt; standalone duration labels, ticks, legends, titles and hour colorbars also increase by 2 pt. Header/colorbar offsets preserve measured bounds.

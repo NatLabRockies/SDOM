@@ -210,11 +210,11 @@ The sign retains the line's defined direction; this is not zonal net interchange
 ![Signed line-flow heatmap](../_static/parametric_example/case_plots/line_flow_heatmap.png)
 
 Each optimal per-case plot directory also includes the applicable duration
-curves. Copperplate cases produce thermal-generation, load, net-load, and combined
+curves. Copperplate cases produce thermal-generation, hydropower, load, net-load, and combined
 solar + wind curtailment (MW and %) curves, plus conditional imports, exports,
 and marginal-price curves. They
 also produce the copperplate marginal-price heatmap when at least 24 priced
-hours are available. Zonal cases produce system thermal-generation, load, and
+hours are available. Zonal cases produce system thermal-generation, hydropower, load, and
 net-load, external import/export, and combined solar + wind curtailment curves,
 with separate system and per-zone subplot figures for each metric;
 per-line signed-flow and per-zone marginal-price subplot figures;
